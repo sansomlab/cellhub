@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8]
-
+    name: Python ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup conda
@@ -21,9 +21,16 @@ jobs:
         with:
           update-conda: true
           python-version: ${{ matrix.python-version }}
-          args: conda env update -f conda/environment/requirements.yml
+          conda-channels: conda-forge, bioconda, defaults
       - run: conda --version
       - run: which python
+
+
+      - uses: actions/checkout@v1
+      - name: Update Conda environment with "requirements.yml"
+        uses: matthewrmshin/conda-action@v1
+        with:
+          args: conda env update -f conda/environment/requirements.yml
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
