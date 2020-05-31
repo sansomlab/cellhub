@@ -1,16 +1,11 @@
-name: cellhub
-
 channels:
 - conda-forge
 - bioconda
 - defaults
 
 dependencies:
-# python dependencies
-- python
 - pyyaml
 - nose
 - pep8
 - flake8
 - pytest
-  
