@@ -69,7 +69,7 @@ setup(
     package_dir=cellhub_package_dirs,
     include_package_data=True,
     entry_points={
-        "console_scripts": ["cellhub = pipelines.entry:main"]
+        "console_scripts": ["cellhub = scpipelines.entry:main"]
     },
     # other options
     zip_safe=False,
