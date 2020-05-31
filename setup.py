@@ -8,7 +8,7 @@ from distutils.version import LooseVersion
 if LooseVersion(setuptools.__version__) < LooseVersion('1.1'):
     print("Version detected:", LooseVersion(setuptools.__version__))
     raise ImportError(
-        "the scflow requires setuptools 1.1 higher")
+        "the cellhub requires setuptools 1.1 higher")
 
 ########################################################################
 ########################################################################
@@ -17,7 +17,7 @@ IS_OSX = sys.platform == 'darwin'
 ########################################################################
 ########################################################################
 # collect version
-print(sys.path.insert(0, "pipelines"))
+print(sys.path.insert(0, "scpipelines"))
 import version
 
 version = version.__version__
@@ -69,7 +69,7 @@ setup(
     package_dir=cellhub_package_dirs,
     include_package_data=True,
     entry_points={
-        "console_scripts": ["cellhub = pipelines.entry:main"]
+        "console_scripts": ["cellhub = scpipelines.entry:main"]
     },
     # other options
     zip_safe=False,
