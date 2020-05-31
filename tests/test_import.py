@@ -43,7 +43,8 @@ def check_import(filename, outfile):
         return
 
     try:
-        importlib.load_source(basename, filename)
+        name = basename + filename
+        importlib.load_source(name)
 
     except ImportError as msg:
         outfile.write("FAIL %s\n%s\n" % (basename, msg))
