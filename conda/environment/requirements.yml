@@ -4,6 +4,7 @@ channels:
 - defaults
 
 dependencies:
+- python
 - pyyaml
 - nose
 - pep8
