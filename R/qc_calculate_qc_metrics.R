@@ -5,7 +5,7 @@ stopifnot(require(optparse),
           require(scater),
           require(Matrix),
           require(cellqc)
-          )
+)
 
 # Global options ------
 
@@ -119,7 +119,7 @@ if (!is.null(opt$genesets_file)){
 
 flog.info("Running scater function for computing percentage of genesets...")
 pct_genesets <- perCellQCMetrics(s, subsets=genesets,
-                                BPPARAM = multicoreParam)
+                                 BPPARAM = multicoreParam)
 
 # Format output
 pct_genesets <- pct_genesets[,grep("_percent", colnames(pct_genesets))]
@@ -138,8 +138,8 @@ cell_qc <- left_join(cell_qc, pct_genesets, by = "barcode")
 # create matrix with gene symbol as rownames
 m <- counts(s)
 rnames <- left_join(data.frame(ID=rownames(m)), 
-          as.data.frame(rowData(s)),
-          by="ID")
+                    as.data.frame(rowData(s)),
+                    by="ID")
 if (length(rownames(m)) != nrow(rnames)) {
   stop("rownames in matrix do not have perfect matches to gene symbols")
 }
