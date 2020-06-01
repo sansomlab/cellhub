@@ -2,6 +2,7 @@
 stopifnot(require(optparse), 
           require(SingleCellExperiment),
           require(tibble),
+          require(scater),
           require(Matrix),
           require(cellqc)
           )
