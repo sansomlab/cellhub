@@ -2,7 +2,8 @@
 stopifnot(require(optparse), 
           require(SingleCellExperiment),
           require(tibble),
-          require(Matrix)
+          require(Matrix),
+          require(cellqc)
           )
 
 # Global options ------
