@@ -72,7 +72,7 @@ PARAMS = P.get_parameters(
 # Example of loading all tsv to database
 # Need to limit jobs to 1 because cant have concurrent connections with SQLite
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(,
+@transform(infiles,
            suffix(".tsv"),
            ".load")
 def loadExample(infile, outfile):
