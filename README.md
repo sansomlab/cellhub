@@ -13,7 +13,7 @@ You can manually install cellhub by::
 
     git clone https://github.com/COMBATOxford/cellhub.git
     cd cellhub
-    python setup.py install
+    python setup.py develop
     cellhub --help
 
 ## Usage
@@ -21,10 +21,27 @@ You can manually install cellhub by::
 Run the ``cellhub --help`` command to view the help documentation and find available pipelines
 to run cellhub.
 
-To generate the configuration file prior to running a pipeline run::
+I have included a example pipeline with a set of ruffus decorators that
+demonstrates the functionality of cgatcore pipelines.
 
-    cellhub example config -v5
+Following installation, to find the available pipelines run::
 
-To run the main cellhub pipeline run::
+    cellhub -h
 
-    cellhub example make full -v5
+Next generate the condifuration yml file (for the example pipleine it is empty)::
+
+    cellhub cgatcoreexample config -v5
+
+To fully run the example cellhub pipeline run::
+
+    cellhub cgatcoreexample make full -v5
+
+However, it may be best to run the individual tasks of the pipeline to get
+a feel of what each task is doing::
+
+   cellhub cgatcoreexample make exampleOriginate -v5
+
+You can also run the pipeline with more advanced combinatorics
+by running the task::
+
+   cellhub cgatcoreexample make advancedRuffus -v5
