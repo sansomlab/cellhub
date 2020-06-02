@@ -1,6 +1,8 @@
 # Libraries ------
 stopifnot(require(optparse), 
-          require(SingleCellExperiment),
+          require(futile.logger),
+          require(dplyr),
+          require(DropletUtils),
           require(tibble),
           require(scater),
           require(Matrix),
@@ -21,7 +23,8 @@ option_list <- list(
               help="Two-column tsv file with genesets to evaluate, one geneset per row. First column: name of geneset; Second column: name of the file containing the geneset. The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row)."),
   make_option(c("--numcores"), default=2,
               help="Number of cores used to run scater's perCellQCMetrics function"),
-  make_option(c("--log_filename"), default="qc_metrics.log")
+  make_option(c("--log_filename"), default="qc_metrics.log"),
+  make_option(c("--outfile"), default="qc_metrics.tsv.gz")
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -45,15 +48,15 @@ multicoreParam <- MulticoreParam(workers = opt$numcores)
 # Read in data ------
 #####################
 
-flog.info("Read data and make SingleCellExperiment object...")
+flog.info("Reading data and making SingleCellExperiment object...")
 s <- read10xCounts(file.path(opt$cellranger_dir))
-flog.info("Done making object of dimensions: %s", ncol(s))
+flog.info("Number of cells in input: %s", format(ncol(s), big.mark=","))
 
 
 # Compute basic QC metrics ------
 #################################
 
-flog.info("Calculating basic QC metrics")
+flog.info("Calculating basic QC metrics...")
 
 # Number of genes
 ngenes <- colSums(counts(s) > 0)
@@ -70,7 +73,7 @@ cell_qc <- tibble(barcode = colData(s)$Barcode,
 # Compute percentage of genesets ------
 #######################################
 
-flog.info("Computing percentage of genesets")
+flog.info("Computing percentage of genesets...")
 
 flog.info("Creating list of genesets to query")
 genesets <- list()
@@ -112,7 +115,7 @@ if (!is.null(opt$genesets_file)){
     
     # Add to 'genesets' list
     genesets[[geneset_name]] <- which(rowData(s)$Symbol %in% geneset)
-    flog.info("Geneset %s genes for %s", 
+    flog.info("Including %s genes for %s", 
               format(length(geneset), big.mark=","), geneset_name)
   }
 }
@@ -141,14 +144,20 @@ rnames <- left_join(data.frame(ID=rownames(m)),
                     as.data.frame(rowData(s)),
                     by="ID")
 if (length(rownames(m)) != nrow(rnames)) {
-  stop("rownames in matrix do not have perfect matches to gene symbols")
+  stop("Rownames in matrix do not have perfect matches to gene symbols")
 }
 rownames(m) <- rnames$Symbol
 
 # Calculate mitoribo ratio
+flog.info("Calculating mitoribo ratio...")
 mitoribo_ratio <- GetMitRibRatio(m)
 mitoribo_ratio$barcode <- colData(s)$Barcode
 
 # Append to QC table
 cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
 
+# Write table
+flog.info("Writing output table")
+write.table(cell_qc, file = gzfile(opt$outfile), quote=FALSE, row.names = FALSE)
+
+flog.info("Completed")
