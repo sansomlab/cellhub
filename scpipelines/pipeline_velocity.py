@@ -141,8 +141,6 @@ def checkInputs(outfile):
     IOTools.touch_file(outfile)
 
 
-# Make sample folders first
-@follows(checkInputs)
 def genClusterJobs():
     ''' Generate cluster jobs for each sample '''
     samples = pd.read_csv("input_samples.tsv", sep='\t')
@@ -159,6 +157,7 @@ def genClusterJobs():
 # ############# Generate sorted bam files from cellranger bam ############### #
 # ########################################################################### #
 
+@follows(checkInputs)
 @files(genClusterJobs)
 def sortBam(infile, outfile):
     '''Sort bam file by cell barcodes'''
