@@ -1,4 +1,4 @@
-#
+x#
 # Pipeline pipeline_velocity.py configuration file
 # ==================================================
 #
@@ -12,14 +12,12 @@ projectname: Velocity
 # Copyright statement
 copyright: KIR (2015-2018)
 
-
 # Note on input files
 # ----------------------------------------
 ## Please generate a input_samples.txt file within the pipeline run
 ## directory. This file needs a column named sample_id (used for
 ## folder naming), a column named path with the path to the cellranger
 ## outs/ directory and a column named barcodes for each sample (can be gzipped).
-
 
 # General options for samtools sort
 # ----------------------------------------
@@ -37,8 +35,8 @@ velocyto:
   # Passed to velocyto (same as used for cellranger count)
   # e.g. for human: /gfs/mirror/genomes/10x/refdata-cellranger-GRCh38-1.2.0
   # e.g. for mouse: /gfs/mirror/genomes/10x/refdata-cellranger-mm10-1.2.0
-  cellranger_anno: /gfs/mirror/genomes/10x/refdata-cellranger-GRCh38-1.2.0
-  # memory for velocyto
+  cellranger_anno:
+  # per CPU memory for velocyto
   memory: 10000M
-  # threads to use
+  # number of threads to use for velocyto
   threads: 2
