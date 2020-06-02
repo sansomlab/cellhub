@@ -24,24 +24,24 @@ to run cellhub.
 I have included a example pipeline with a set of ruffus decorators that
 demonstrates the functionality of cgatcore pipelines.
 
-Following installation, to find the available pipelines run::
+Following installation, to find the available pipelines run
 
     cellhub -h
 
-Next generate the condifuration yml file (for the example pipleine it is empty)::
+Next generate the condifuration yml file (for the example pipleine it is empty)
 
     cellhub cgatcoreexample config -v5
 
-To fully run the example cellhub pipeline run::
+To fully run the example cellhub pipeline run
 
     cellhub cgatcoreexample make full -v5
 
 However, it may be best to run the individual tasks of the pipeline to get
-a feel of what each task is doing::
+a feel of what each task is doing
 
-   cellhub cgatcoreexample make exampleOriginate -v5
+    cellhub cgatcoreexample make exampleOriginate -v5
 
 You can also run the pipeline with more advanced combinatorics
-by running the task::
+by running the task
 
-   cellhub cgatcoreexample make advancedRuffus -v5
+    cellhub cgatcoreexample make advancedRuffus -v5
