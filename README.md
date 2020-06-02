@@ -30,18 +30,18 @@ Following installation, to find the available pipelines run
 
 Next generate the condifuration yml file (for the example pipleine it is empty)
 
-    cellhub cgatcoreexample config -v5
+    cellhub example config -v5
 
 To fully run the example cellhub pipeline run
 
-    cellhub cgatcoreexample make full -v5
+    cellhub example make full -v5
 
 However, it may be best to run the individual tasks of the pipeline to get
 a feel of what each task is doing
 
-    cellhub cgatcoreexample make exampleOriginate -v5
+    cellhub example make exampleOriginate -v5
 
 You can also run the pipeline with more advanced combinatorics
 by running the task
 
-    cellhub cgatcoreexample make advancedRuffus -v5
+    cellhub example make advancedRuffus -v5
