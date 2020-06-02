@@ -69,6 +69,18 @@ PARAMS = P.get_parameters(
 
 # Insert database functions here
 
+# Example of loading all tsv to database
+# Need to limit jobs to 1 because cant have concurrent connections with SQLite
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(,
+           suffix(".tsv"),
+           ".load")
+def loadExample(infile, outfile):
+    '''load comparison data into database.'''
+
+    # csvdb otpions
+    options = ""
+    P.load(infile, outfile, options)
 
 
 # -------------------------------
