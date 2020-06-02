@@ -1,0 +1,148 @@
+#
+# Pipeline pipeline_integration.py configuration file
+# ==============================================
+#
+
+# General options
+# ---------------
+
+# Project name
+projectname: 10x single cell analysis
+
+# Author
+author: Sansom group
+
+# compute resource options
+# ------------------------
+resources:
+    # Number of cores used for parallel jobs
+    numcores: 5
+    # Seurat needs a high memory, so fewer cores possible
+    numcores_seurat: 3
+
+    # Memory options for the different steps
+    # Memory_low is used if no further specified
+    memory_low: 10G
+    # Memory_standard is used for createSeurat, integration using
+    # mnn, harmony (1.5 fold), seurat rPCA, calculateSeuratMetrics,
+    # runKBET, runLISI, runClustering
+    memory_standard: 30G
+    # Memory_high is used for tasks: Seurat CCA integration
+    memory_high: 340G
+
+
+# Regression parameters
+# ---------------------
+
+cellcycle:
+    # If lists of cell cycle genes are supplied
+    # cycle-cycle effects will be scored by the pipeline.
+    # The lists will also be used for regression if specified below.
+    #
+    # > mouse cell cycle genes >
+    #
+    # sgenes: /gfs/archive/sansom/datasets/cell_cycle/mouse/s_genes.txt
+    # g2mgenes: /gfs/archive/sansom/datasets/cell_cycle/mouse/g2m_genes.txt
+    #
+    # > human cell cycle genes >
+    #
+    # sgenes: /gfs/archive/sansom/datasets/cell_cycle/human/wang.g1-s.txt
+    # g2mgenes: /gfs/archive/sansom/datasets/cell_cycle/human/wang.g2-m.txt
+
+    sgenes: none
+    g2mgenes: none
+
+
+# Normalization
+# -------------
+
+regress:
+    ## Removal of unwanted variation (see Seurat::ScaleData)
+    # Latent variables to regress out
+    latentvars: pct_mitochondrial
+    # Model used to regress out latent variables
+    # Choices: 'linear'|'poisson'|'negbinom'
+    modeluse: linear
+    # see http://satijalab.org/seurat/cell_cycle_vignette.html
+    # Choices: 'none'|'all'|'difference'
+    # - Use "all" to regress out all cell cycle effects.
+    # - Use "difference" to regress out the difference between G2M and S phase scores
+    # (i.e. the Alternate Workflow in the link above)
+    cellcycle: none
+    # Whether to run findVariableGenes on merged dataset or per batch.
+    # Supply a comma-separated list (no spaces) for this option
+    merged_normalisation: 0,1
+
+hvg:
+    # Optional: Directory with gene lists. These tsv files require a column with header gene_id.
+    # All tsv files in the folder will be read in and the highly variable genes will
+    # be annotated with the gene lists. If none, then no annotation is added.
+    annotation: none
+    # Number of variable features to identify. This number is only used in normalise
+    # & hvg task. If a genelist is provided in list option below, this number is ignored
+    # in the integration task.
+    # Supply a comma-separated list (no spaces) for this option
+    ngenes: 2000
+    # genelist to use for PCA prior to integration. If this is set to none, it will use the
+    # hvg_info list from the runNormalization task. This table requires a column
+    # gene_name and all given genes need to be included in the seurat object.
+    list: none
+
+# Integration - general
+# -------------
+
+integration:
+    # Factor to use for splitting of object
+    # This has to be a column in the metadata of the input Seurat
+    # object
+    split_factor: sample_id
+
+# Integration - options per tool
+# -------------
+
+harmony:
+    # Width of soft kmeans clusters. Default in harmony sigma=0.1.
+    # Supply a comma-separated list (no spaces) for this option
+    sigma: 0.1
+    # theta and lambda not included here yet.
+    # Number of PCs to use for harmony. This is set to 30 for rawdata.
+    number_pcs: 30
+
+assessment:
+    # k parameter used for MixingMetric. Set to 300 in Seurat publication.
+    max_k: 300
+    # Neighbors assess with LocalStruct function. Default is 100.
+    # This might have to be decreased for small datasets.
+    neighbors: 100
+
+qc_integration:
+    # Other columns in metadata to plot,
+    # The grouping variable from above is automatically added.
+    plot: nFeature_RNA
+
+kbet:
+    # Number of PCs to use for kbet (50 by default),
+    # can only be the number used above, therefore set to
+    # available PCs
+    PC: 30
+
+# Alluvial plots to compare integration methods
+# -------------
+# Whether to make alluvial plots of different integration methods and
+# which cluster resolutions to use for these.
+# For each tool, an option of the tool_name: settings_folder,PC_res is
+# required (no spaces). It is not required to add 'params.dir' to the
+# string. Please note that each tool can only be included once.
+alluvial_compare:
+    run: False
+    # seurat_rpca: 2000_notkeep,20_0.4
+    # harmony: 0.1_notkeep,20_0.4
+
+
+# Report options
+# ------------------------
+report:
+  # Name of the HUGO theme file
+  theme_file: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-2.4.0.tar.gz'
+  # Location of the theme modifications
+  theme_mod_dir: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-modifications'
