@@ -5,7 +5,8 @@ stopifnot(require(optparse),
           require(DropletUtils),
           require(tibble),
           require(scater),
-          require(Matrix)
+          require(Matrix),
+          require(cellqc)
 )
 
 # Global options ------
@@ -149,14 +150,6 @@ rownames(m) <- rnames$Symbol
 
 # Calculate mitoribo ratio
 flog.info("Calculating mitoribo ratio...")
-GetMitRibRatio <- function(matrix) {
-  mitrib <- grep(pattern = "^MT-|^RP[SL]", x = rownames(x = matrix), value = TRUE)
-  mito <- grep(pattern = "^MT-", x = rownames(x = matrix), value = TRUE)
-  mitribcounts<- matrix[which(rownames(matrix) %in% mitrib), ]
-  mitoribo_ratio <- Matrix::colSums(mitribcounts[mito, , drop = FALSE])/Matrix::colSums(mitribcounts)
-  mitoribo_ratio <- as.data.frame(mitoribo_ratio)
-  return(mitoribo_ratio)
-}
 mitoribo_ratio <- GetMitRibRatio(m)
 mitoribo_ratio$barcode <- colData(s)$Barcode
 
