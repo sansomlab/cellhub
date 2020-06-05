@@ -141,8 +141,7 @@ def calculate_qc_metrics(infile, outfile):
       genesets_file = '''--genesets_file=%(genesets_file)s''' % locals()
  
     # Other settings 
-    job_memory = PARAMS["resources_memory_high"]
-    job_threads = PARAMS["resources_cores"]
+    job_threads = PARAMS["resources_threads"]
     log_file = outfile.replace(".tsv.gz", ".log")
   
     # Formulate and run statement
@@ -194,8 +193,7 @@ def run_scrublet(infile, outfile):
     n_prin_comps = PARAMS["scrublet_n_prin_comps"]
  
     # Other settings 
-    job_memory = PARAMS["resources_memory_high"]
-    job_threads = PARAMS["resources_cores"]
+    job_threads = PARAMS["resources_threads"]
     log_file = outfile.replace(".sentinel", ".log")
     outdir = Path(outfile).parent
   
