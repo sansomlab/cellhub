@@ -18,7 +18,7 @@ options(stringsAsFactors = F)
 
 option_list <- list(
   make_option(c("--cellranger_dir"), default=".",
-              help="Folder with cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
+              help="Folder with filtered cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
   make_option(c("--genesets_file"), default=NULL,
               help="Two-column tsv file with genesets to evaluate, one geneset per row. First column: name of geneset; Second column: name of the file containing the geneset. The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row)."),
   make_option(c("--numcores"), default=2,

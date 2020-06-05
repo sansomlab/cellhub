@@ -1,0 +1,47 @@
+#
+# pipeline_cell_qc.py configuration file
+# =========================================
+#
+
+# General options
+# ---------------
+
+# Project name
+projectname: scRNAseq cell QC
+
+# Author
+author: COMBATOxford
+
+
+# compute resource options
+# ------------------------
+resources:
+    # number of job threads/slots
+    threads: 6
+
+
+# Calculate QC metrics
+# ------------------------
+calculate_qc_metrics:
+    # Two-column tsv file with genesets to evaluate, one geneset per row. 
+    # First column: name of geneset; Second column: name of the file containing the geneset. 
+    # The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row).")
+    # Defaults = none
+    geneset_file: gene_subsets.tsv 
+
+
+# Calculate doublet scores with scrublet
+# --------------------------------------
+scrublet:
+    # The expected fraction of transcriptomes that are doublets, typically 0.05-0.1.
+    # Results are not particularly sensitive to this parameter.
+    # https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
+    expected_doublet_rate: 0.6
+
+    # Additional parameters for scrublet's function 'scrub_doublets'
+    # Default parmeters from https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
+    min_counts: 2
+    min_cells: 3
+    min_gene_variability_pctl: 85
+    n_prin_comps: 30
+    
