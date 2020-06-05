@@ -1,0 +1,9 @@
+# A tsv file containing the mapping of cells to
+# matrices with columns
+# "barcode" "matrix_id"
+cell_to_matrix_map_file: None
+
+# A tsv file containing a table describing the
+# cell matrices with columns
+# "matrix_id" "matrix_dir" "matrix_type"
+matrix_table_file: None
