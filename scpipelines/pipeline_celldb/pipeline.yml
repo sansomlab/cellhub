@@ -1,0 +1,4 @@
+
+database:
+    # database name
+    url: sqlite:///./csvdb

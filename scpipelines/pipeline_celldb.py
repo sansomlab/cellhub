@@ -58,6 +58,7 @@ import pandas
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
+import cgatcore.database as database
 
 
 # Load options from the config file
@@ -67,23 +68,45 @@ PARAMS = P.get_parameters(
      "../pipeline.yml",
      "pipeline.yml"])
 
-# Insert database functions here
 
-# Example of loading all tsv to database
-# Need to limit jobs to 1 because cant have concurrent connections with SQLite
+def connect():
+    '''connect to database.
+    Use this method to connect to additional databases.
+    Returns a database connection.
+    '''
+
+    dbh = sqlite3.connect(PARAMS["database_url"])
+    cc = dbh.cursor()
+    cc.execute(statement)
+    cc.close()
+
+    return dbh
+
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(infiles,
-           suffix(".tsv"),
+@transform("scrublet/*_scrublet.tsv.gz",
+           suffix(".tsv.gz"),
            ".load")
-def loadExample(infile, outfile):
-    '''load comparison data into database.'''
+def load_scrublet(infile, outfile):
+    '''load scrublet output data into database '''
 
-    # csvdb otpions
-    options = ""
-    P.load(infile, outfile, options)
+    P.load(infile, outfile,
+           tablename="scrublet_%s" % P.to_table(outfile),
+           options="--primary-key=barcode")
 
 
-# -------------------------------
+@follows(load_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform("qc_metrics/*_metrics.tsv.gz",
+           suffix(".tsv.gz"),
+           ".load")
+def load_qcmetrics(infile, outfile):
+    '''load qcmetrics output data into database '''
+
+    P.load(infile, outfile,
+           tablename="qcmetrics_%s" % P.to_table(outfile),
+           options="--primary-key=barcode")
+
 
 
 def full():
