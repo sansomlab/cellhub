@@ -84,6 +84,19 @@ def connect():
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform("metadata/*_metadata.tsv.gz",
+           suffix(".tsv.gz"),
+           ".load")
+def load_metadata(infile, outfile):
+    '''load metadata into database '''
+
+    P.load(infile, outfile,
+           tablename="metadata_%s" % P.to_table(outfile),
+           options="--primary-key=")
+
+
+@follows(load_metadata)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform("scrublet/*_scrublet.tsv.gz",
            suffix(".tsv.gz"),
            ".load")
