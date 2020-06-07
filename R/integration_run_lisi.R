@@ -23,11 +23,8 @@
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(ggplot2))
-stopifnot(require(Seurat))
-stopifnot(require(Matrix))
 stopifnot(require(dplyr))
-stopifnot(require(reshape2))
-stopifnot(require(tenxutils))
+stopifnot(require(tidyr))
 stopifnot(require(knitr))
 stopifnot(require(viridis))
 stopifnot(require(lisi))
@@ -82,7 +79,7 @@ flog.info("\n")
 ## ###################### (i) Read in data ################################# ##
 ## ######################################################################### ##
 
-umap_coord <- read.table(opt$umap_coord, sep="\t", header = TRUE)
+umap_coord <- read.table(gzfile(opt$umap_coord), sep="\t", header = TRUE)
 
 n_levels <- length(unique(umap_coord[,c(opt$split_var)]))
 
@@ -90,7 +87,7 @@ vis_cols = c("UMAP_1", "UMAP_2")
 vis1 = "UMAP_1"
 vis2 = "UMAP_2"
 vis = "umap"
-outfile_name = "iLisi_output_on_UMAP"
+outfile_name = "iLisi_output_on_UMAP.pdf"
 
 
 ## ######################################################################### ##
@@ -130,8 +127,8 @@ lisi_plot <- lisi_output %>% dplyr::sample_frac(1L, FALSE) %>%
 gp <- ggplot(lisi_plot, aes_string(vis1, vis2, color = "lisi_value")) + geom_point(shape = 21) 
 gp <- gp + scale_color_viridis_c() + theme_bw()
 
-save_ggplots(file.path(opt$outdir, outfile_name), 
-             gp)
+ggsave(file.path(opt$outdir, outfile_name), 
+       plot = gp, device = cairo_pdf)
 
 #' Results of iLISI plotted on top of `r vis` coordinates. 
 #+ lisi_coordinates, include=TRUE, fig.height=4
@@ -153,15 +150,15 @@ gp <- ggplot(lisi_plot, aes(x=lisi_value)) + geom_histogram()
 gp <- gp + coord_cartesian(xlim=c(1, n_levels)) + theme_bw()
 gp_histo <- gp
 
-save_ggplots(file.path(opt$outdir, "iLisi_histogram"), 
-             gp)
+ggsave(file.path(opt$outdir, "iLisi_histogram.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 gp <- ggplot(lisi_plot, aes(x=lisi_value)) + geom_density()
 gp <- gp + coord_cartesian(xlim=c(1, n_levels)) + theme_bw()
 gp_density <- gp
 
-save_ggplots(file.path(opt$outdir, "iLisi_density"), 
-             gp)
+ggsave(file.path(opt$outdir, "iLisi_density.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 
 #' Distribution of iLISI results. 

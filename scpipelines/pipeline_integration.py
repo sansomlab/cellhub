@@ -204,7 +204,7 @@ def createSeurat(infile, outfile):
     options["seurat_obj"] = seurat_obj
     options["outdir"] = outdir
     options["project"] = PARAMS["projectname"]
-    options["numcores"] = PARAMS["resources_numcores"]
+    options["numcores"] = PARAMS["resources_nslots"]
 
     # add options for normalisation - this is required for cell cycle
     # scoring only
@@ -219,12 +219,7 @@ def createSeurat(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
 
-    ## different job memories depending on normalization method
-    mem_ind = int(PARAMS["resources_memory_standard"][:-len("G")])
-    mem = mem_ind + (mem_ind/2)
-    job_memory = str(mem) + "G"
-
-    job_threads = PARAMS["resources_numcores"]
+    job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "create_seurat.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -327,7 +322,6 @@ def runNormalization(infile, outfile):
     options["ngenes"] = int(run_options.split("_")[1])
     if 'harmony' in outfile:
         options["merge_normalisation"] = run_options.split("_")[2]
-    options["numcores"] = PARAMS["resources_numcores"]
 
     # add directory with genelist to annotate hv genes
     if os.path.isdir(PARAMS["hvg_annotation"]):
@@ -341,18 +335,77 @@ def runNormalization(infile, outfile):
             options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
 
 
-    job_threads = PARAMS["resources_numcores"]
-    job_memory = PARAMS["resources_memory_standard"]
+    # resource allocation
+    nslots = PARAMS["resources_nslots"]
+    job_threads = nslots
+    options["numcores"] = nslots
+    job_memory = "16G"
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "normalization.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
     output_dir = os.path.abspath(outdir)
+
+    statement = '''Rscript %(code_dir)s/R/integration_normalise_hvg.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                '''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
+@transform(runNormalization,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/normalization.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/normalization_plots.sentinel")
+def plotsNormalization(infile, outfile):
+    '''Make html with plots for normalisation, hv genes and PCA. '''
+
+    # create the output directories
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    tool = outfile.split("/")[1].split(".")[0]
+    run_options = outfile.split("/")[2][:-len(".run.dir")]
+    log_file = outfile.replace(".sentinel", ".log")
+
+    # populate an options dictionary with relevant parameters
+    param_keys = ("regress")
+    options = {k: v for k, v in PARAMS.items()
+               if k.split("_")[0] in param_keys}
+
+    del options["regress"]
+    del options["regress_merged_normalisation"]
+
+    # add task specific options
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+    options["seurat_obj"] = os.path.join(os.path.dirname(infile),
+                                         "pre_integrated.rds")
+    options["split_var"] = PARAMS["integration_split_factor"]
+    options["ngenes"] = int(run_options.split("_")[1])
+    if 'harmony' in outfile:
+        options["merge_normalisation"] = run_options.split("_")[2]
+    options["numcores"] = PARAMS["resources_nslots"]
+
+    # add directory with genelist to annotate hv genes
+    if os.path.isdir(PARAMS["hvg_annotation"]):
+        options["vargenes_dir"] = PARAMS["hvg_annotation"]
+
+    # resource allocation
+    job_threads = PARAMS["resources_nslots"]
+
+    # save the parameters
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_normalization.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+    output_dir = os.path.abspath(outdir)
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg.R',
+    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -363,7 +416,6 @@ def runNormalization(infile, outfile):
 
     P.run(statement)
     IOTools.touch_file(outfile)
-
 
 
 # ########################################################################### #
@@ -396,7 +448,20 @@ def runIntegration(infile, outfile):
     options["seurat_obj"] = norm_seurat
     options["split_var"] = PARAMS["integration_split_factor"]
     options["tool"] = tool
-    options["regress_latentvars"] = PARAMS["regress_latentvars"]
+
+    # add cell cycle options to latentvars if required
+    if PARAMS["regress_cellcycle"] is not "none" :
+        if PARAMS["regress_latentvars"] is not "none":
+            if ',' in PARAMS["regress_latentvars"]:
+                vregs = PARAMS["regress_latentvars"].split(",")
+            else:
+                vregs = [PARAMS["regress_latentvars"]]
+            options["regress_latentvars"] = ",".join(vregs + [PARAMS["regress_cellcycle"]])
+        else:
+            options["regress_latentvars"] = PARAMS["regress_cellcycle"]
+    else:
+        options["regress_latentvars"] = PARAMS["regress_latentvars"]
+
     options["regress_modeluse"] = PARAMS["regress_modeluse"]
 
     # add path to the list of hv genes to use for integration
@@ -411,16 +476,11 @@ def runIntegration(infile, outfile):
         sigma = run_options.split("_")[0]
         options["sigma"] = float(sigma)
         options["nPCs"] = int(PARAMS["harmony_number_pcs"])
-        mem_ind = int(PARAMS["resources_memory_standard"][:-len("G")])
-        mem = mem_ind + (mem_ind/2)
-        job_memory = str(mem) + "G"
-    else:
-        job_memory = PARAMS["resources_memory_standard"]
 
-    resources_ncores = PARAMS["resources_numcores"]
-    options["numcores"] = int(PARAMS["resources_numcores"])
-
-    job_threads = resources_ncores
+    # resource allocation
+    nslots = PARAMS["resources_integration_slots"]
+    job_threads = nslots
+    options["numcores"] = nslots
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_integration.yml"))
@@ -430,7 +490,81 @@ def runIntegration(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_run_harmony.R',
+    statement = '''Rscript %(code_dir)s/R/integration_run_harmony.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                '''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+    # remove the intermediate Seurat object
+    #os.remove(norm_seurat)
+
+@transform(runIntegration,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/integration_plots.sentinel")
+def plotsIntegration(infile, outfile):
+    '''Load Seurat object, run normalisation and integration
+    using defined tool, whole output Seurat object is stored
+    post integration. '''
+
+    # create the output directories
+    indir = os.path.dirname(infile)
+    norm_seurat = os.path.join(indir, "pre_integrated.rds")
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    tool = outfile.split("/")[1].split(".")[0]
+    run_options = outfile.split("/")[2][:-len(".run.dir")]
+    log_file = outfile.replace(".sentinel", ".log")
+
+    options = {}
+    # add task specific options
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+    options["seurat_obj"] = norm_seurat
+    options["split_var"] = PARAMS["integration_split_factor"]
+    options["tool"] = tool
+    # add cell cycle options to latentvars if required
+    if PARAMS["regress_cellcycle"] is not "none" :
+        if PARAMS["regress_latentvars"] is not "none":
+            if ',' in PARAMS["regress_latentvars"]:
+                vregs = PARAMS["regress_latentvars"].split(",")
+            else:
+                vregs = [PARAMS["regress_latentvars"]]
+            options["regress_latentvars"] = ",".join(vregs + [PARAMS["regress_cellcycle"]])
+        else:
+            options["regress_latentvars"] = PARAMS["regress_cellcycle"]
+    else:
+        options["regress_latentvars"] = PARAMS["regress_latentvars"]
+
+    options["regress_modeluse"] = PARAMS["regress_modeluse"]
+
+    # add path to the list of hv genes to use for integration
+    if os.path.isfile(PARAMS["hvg_list"]):
+        options["hv_genes"] = PARAMS["hvg_list"]
+    else:
+        options["hv_genes"] = os.path.join(outdir,
+                                           "hv_genes_info.csv.gz")
+
+    if tool == 'harmony':
+        ## TO DO: add theta and lambda as options
+        sigma = run_options.split("_")[0]
+        options["sigma"] = float(sigma)
+        options["nPCs"] = int(PARAMS["harmony_number_pcs"])
+
+    job_threads = PARAMS["resources_nslots"]
+
+    # save the parameters
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_integration.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+    output_dir = os.path.abspath(outdir)
+    knit_root_dir = os.getcwd()
+    fig_path =  os.path.join(output_dir, "fig.dir/")
+
+    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_harmony_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -441,8 +575,11 @@ def runIntegration(infile, outfile):
 
     P.run(statement)
     IOTools.touch_file(outfile)
-    # remove the intermediate Seurat object
-    os.remove(norm_seurat)
+
+
+@follows(plotsNormalization, plotsIntegration)
+def integration_plots():
+    pass
 
 
 # ########################################################################### #
@@ -468,7 +605,7 @@ def plotUMAP(infile, outfile):
     sampleDir = "/".join(indir.split("/")[:-1])
     tool = sampleDir.split("/")[1].split(".")[0]
 
-    coord_file = os.path.join(indir, "umap.tsv")
+    coord_file = os.path.join(indir, "umap.tsv.gz")
 
     options = {}
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
@@ -486,9 +623,9 @@ def plotUMAP(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    job_memory = PARAMS["resources_memory_low"]
+    job_threads = PARAMS["resources_nslots"]
 
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/general_plot_umap.R',
+    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_plot_umap.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -536,6 +673,9 @@ def calculateSeuratMetrics(infile, outfile):
     # options below are required to choose the correct assay and slot
     # choose assay:
     options["assay"] = "RNA"
+    # use UMAP coordinates to visualise the MM value
+    umap_infile = infile.replace("integration.sentinel", "umap.tsv.gz")
+    options["umap_coord"] = umap_infile
 
     # choose correct slot for each tool:
     if tool == "harmony":
@@ -547,7 +687,7 @@ def calculateSeuratMetrics(infile, outfile):
         raise ValueError("Could not set slot")
 
 
-    job_memory = PARAMS["resources_memory_standard"]
+    job_threads = PARAMS["resources_nslots"]
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_seurat_metric.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -600,7 +740,7 @@ def summariseSeuratMetrics(infile, outfile):
     options["metrics_files"] = seurat_metrics
 
     log_file = outfile.replace("sentinel","log")
-    job_memory = PARAMS["resources_memory_low"]
+    job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_seurat_metrics.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -663,7 +803,7 @@ def runKBET(infile, outfile):
         raise ValueError("Could not set slot")
 
 
-    job_memory = PARAMS["resources_memory_standard"]
+    job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_kbet.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -711,11 +851,11 @@ def runLISI(infile, outfile):
     # and slot to be set per tool
 
     # use UMAP coordinates to visualise the iLISI value
-    umap_infile = infile.replace("integration.sentinel", "umap.tsv")
+    umap_infile = infile.replace("integration.sentinel", "umap.tsv.gz")
 
     options["umap_coord"] = umap_infile
 
-    job_memory = PARAMS["resources_memory_standard"]
+    job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -767,7 +907,7 @@ def summariseLISI(infile, outfile):
     options["lisi_files"] = metrics
 
     log_file = os.path.join(outdir, "lisi_metrics_summary.log")
-    job_memory = PARAMS["resources_memory_low"]
+    job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -844,14 +984,14 @@ def compareClusteringAlluvial(infile, outfile):
     options["outdir"] = outdir
     options["samples_plot"] = samples_str
 
+    job_threads = PARAMS["resources_nslots"]
+
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_alluvial_comparison_tools.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
     output_dir = os.path.abspath(outdir)
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
-
-    job_memory = PARAMS["resources_memory_low"]
 
     statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_plot_alluvial_comparison_tools.R',
                    output_dir = '%(output_dir)s',

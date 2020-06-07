@@ -1,22 +1,10 @@
-#' ---
-#' title: "Run log-normalization and assessment of highly variable genes"
-#' output:
-#'  html_document:
-#'   self_contained: false
-#' params:
-#'  task_yml: "/gfs/devel/kjansen/integration_pipeline/Rmd/integration_harmony.test.yml"
-#'  fig_path: "fig.dir/"
-#'  log_filename: "integrate_data.log"
-#' ---
-#' ---
-#' Perform normalization of a single-cell dataset
-#'
-#' This script can be compiled from the command line or run interactively in
-#' Rstudio.
-#' ---
+## Title ----
+##
+## Normalisation and highly-variable genes
+##
+## Description ----
+## Run normalisation and determine highly-variable genes
 
-
-#+ setup, include=FALSE, echo=FALSE
 
 # Libraries --------------------------------------------------------------------
 
@@ -32,24 +20,40 @@ stopifnot(require(future))
 stopifnot(require(gridExtra))
 stopifnot(require(tenxutils))
 stopifnot(require(cowplot))
-stopifnot(require(knitr))
 stopifnot(require(futile.logger))
 
-# set chunk options
-opts_chunk$set(echo=FALSE,
-               warning=FALSE,
-               message = FALSE,
-               include = FALSE,
-               fig.path = params$fig_path)
-
 # Parameters -------------------------------------------------------------------
-# The script expects the following paramters:
+# The script expects the following parameters:
+
+# these parameters are passed from Rscript run
+option_list <- list(
+  make_option(
+    c("--task_yml"),
+    dest = "task_yml",
+    help="Path to yml file"
+  ),
+  make_option(
+    c("--log_filename"),
+    dest = "log_filename",
+    help="Path to log file"
+  ))
+params <- parse_args(OptionParser(option_list=option_list))
+
+
+# Prepare the logger and the log file location
+# the logger is by default writing to ROOT logger and the INFO threshold level
+flog.threshold(INFO)
+# now set to append mode
+flog.appender(appender.file(params$log_filename))
+flog.info("Running with parameters: ", params, capture = TRUE)
+
+
+# these options are read from the yml
 default_options <- list(
   # Name of folders to output rds, pdf and png files
   "outdir" = "",
 
-  # Path to the seurat begin.rds object; this needs to be
-  # normalized and scaled already
+  # Path to the seurat begin.rds object
   "seurat_obj" = "",
 
   # Variable for splitting seurat object for integration
@@ -96,12 +100,6 @@ if(!is.null(options)) {
   opt <- default_options
 }
 
-# Prepare the logger and the log file location
-# the logger is by default writing to ROOT logger and the INFO threshold level
-flog.threshold(INFO)
-# now set to append mode
-flog.appender(appender.file(params$log_filename))
-
 flog.info("Running with options: ", opt, capture = TRUE)
 flog.info("\n")
 
@@ -137,15 +135,11 @@ if ( ! is.null(opt$regress_latentvars)){
 }
 
 
-## make plot pre normalisation if cell cycle is included.
+## run PCA pre normalisation if cell cycle is included.
 
 if ( identical(opt$regress_cellcycle, "none") ) {
   flog.info("No plots produced")
-  txt <- "No cell cycle correction performed."
-  gp_pre <- ggplot() + theme_void()
 } else {
-  txt <- paste0("PCA plot before and after cell cycle correction with option: ",
-                opt$regress_cellcycle)
   sgenes <- read.table(opt$sgenes, header=F, as.is=T)$V1
   sgenes <- s.full@misc$seurat_id[s.full@misc$gene_id %in% sgenes]
 
@@ -154,14 +148,16 @@ if ( identical(opt$regress_cellcycle, "none") ) {
 
   s.full <- RunPCA(object = s.full, features = c(sgenes, g2mgenes), verbose = FALSE,
                    reduction.name = "pcacellcyclePre", reduction.key="pcacellcyclePre_")
+  flog.info("Create and save the plots here as the slot after splitting of the Seurat
+            object...")
   gp_pre <- DimPlot(object = s.full, group.by="Phase", reduction = "pcacellcyclePre")
+  saveRDS(gp_pre, file.path(opt$outdir, "gp_cellcyclePre"))
 }
 
 if (opt$merge_normalisation %in% c("merged")){
-  flog.info("Running on merged object, so Seurat object will not be split ...  ")
-  txt_merged <- "Normalization was performed on the merged object."
+  flog.info("Running on merged object, so Seurat object will not be split...")
 } else {
-  txt_merged <- "Normalization was performed per batch."
+  flog.info("Normalization was performed per batch.")
   s.list <- SplitObject(s.full,
                       split.by = opt$split_var)
 }
@@ -183,18 +179,12 @@ if ( identical(opt$regress_cellcycle, "none") ) {
   }
 }
 
-flog.info("Final variables for regression are %s", paste0(vreg, collapse = ", "))
 
 ## ######################################################################### ##
 ## ################ (ii) Normalize data and find hvg ####################### ##
 ## ######################################################################### ##
 
-#' ## Data normalization
-#'
-#' The data was normalized using log-normalization.
-#' `r txt_merged`
-#' The following variables were regressed: `r paste(vreg, collapse=",")` .
-
+flog.info("Final variables for regression are %s", paste0(vreg, collapse = ", "))
 flog.info("Performing log-normalization ...")
 
 if (opt$merge_normalisation %in% c("merged")) {
@@ -264,8 +254,7 @@ for (i in 1:max_iter) {
     hvg$sample = n
     hvg_info = hvg
   }
-  hvg$dispersion = 0.1
-  
+
   melted <- melt(hvg[, c(xvar, yvar, "var.gene")],
                  id.vars=c("var.gene", xvar))
   
@@ -279,31 +268,15 @@ for (i in 1:max_iter) {
   if (loop){
     gglist[[n]] <- gp
   } else {
+    gglist <- gp
     break
   }
 }
 
-if(loop) {
-  nr <- ceiling(length(s.list)/3)
-  gp <- plot_grid(plotlist = gglist, 
-                  nrow=nr)
-}
+saveRDS(gglist, file.path(opt$outdir, "gglist_hvg.rds"))
 
-w <- min(3, max_iter)*4 + 1
-h <- max(1, max_iter/3)*4
 
-save_ggplots(file.path(opt$outdir, "var_genes_plot"),
-             gp=gp,
-             width=w+1,
-             height=h)
-
-#' ## Assessment of highly-variable genes
-#' Number of variable genes selected per sample: `r opt$ngenes` genes.
-opts_chunk$set(fig.width= w, fig.height = h)
-#+ hvg_genes, include=TRUE
-gp
-
-flog.info("Finished plots for hv genes ...")
+flog.info("Finished assessment of hv genes, saved plots ...")
 
 # add gene_id to table
 hvg_info$gene_name <- rownames(hvg_info)
@@ -327,41 +300,9 @@ if (!is.null(opt$vargenes_dir)){
     hvg_info[, list_name] <- FALSE
     hvg_info[hvg_info$gene_id %in% genelist$gene_id, list_name] <- TRUE
   }
-  flog.info("Make plots of fraction of hvg within each given geneset.")
-  df_plot = hvg_info[, c("sample", names_genesets)] %>% pivot_longer(all_of(names_genesets)) %>%
-            group_by(sample, name) %>% summarise(n_set = n(),
-                                                 fraction_geneset = length(which(value == TRUE))/n_set) 
-  nsamples = length(unique(df_plot$sample))
-  if(opt$merge_normalisation %in% c("perbatch")){ 
-    df_plot$sample = factor(as.character(df_plot$sample), levels = names(s.list))
-    }
-  gp <- ggplot(df_plot, aes(x=name, y=fraction_geneset)) + geom_bar(stat='identity', fill = "grey")
-  gp <- gp + facet_wrap(~sample, ncol = min(nsamples, 3)) + ylab("Fraction of geneset \n within highly variable genes")
-  gp <- gp + xlab("Geneset") + theme_bw() + theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
-                                                  strip.background = element_blank())
-  #gp <- gp + coord_cartesian(ylim = c(0,1))
-  
-  w <- min(3, max_iter)*4
-  h <- max(1, max_iter/3)*4 + 2
-  
-  save_ggplots(file.path(opt$outdir, "hvg_fraction_genelists"),
-               gp=gp,
-               width=w,
-               height=h)
-  txt_hvg = "Fraction of highly variable genes within different genesets defined in pipeline.yml.\n The x axis labels reflect the genesets provided, while each facets shows a sample/batch."
 } else {
   flog.info("No genelists provided")
-  gp <- ggplot() + theme_void()
-  h = 0.1
-  txt_hvg = "No genesets to assess in highly variable genes provided."
 }
-
-#' `r txt_hvg`
-opts_chunk$set(fig.width= w, fig.height = h)
-#+ hvg_genes_lists, include=TRUE
-gp
-
-
 
 ## ######################################################################### ##
 ## ####################### (iii) scale data ################################ ##
@@ -396,7 +337,7 @@ if (opt$merge_normalisation %in% c("merged")) {
     s.full <- merge(s.full, s.list[[i]], merge.data = TRUE)
   }
   flog.info("Re-scaling merged data ...")
-  # ## Scaling of the RNA assay data
+  ## Scaling of the RNA assay data
   s.full <- ScaleData(object=s.full,
                       features = features,
                       vars.to.regress=vreg,
@@ -424,18 +365,14 @@ flog.info("Finished writing file with hv genes ...")
 
 if ( identical(opt$regress_cellcycle, "none") ) {
   flog.info("No cell cycle plots produced post correction...")
-  gp_post <- ggplot() + theme_void()
-  h = 0.1
-  w = 4
 } else { 
   if (opt$merge_normalisation %in% c("merged")){
     s.full <- RunPCA(object = s.full, features = c(sgenes, g2mgenes), 
                      verbose = FALSE, reduction.name = "pcacellcyclePost", 
                      reduction.key="pcacellcyclePost_")
-    gp_post <- DimPlot(object = s.full, group.by="Phase",
-                       reduction = "pcacellcyclePost")
-    w=4
   } else {
+    flog.info("Post cell cycle correction PER batch is saved as information is lost
+              in Seurat object, that was re-merged...")
     gglist <- list()
     for (i in 1:length(s.list)) {
       s.list[[i]] <- RunPCA(object = s.list[[i]], features = c(sgenes, g2mgenes),
@@ -444,54 +381,13 @@ if ( identical(opt$regress_cellcycle, "none") ) {
       gglist[[i]] <- DimPlot(object = s.list[[i]], group.by="Phase",
                              reduction = "pcacellcyclePost")
     }
-    nr <- ceiling(length(s.list)/3)
-    gp_post <- plot_grid(plotlist = gglist,  nrow=nr)
-    w=12
+    saveRDS(gglist, file.path(opt$outdir, "gglist_cellcyclePost.rds"))
   }
-  h=4
 }
 
-# text for cell cycle correct here (to include both plots)
-#' ## Cell cycle correction
-#'
-#' `r txt`
-#'
-opts_chunk$set(fig.width = 4, fig.height = h)
-#+ cellcylce_pre, include=TRUE
-gp_pre
-
-opts_chunk$set(fig.width= w, fig.height = h)
-#+ cellcylce_post, include=TRUE
-gp_post
-
-
 ## ######################################################################### ##
-## ####################### (v) inspect PCA ################################# ##
+## ####################### (v) write out PCA info ########################## ##
 ## ######################################################################### ##
-
-gp1 <- DimPlot(object = s.full, reduction = "pca", pt.size = .1, 
-              group.by = opt$split_var)
-gp1_2 <- DimPlot(object = s.full, reduction = "pca", pt.size = .1, dims = c(1,3),
-               group.by = opt$split_var)
-gp1_3 <- DimPlot(object = s.full, reduction = "pca", pt.size = .1, dims = c(2,3),
-                 group.by = opt$split_var)
-gp2 <- ElbowPlot(s.full, reduction = "pca")
-gp3 <- VizDimLoadings(s.full, dims = 1:2, reduction = "pca")
-
-
-#' ## Inspection of PCA
-#' The plots below show the first principle components colored by `r opt$split_var`,
-#'  the elbow plot and the genes with highest loadings.
-opts_chunk$set(fig.width = 8, fig.height = 4)
-#+ pca1, include=TRUE
-grid.arrange(gp1, gp1_2, ncol=2)
-opts_chunk$set(fig.width = 8, fig.height = 4)
-#+ pca2, include=TRUE
-grid.arrange(gp1_3, gp2, ncol = 2)
-
-opts_chunk$set(fig.width = 8, fig.height = 4)
-#+ pca3, include=TRUE
-gp3
 
 
 write.table(Embeddings(s.full, reduction = "pca"), 

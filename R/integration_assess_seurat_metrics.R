@@ -26,11 +26,8 @@ stopifnot(require(yaml))
 stopifnot(require(Seurat))
 stopifnot(require(ggplot2))
 stopifnot(require(dplyr))
-stopifnot(require(Matrix))
+stopifnot(require(viridis))
 stopifnot(require(reshape2))
-stopifnot(require(future))
-stopifnot(require(grid))
-stopifnot(require(tenxutils))
 stopifnot(require(knitr))
 stopifnot(require(futile.logger))
 
@@ -66,6 +63,9 @@ default_options <- list(
   # Maximum size of local neighborhood to compute in 
   # 'MixingMetric' function of Seurat (in publication script = 300)
   "assessment_max_k" = 300,
+  
+  # Path to UMAP to visualise MM
+  "umap_coord" = "",
   
   # Number of neighbors for LocalStruct function (default = 100)
   "assessment_neighbors" = 100
@@ -115,6 +115,9 @@ if (DefaultAssay(s_integrated) != opt$assay){
 ## ################ (ii) Run Mixing Metric ################################# ##
 ## ######################################################################### ##
 
+umap_coord <- read.table(gzfile(opt$umap_coord), sep="\t", header = TRUE)
+
+
 flog.info("Running Mixing metric from Seurat package...")
 
 #' ## Seurat Metrics: Mixing Metric
@@ -130,8 +133,22 @@ mm = opt$assessment_max_k - MixingMetric(s_integrated, grouping.var = opt$split_
 
 s_integrated@meta.data$barcode = rownames(s_integrated[[]])
 metrics = data.frame(MixingMetric = mm, barcode = s_integrated[[]]$barcode)
-metrics = dplyr::left_join(metrics, s_integrated[[]], by="barcode")
 
+umap_plot = dplyr::left_join(metrics, umap_coord[,c("barcode", "UMAP_1", "UMAP_2")],
+                             by = "barcode")
+gp <- ggplot(data=umap_plot, aes(x=UMAP_1, y=UMAP_2, 
+                                 color=MixingMetric)) + geom_point(size=0.5) 
+gp <- gp + theme_bw() + scale_color_viridis_c() 
+
+ggsave(file.path(opt$outdir, "UMAP_colored_Mixing_metric.pdf"), 
+       plot = gp, device = cairo_pdf)
+
+#' UMAP colored by Mixing Metric.
+#+ plot_umap_mixingmetric, include=TRUE, fig.height=4
+print(gp)
+#+ include=FALSE
+
+metrics = dplyr::left_join(metrics, s_integrated[[]], by="barcode")
 ## plots of mixing metric by grouping variable
 metrics %>% group_by_at(opt$split_var) %>% summarise(mean(MixingMetric))
 
@@ -140,7 +157,8 @@ gp <- ggplot(data=metrics, aes_string(x=opt$split_var, y="MixingMetric",
 gp <- gp + geom_violin(scale = "width", show.legend = FALSE)  + theme_bw()
 gp <- gp + theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5))
 
-save_ggplots(file.path(opt$outdir, "mixing_metrics_by_grouping"), gp)
+ggsave(file.path(opt$outdir, "Mixing_metric_by_grouping_var.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 #' Distribution of Mixing Metric colored by the variable that was used for integration.
 #+ plot_mixingmetric, include=TRUE, fig.height=4
@@ -187,9 +205,8 @@ if (opt$integration_tool == "rawdata"){
   gp <- ggplot(data=plot_metrics, aes(x=value, fill=L1)) 
   gp <- gp + geom_histogram(show.legend = FALSE) + theme_bw()
   gp <- gp + facet_wrap(~L1, ncol = 3)
-  
-  save_ggplots(file.path(opt$outdir, "localstructure_by_splitvar"),
-               width = 9, gp)
+  ggsave(file.path(opt$outdir, "Localstructure_by_grouping_var.pdf"), 
+         plot = gp, device = cairo_pdf, width = 9)
   w <- min(3, length(unique(plot_metrics$L1)))*2.5
   h <- max(1, length(unique(plot_metrics$L1))/3)*2.5
 }

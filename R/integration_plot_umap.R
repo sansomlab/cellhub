@@ -22,13 +22,8 @@
 
 stopifnot(require(optparse))
 stopifnot(require(yaml))
-stopifnot(require(Seurat))
-stopifnot(require(Matrix))
-stopifnot(require(reshape2))
 stopifnot(require(ggplot2))
-stopifnot(require(tenxutils))
 stopifnot(require(knitr))
-stopifnot(require(cowplot))
 stopifnot(require(futile.logger))
 
 # set chunk options
@@ -48,7 +43,7 @@ default_options <- list(
   "clusterids" = NULL,
   
   # Name of the integration tool used.
-  "integration_tool" = "seuratcca",
+  "integration_tool" = "harmony",
   
   # Variables to plot on UMAP (from metadata). Grouping variable is automatically added.
   "plot_vars" = "",
@@ -84,7 +79,7 @@ flog.info("\n")
 ## ###################### (i) Read in data ################################# ##
 ## ######################################################################### ##
 
-input_coord <- read.table(file = opt$coord_file, header=TRUE,
+input_coord <- read.table(file = gzfile(opt$coord_file), header=TRUE,
                           sep="\t")
 tool = opt$integration_tool
 
@@ -120,7 +115,9 @@ for (v in variables_plot) {
   flog.info(paste0("Making plots for variable: ", v))
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + geom_point(alpha=0.5)
-    save_ggplots(file.path(opt$outdir, paste0("umap.", v)), gp)
+    ggsave(file.path(opt$outdir, paste0("umap.", v, ".pdf")), 
+           plot = gp, device = cairo_pdf)
+    
     gglist[[v]] <- gp
 }
 

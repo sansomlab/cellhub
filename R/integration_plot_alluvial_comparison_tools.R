@@ -4,9 +4,9 @@
 #'  html_document:
 #'   self_contained: false
 #' params:
-#'  task_yml: "/gfs/devel/kjansen/integration_pipeline/Rmd/summarise_entropy.yml"
+#'  task_yml: ""
 #'  fig_path: "fig.dir/"
-#'  log_filename: "summarise_entropy.log"
+#'  log_filename: "make_alluvial_plots.log"
 #' ---
 #' ---
 #' Plot alluvial diagrams to compare two integration tools.
@@ -23,15 +23,11 @@
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(Seurat))
-stopifnot(require(Matrix))
 stopifnot(require(dplyr))
 stopifnot(require(reshape2))
 stopifnot(require(ggplot2))
-stopifnot(require(tenxutils))
 stopifnot(require(ggalluvial))
 stopifnot(require(knitr))
-stopifnot(require(gridExtra))
-stopifnot(require(RColorBrewer))
 stopifnot(require(futile.logger))
 
 # set chunk options
@@ -128,8 +124,8 @@ gp <- ggplot(melted, aes(x = variable, stratum = value, alluvium = barcode,
 gp <- gp + geom_flow(stat = "alluvium", lode.guidance = "frontback") 
 gp <- gp + geom_stratum(width = 1/10)  + xlab("Integration tool") + ylab("Number of cells")
 
-save_ggplots(file.path(opt$outdir, "Post_integration_alluvial_selected_tools_geom_flow"), 
-             gp)
+ggsave(file.path(opt$outdir, "Post_integration_alluvial_selected_tools_geom_flow.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 #+ AlluvialFlow_tools, include=TRUE, fig.height=5, fig.cap="", fig.align="center"
 gp
@@ -149,8 +145,9 @@ gp <- ggplot(melted, aes(x = variable, stratum = value, alluvium = barcode,
 gp <- gp + geom_alluvium()
 gp <- gp + geom_stratum(width = 1/10)  + xlab("Integration tool") + ylab("Number of cells")
 
-save_ggplots(file.path(opt$outdir, "Post_integration_alluvial_selected_tools_geom_alluvial"), 
-             gp)
+ggsave(file.path(opt$outdir, "Post_integration_alluvial_selected_tools_geom_alluvial.pdf"), 
+       plot = gp, device = cairo_pdf)
+
 
 #+ AlluvialStrata_tools, include=TRUE, fig.height=5, fig.cap="", fig.align="center"
 gp

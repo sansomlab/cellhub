@@ -1,9 +1,9 @@
 ## Title ----
 ##
-## Run emptydrops to detect empty droplets
+## Create Seurat object
 ##
 ## Description ----
-## Run emptyDrops to assess if droplets are empty or might contain cells
+## Create a Seurat object
 ##
 ## Default parameters ----
 ## example yml: /gfs/devel/kjansen/dropflow/Rmd/emptydrops.yml
@@ -16,7 +16,6 @@ stopifnot(require(Seurat))
 stopifnot(require(tenxutils))
 stopifnot(require(future))
 stopifnot(require(futile.logger))
-stopifnot(require(knitr))
 
 # Parameters -------------------------------------------------------------------
 # The script expects the following parameters:

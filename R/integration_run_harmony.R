@@ -1,47 +1,46 @@
-#' ---
-#' title: "Run harmony integration"
-#' output:
-#'  html_document:
-#'   self_contained: false
-#' params:
-#'  task_yml: "/gfs/devel/kjansen/integration_pipeline/Rmd/integration_harmony.test.yml"
-#'  fig_path: "fig.dir/"
-#'  log_filename: "integrate_data.log"
-#' ---
-#' ---
-#' Perform integration of a single-cell dataset
-#'
-#' This script can be compiled from the command line or run interactively in
-#' Rstudio.
-#' ---
-
-
-#+ setup, include=FALSE, echo=FALSE
-
+## Title ----
+##
+## Run harmony
+##
+## Description ----
+## Run integration using harmony
+##
 # Libraries --------------------------------------------------------------------
 
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(Seurat))
-stopifnot(require(ggplot2))
-stopifnot(require(dplyr))
 stopifnot(require(Matrix))
-stopifnot(require(future))
-stopifnot(require(SeuratWrappers))
 stopifnot(require(harmony))
-stopifnot(require(tenxutils))
 stopifnot(require(knitr))
+stopifnot(require(future))
 stopifnot(require(futile.logger))
 
-# set chunk options
-opts_chunk$set(echo=FALSE,
-               warning=FALSE,
-               message = FALSE,
-               include = FALSE,
-               fig.path = params$fig_path)
-
 # Parameters -------------------------------------------------------------------
-# The script expects the following paramters:
+# The script expects the following parameters:
+
+# these parameters are passed from Rscript run
+option_list <- list(
+  make_option(
+    c("--task_yml"),
+    dest = "task_yml",
+    help="Path to yml file"
+  ),
+  make_option(
+    c("--log_filename"),
+    dest = "log_filename",
+    help="Path to log file"
+  ))
+params <- parse_args(OptionParser(option_list=option_list))
+
+# Prepare the logger and the log file location
+# the logger is by default writing to ROOT logger and the INFO threshold level
+flog.threshold(INFO)
+# now set to append mode
+flog.appender(appender.file(params$log_filename))
+flog.info("Running with parameters: ", params, capture = TRUE)
+
+# these options are read from the yml
 default_options <- list(
   # Name of folders to output rds, pdf and png files
   "outdir" = "",
@@ -57,8 +56,8 @@ default_options <- list(
   # the PCA + harmony integration
   "hv_genes" = NULL,
   
-  
   # Variables to regress, example: percent.mito
+  # cell cycle already added to this as part of the pipeline.py
   "regress_latentvars" = NULL,
   
   # Model used to regress out latent variables (log-normalisation)
@@ -92,12 +91,6 @@ if(!is.null(options)) {
   opt <- default_options
 }
 
-# Prepare the logger and the log file location
-# the logger is by default writing to ROOT logger and the INFO threshold level
-flog.threshold(INFO)
-# now set to append mode
-flog.appender(appender.file(params$log_filename))
-
 flog.info("Running with options: ", opt, capture = TRUE)
 flog.info("\n")
 
@@ -126,6 +119,17 @@ if ( ! is.null(opt$regress_latentvars)){
   vreg = NULL
   flog.info("No variable regression...")
 }
+
+## add cell cycle to regression variables
+if ( c("all") %in% opt$regress_latentvars ) {
+  flog.info("Cell cycle correction for S and G2M scores will be applied")
+  vreg <- c(vreg[!grepl("all", vreg)], "S.Score", "G2M.Score")
+} else if ( c("difference") %in% opt$regress_latentvars ){
+  flog.info("Cell cycle correction for the difference between G2M and S phase scores will be applied")
+  vreg <- c(vreg[!grepl("difference", vreg)], "CC.Difference")
+} else {
+  flog.info("Data will be scaled without correcting for cell cycle")
+} 
 
 ## ######################################################################### ##
 ## ################ (ii) re-run PCA on selected hv genes ################### ##
@@ -158,22 +162,10 @@ VariableFeatures(s.full) <- features
 s.full <- RunPCA(s.full, npcs = opt$nPCs, #features = features,
                  verbose = FALSE)
 
-if (opt$tool == "harmony"){
-  txt = paste0(opt$nPCs, " principle components are generated and input into harmony." )
-} else {
-  txt = "30 principle components are generated and used for umap." 
-}
-
-#' ## PCA plots on highly variables genes 
-#' The genes provided can be found in `r opt$hv_genes`. \
-#' The number of highly variable genes provided is `r length(features)` genes.\
-#' `r txt`
 
 ## ######################################################################### ##
 ## ####################### (iii) integrate data ############################ ##
 ## ######################################################################### ##
-
-#' ## Data integration using: `r opt$tool`
 
 # unclear if harmony dims.use argument is working, therefore components defined
 # above in RunPCA statement and then full 'pca' slot passed to harmony.
@@ -195,23 +187,35 @@ if (opt$tool == "harmony"){
   integrated_reduction = "pca"
 }
 
-if (opt$tool %in% c("harmony")){
-  features_used = paste0("The integration was performed using ", 
-                         opt$nPCs," PCs for harmony")
-} else if (opt$tool == "rawdata") {
-  features_used = "No integration was performed"
-}
-
-#' `r features_used`.
-#'
-
 flog.info("Default Assay after integration: %s", DefaultAssay(replicates.integrated))
 assay <- DefaultAssay(replicates.integrated)
 
-## ######################################################################### ##
-## ############### (iv) Downstream analyses and plots ###################### ##
-## ######################################################################### ##
 
+## write out the integrated coordinates (non-UMAP)
+int_out <- data.frame(Embeddings(object = replicates.integrated,
+                                 reduction = integrated_reduction))
+int_out$barcode <- rownames(int_out)
+
+write.table(int_out, gzfile(file.path(opt$outdir, paste0(opt$tool,".tsv.gz"))),
+            sep="\t", quote=FALSE, row.names=FALSE)
+
+# write out the stdev slot for plotting
+if (opt$tool %in% c("rawdata")){
+  flog.info("No integration performed, so no stdev to plot")
+} else {
+  if (length(replicates.integrated@reductions$harmony@stdev) != 0) {
+    df = data.frame(comp = c(1:length(replicates.integrated@reductions$harmony@stdev)), 
+                  stdev = replicates.integrated@reductions$harmony@stdev)
+    write.table(df, gzfile(file.path(opt$outdir, paste0(opt$tool,"_stdev.tsv.gz"))),
+              sep="\t", quote=FALSE, row.names=FALSE)
+  }
+}
+
+flog.info("Finished integration and saved reduced dimension coordinates ...")
+
+## ######################################################################### ##
+## ##################### (iv) Run UMAP ##################################### ##
+## ######################################################################### ##
 
 # Run UMAP
 flog.info("Running UMAP ...")
@@ -229,69 +233,12 @@ umap <- data.frame(Embeddings(object = replicates.integrated,
 umap$barcode <- rownames(umap)
 metadata = replicates.integrated[[]]
 metadata$barcode = rownames(metadata)
-plot_data <- left_join(umap, metadata, by="barcode")
+plot_data <- merge(umap, metadata, by="barcode")
 
-##### UMAP PLOTS
-gp <- ggplot(plot_data, aes_string(x="UMAP_1", y="UMAP_2", col=opt$split_var))
-gp <- gp +  geom_point(alpha=0.5, size=2) + theme_bw()
-gp <- gp + guides(col = guide_legend(override.aes = list(alpha=1)))
-
-save_ggplots(file.path(opt$outdir, "integrated_umap_nofacet"),
-             gp)
-
-#' UMAP (`r n_comp` components) colored by variable that was used for integration.
-#+ umap, include=TRUE, fig.height=4, fig.width=6
-print(gp)
-
-gp <- gp + facet_wrap(as.formula(paste("~", opt$split_var)), ncol = 3)
-
-
-w <- min(3, length(unique(s.full[[]][, opt$split_var])))*4
-h <- max(1, length(unique(s.full[[]][, opt$split_var]))/3)*4
-
-save_ggplots(file.path(opt$outdir, "integrated_umap_facet_splitvar"),
-             gp, width = w, height = h)
-
-opts_chunk$set(fig.width= w, fig.height = h)
-#' UMAP (`r n_comp` components) split by the variable that was used for integration.
-#+ umap_facet, include=TRUE
-print(gp)
-#+ include=FALSE
-
-write.table(plot_data, file.path(opt$outdir, "umap.tsv"),
+write.table(plot_data, gzfile(file.path(opt$outdir, "umap.tsv.gz")),
             sep="\t", quote=FALSE, row.names=FALSE)
 
-if (opt$tool %in% c("harmony")) {
-  if (length(replicates.integrated@reductions$harmony@stdev) == 0) {
-    flog.info("cannot make elbow plot from harmony dimensions because stdev is absent.")
-    h=1
-    w=6
-    elbow_plot <- ggplot() + theme_void()
-    txt <- "No standard deviation was present, therefore no elbow plots."
-  } else {
-    h=4
-    w=4
-    elbow_plot <- ElbowPlot(replicates.integrated, ndims=nPCs, reduction = "harmony")
-    txt <- "Elbow plot for harmony stdev shown below."
-  }
-} else if (opt$tool %in% c("rawdata")) {
-  txt <- "No standard deviation was present, thus no elbow plots can be created."
-  h=0.1
-  w=6
-  elbow_plot <- ggplot() + theme_void()
-} else {
-  flog.info("Incorrect tool given.")
-}
-
-# text for elbow plots
-#' ## Elbow plots
-#'
-#' `r txt`
-#'
-opts_chunk$set(fig.width = w, fig.height = h)
-#+ elbowplots, include=TRUE
-elbow_plot
-
+flog.info("Finished UMAP and saving UMAP coordinates ...")
 
 ## ######################################################################### ##
 ## ################### (v) Save integrated data ############################ ##
@@ -303,17 +250,6 @@ replicates.integrated@misc <- s.full_misc
 flog.info("Saving object ...")
 flog.info("Outfile: %s", file.path(opt$outdir, "integrated.rds"))
 saveRDS(replicates.integrated, file = file.path(opt$outdir, "integrated.rds"))
-
-## write out the integrated coordinates (non-UMAP)
-int_out <- data.frame(Embeddings(object = replicates.integrated,
-                                 reduction = integrated_reduction))
-int_out$barcode <- rownames(int_out)
-metadata = replicates.integrated[[]]
-metadata$barcode = rownames(metadata)
-plot_data <- left_join(int_out, metadata, by="barcode")
-
-write.table(plot_data, gzfile(file.path(opt$outdir, paste0(opt$tool,".tsv.gz"))),
-            sep="\t", quote=FALSE, row.names=FALSE)
 
 flog.info("Completed")
 

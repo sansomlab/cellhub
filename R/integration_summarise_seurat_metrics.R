@@ -25,11 +25,7 @@ stopifnot(require(yaml))
 stopifnot(require(ggplot2))
 stopifnot(require(dplyr))
 stopifnot(require(tidyr))
-stopifnot(require(reshape2))
-stopifnot(require(tenxutils))
 stopifnot(require(RColorBrewer))
-stopifnot(require(grid))
-stopifnot(require(gridExtra))
 stopifnot(require(knitr))
 stopifnot(require(futile.logger))
 
@@ -137,10 +133,9 @@ gp <- gp + geom_point(size=1) + scale_color_manual(values = colors_use)
 gp <- gp  + xlab("Mean Mixing Metric for each condition")
 gp <- gp +theme_bw() 
 
-save_ggplots(file.path(opt$outdir, "Alignment_metrics_summary_by_grouping_var"),
-             gp, width = 10)
-
-
+ggsave(file.path(opt$outdir, "Alignment_metrics_summary_by_grouping_var.pdf"), 
+       plot = gp, device = cairo_pdf, width=10,
+       units="in")
 
 #'
 #+ summary_seurat_byVariable, include=TRUE, fig.height=3, fig.cap="", fig.align="center"
@@ -161,9 +156,9 @@ gp <- ggplot(data=plot_data, aes(x=mean_MM, y=mean_LS, color = integration_setti
 gp <- gp + coord_cartesian(ylim = c(0,1)) + theme_bw() + scale_color_manual(values = colors_use)
 gp <- gp + xlab("Mean Mixing Metric for each tool") + ylab("Mean Local Structure")
 
-save_ggplots(file.path(opt$outdir, "Alignment_metrics_summary"),
-             gp, width = 10)
-
+ggsave(file.path(opt$outdir, "Alignment_metrics_summary.pdf"), 
+       plot = gp, device = cairo_pdf, width=10,
+       units="in")
 
 #+ summary_seurat, include=TRUE, fig.height=4, fig.cap="", fig.align="center"
 print(gp)
@@ -174,8 +169,8 @@ gp <- gp + facet_wrap(~method) + theme_bw() + scale_color_manual(values = colors
 gp <- gp + xlab("Mean Mixing Metric for each tool") + ylab("Mean Local Structure")
 gp <- gp + coord_cartesian(ylim = c(0,1))
 
-save_ggplots(file.path(opt$outdir, "Alignment_metrics_summary_by_tool"),
-             gp)
+ggsave(file.path(opt$outdir, "Alignment_metrics_summary_by_tool.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 #' **Seurat Mixing Metric facetted by integration tool (mean across variables):**
 #'
