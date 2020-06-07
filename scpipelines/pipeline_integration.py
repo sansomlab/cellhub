@@ -339,7 +339,6 @@ def runNormalization(infile, outfile):
     nslots = PARAMS["resources_nslots"]
     job_threads = nslots
     options["numcores"] = nslots
-    job_memory = "16G"
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "normalization.yml"))
