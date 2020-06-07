@@ -53,7 +53,7 @@ from ruffus import *
 import sys
 import os
 import re
-import pandas
+import pandas as pd
 
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
@@ -109,6 +109,18 @@ def load_scrublet(infile, outfile):
 
 
 @follows(load_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@merge("scrublet/*_scrublet.tsv.gz",
+           "scrublet_merge.load")
+def load_merged_scrublet(infiles, outfile):
+    '''load scrublet output data into database '''
+
+
+    P.concatenate_and_load(infiles, outfile,
+           tablename="merged_scrublet")
+
+
+@follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform("qc_metrics/*_metrics.tsv.gz",
            suffix(".tsv.gz"),
