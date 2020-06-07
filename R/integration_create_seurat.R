@@ -14,6 +14,7 @@ stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(Seurat))
 stopifnot(require(tenxutils))
+stopifnot(require(Matrix))
 stopifnot(require(future))
 stopifnot(require(futile.logger))
 
@@ -58,7 +59,7 @@ default_options <- list(
 
   # Latent variables to regress out, ONLY used for cell cycle scoring
   # See Seurat::ScaleData(vars.to.regress=..., model.use=opt$modeluse)
-  "latentvars" = "pct_mitochondrial",
+  "latentvars" = NULL,
 
   # Model used to regress out latent variables  
   "modeluse" = "linear",
@@ -194,11 +195,15 @@ flog.info("Finished adding meta data")
 ## Cell cycle correction requires initial normalisation and scaling, but no
 ## cell cycle correction is applied at this stage.
 
-if(opt$latentvars == "none") {
+if(is.null(opt$latentvars)) {
   latent.vars = NULL
   flog.info("no latent vars specified")
 } else {
-  latent.vars <- strsplit(opt$latentvars, ",")[[1]]
+  if(grepl(",", opt$latentvars)){
+    latent.vars <- unlist(strsplit(opt$latentvars, split=","))
+  } else {
+    latent.vars <- opt$latentvars
+  }
   flog.info("latent vars for initial normalisation: %s", latent.vars)
 }
 
