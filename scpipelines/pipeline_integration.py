@@ -208,7 +208,8 @@ def createSeurat(infile, outfile):
 
     # add options for normalisation - this is required for cell cycle
     # scoring only
-    options["latentvars"] = PARAMS["regress_latentvars"]
+    if PARAMS["regress_latentvars"] is not none:
+        options["latentvars"] = PARAMS["regress_latentvars"]
     options["modeluse"] = PARAMS["regress_modeluse"]
 
     # add cell cycle options
@@ -225,7 +226,7 @@ def createSeurat(infile, outfile):
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
 
-    statement = '''Rscript %(code_dir)s/R/general_create_seurat.R
+    statement = '''Rscript %(code_dir)s/R/integration_create_seurat.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -306,14 +307,7 @@ def runNormalization(infile, outfile):
     run_options = outfile.split("/")[2][:-len(".run.dir")]
     log_file = outfile.replace(".sentinel", ".log")
 
-    # populate an options dictionary with relevant parameters
-    param_keys = ("regress")
-    options = {k: v for k, v in PARAMS.items()
-               if k.split("_")[0] in param_keys}
-
-    del options["regress"]
-    del options["regress_merged_normalisation"]
-
+    options = {}
     # add task specific options
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
@@ -327,12 +321,17 @@ def runNormalization(infile, outfile):
     if os.path.isdir(PARAMS["hvg_annotation"]):
         options["vargenes_dir"] = PARAMS["hvg_annotation"]
 
+    if PARAMS["regress_latentvars"] is not none:
+        options["regress_latentvars"] = PARAMS["regress_latentvars"]
+    options["regress_modeluse"] = PARAMS["regress_modeluse"]
+
     # add cell cycle options
     if PARAMS["regress_cellcycle"] is not "none" :
         if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
             os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
             options["sgenes"] = PARAMS["cellcycle_sgenes"]
             options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
+        options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
 
 
     # resource allocation

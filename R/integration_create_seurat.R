@@ -13,7 +13,6 @@
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(Seurat))
-stopifnot(require(tenxutils))
 stopifnot(require(future))
 stopifnot(require(futile.logger))
 
