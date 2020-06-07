@@ -13,7 +13,6 @@
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(Seurat))
-stopifnot(require(tenxutils))
 stopifnot(require(Matrix))
 stopifnot(require(future))
 stopifnot(require(futile.logger))
@@ -44,13 +43,13 @@ flog.info("Running with parameters: ", params, capture = TRUE)
 
 # these options are read from the yml
 default_options <- list(
-  # The path to the directory containing matrices and associates 
-  # barcodes, features and metadata 
+  # The path to the directory containing matrices and associates
+  # barcodes, features and metadata
   "matrixdir" = "",
-  
+
   # The path to the Seurat object (output)
   "seurat_obj" = "",
-  
+
   # The path to the output directory
   "outdir" = "",
 
@@ -61,23 +60,23 @@ default_options <- list(
   # See Seurat::ScaleData(vars.to.regress=..., model.use=opt$modeluse)
   "latentvars" = NULL,
 
-  # Model used to regress out latent variables  
+  # Model used to regress out latent variables
   "modeluse" = "linear",
-    
+
   # A vector of Ensembl gene ids associated with S phases.
   # See Seurat::CellCycleScoring(s.genes=...)
   "sgenes" = "none",
-  
+
   # A vector of Ensembl gene ids associated with G2M phase.
   # See Seurat::CellCycleScoring(g2m.genes=...)
   "g2mgenes" = "none",
-  
+
   # Number of cores to use
   "numcores" = 1
 )
 
 
-# here the yaml can also be read in from the default location in code 
+# here the yaml can also be read in from the default location in code
 # directory
 options <- read_yaml(params$task_yml)
 
@@ -176,7 +175,7 @@ if (!identical(rownames(metadata), colnames(x = s))) {
   flog.info("First cell.names in Seurat object: %s ", print(head(colnames(x = s))))
   flog.info("Last rownames in metadata: %s", print(tail(rownames(metadata))))
   flog.info("Last cell.names in Seurat object: %s", print(tail(colnames(x = s))))
-  
+
   stop("Metadata barcode field does not match cell.names")
 }
 
@@ -228,16 +227,16 @@ s <- ScaleData(object=s,
 
 if (!(is.null(opt$sgenes) | opt$sgenes=="none")
     & !(is.null(opt$g2mgenes) | opt$g2mgenes=="none")) {
-  
+
   flog.info("Cell cycle genes are present...")
-  
+
   # get the genes representing the cell cycle phases
   sgenes_ensembl <- read.table(opt$sgenes, header=F, as.is=T)$V1
   sgenes <- s@misc$seurat_id[s@misc$gene_id %in% sgenes_ensembl]
-  
+
   g2mgenes_ensembl <- read.table(opt$g2mgenes, header=F, as.is=T)$V1
   g2mgenes <- s@misc$seurat_id[s@misc$gene_id %in% g2mgenes_ensembl]
-  
+
   # score the cell cycle phases
   s <- CellCycleScoring(object=s,
                         s.features=sgenes,
@@ -245,10 +244,10 @@ if (!(is.null(opt$sgenes) | opt$sgenes=="none")
                         set.ident=TRUE)
 
   s$CC.Difference <- s$S.Score - s$G2M.Score
-  
+
   flog.info("Finished cell cycle scoring and added metadata column...")
-  
-}  
+
+}
 
 ## ######################################################################### ##
 ## ################ (vii) Save Seurat object ############################### ##
@@ -260,4 +259,3 @@ flog.info("seurat object final default assay: %s", DefaultAssay(s))
 saveRDS(s, file=opt$seurat_obj)
 
 flog.info("Completed")
-
