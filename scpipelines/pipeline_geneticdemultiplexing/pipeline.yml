@@ -16,12 +16,6 @@ copyright: copyrightstatement
 # ----------------------------------------
 
 
-# General options to control where to write
-# ----------------------------------------
-general:
-  #explicitly set the path to save files to. /path/to/dir/where/you/want/output
-  rundir: /well/combat/users/ypz321/testpipeline
-
 # Options for channel demultiplexing task
 # ----------------------------------------
 channel:
@@ -46,10 +40,8 @@ project:
   numcpu: 1
   # the name of the projet results folder 
   project: P190381
-  #this is the present dir where the sample dir were created for the channel parsing task
-  basedir: /well/combat/users/ypz321/testpipeline/test2
-  # which channels belong to this group and you want to plot them together?
-  sampledir: 726070_GX06,726070_GX18
+  # which channels belong to this project and you want to exclude from plots because they failed? (leave empty if you want to plot everything)
+  skipsamples: 726070_GX06
   # just subset the plotting of specific diagnostic on some param*alg combinations. 
   # can be different than the first subset specified in the per channel task
   subset: demuxlet-gtf-0.1,demuxlet-wgs-0.1,vireo-gtf,vireo-known,vireo-wgs

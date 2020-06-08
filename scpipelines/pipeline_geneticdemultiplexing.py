@@ -50,12 +50,6 @@ if len(sys.argv) > 1:
 # ############ Read in pipeline yml configuration params #################### #
 # ########################################################################### #
 
-baseoutdir=PARAMS["general_rundir"]
-
-if not os.path.exists(baseoutdir):
-    os.mkdir(baseoutdir)
-
-os.chdir(baseoutdir)
 
 # ########################################################################### #
 # ############################# pipeline tasks ############################## #
@@ -93,6 +87,7 @@ def parsechannel(outfile):
                                 &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())
         P.run(statements)
+      
     IOTools.touch_file(outfile)
 
 

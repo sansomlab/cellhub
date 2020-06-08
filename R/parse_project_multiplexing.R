@@ -13,7 +13,7 @@ option_list <- list(
   make_option(c("--basedir"), default="/well/singlecell/P190381/_zzz_/10X-count",
               help="the folder where project data of the demultiplexing. the name has to finish with _10x-count-_ to match with Santiago's new structure"),
   make_option(c("--samplename"), default="726070_GX06,726070_GX18",
-              help="the name of the sample folders you want to use to parse the project results"),
+              help="the name of the sample folders you want to skip to parse the project results (i.e. failed channels). Default to NULL"),
   make_option(c("--subset"), default="vireo-known_AF5e4,demuxlet-0.0001",
               help="the name of the subset of demultiplexing outputs you want specifically to plot, useful if you already know what options results you'd like to compare"),
   make_option(c("--outdir"), default="project.results",
@@ -31,7 +31,7 @@ if (!file.exists(opt$outdir)){ dir.create(opt$outdir)}
 print("Running with options:")
 print(opt)
 
-#parse adn format outdir, print opts statement
+
 run<- opt$outdir
 opt[which(opt=="NULL")] <- NULL
 
@@ -40,13 +40,24 @@ opt[which(opt=="NULL")] <- NULL
 opt$subset<-strsplit(opt$subset,",")[[1]]
 gsub(" ","",opt$subset)->opt$subset
 
-opt$samplename<-strsplit(opt$samplename,",")[[1]]
-gsub(" ","",opt$samplename)->opt$samplename
+#skip samples instead of listing them
+
+rdir<-system(paste0("ls -d ",opt$basedir,"/results.*"),intern=T)
+gsub("results.","",basename(rdir)) ->rdir
+
+if(!is.null(opt$samplename)){
+  message("skipping these channels: ")
+  opt$samplename<-strsplit(opt$samplename,",")[[1]]
+  gsub(" ","",opt$samplename)->opt$samplename
+  print(opt$samplename)
+  rdir <- rdir[!rdir  %in% opt$samplename]
+}
+
 
 dlist<- list()
 for (sub in opt$subset){
   dlist[[sub]]<- list()
-  for (sam in opt$samplename){
+  for (sam in rdir){
     dlist[[sub]][[sam]] <- read.table( paste0(opt$basedir, "results.",sam,"/",sam,"_SingleCellMetadata_demultiplexing_results.tsv.gz"), header=T, sep="\t", check.names = F)[,c("BARCODE",sub)]
     dlist[[sub]][[sam]][,"BARCODE"]<-gsub("-1",paste0("-",sam),dlist[[sub]][[sam]][,"BARCODE"])
     dlist[[sub]][[sam]][,"sample"]<-rep(sam)
