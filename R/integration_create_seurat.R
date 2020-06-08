@@ -58,7 +58,7 @@ default_options <- list(
 
   # Latent variables to regress out, ONLY used for cell cycle scoring
   # See Seurat::ScaleData(vars.to.regress=..., model.use=opt$modeluse)
-  "latentvars" = NULL,
+  "latentvars" = "none",
 
   # Model used to regress out latent variables
   "modeluse" = "linear",
@@ -166,19 +166,6 @@ metadata$barcode <- NULL
 
 metadata <- metadata[colnames(x = s), ]
 
-# TODO: probably a more elegant way to show/handle this
-if (!identical(rownames(metadata), colnames(x = s))) {
-  ## print out some debugging information
-  flog.info("Count of rownames in metadata: %s", length(rownames(metadata)))
-  flog.info("Count of cell.names in Seurat object: %s", length(colnames(x = s)))
-  flog.info("First rownames in metadata: %s", head(rownames(metadata)))
-  flog.info("First cell.names in Seurat object: %s ", print(head(colnames(x = s))))
-  flog.info("Last rownames in metadata: %s", print(tail(rownames(metadata))))
-  flog.info("Last cell.names in Seurat object: %s", print(tail(colnames(x = s))))
-
-  stop("Metadata barcode field does not match cell.names")
-}
-
 flog.info("Adding meta data ... ")
 for(meta_col in colnames(metadata))
 {
@@ -194,23 +181,22 @@ flog.info("Finished adding meta data")
 ## Cell cycle correction requires initial normalisation and scaling, but no
 ## cell cycle correction is applied at this stage.
 
-if(is.null(opt$latentvars)) {
+if(identical(opt$latentvars, "none")) {
   latent.vars = NULL
-  flog.info("no latent vars specified")
+  flog.info("No latent vars specified")
 } else {
   if(grepl(",", opt$latentvars)){
     latent.vars <- unlist(strsplit(opt$latentvars, split=","))
   } else {
     latent.vars <- opt$latentvars
   }
-  flog.info("latent vars for initial normalisation: %s", latent.vars)
+  flog.info("Latent vars for initial normalisation: %s", latent.vars)
 }
 
 
 flog.info("Performing initial log-normalization without cell cycle")
 
 ## Perform log-normalization of the RNA assay
-flog.info("Perform log-normalisation")
 s <- NormalizeData(object=s,
                    normalization.method="LogNormalize",
                    scale.factor=10E3)
@@ -221,6 +207,8 @@ s <- ScaleData(object=s,
                features = all.genes,
                vars.to.regress=latent.vars,
                model.use=opt$modeluse)
+
+flog.info("Done log-normalization")
 
 ## If cell cycle genes are given, make a PCA of the cells based
 ## on expression of cell cycle genes

@@ -208,10 +208,9 @@ def createSeurat(infile, outfile):
 
     # add options for normalisation - this is required for cell cycle
     # scoring only
-    if PARAMS["regress_latentvars"] is not none:
-        options["latentvars"] = PARAMS["regress_latentvars"]
+    options["latentvars"] = PARAMS["regress_latentvars"]
     options["modeluse"] = PARAMS["regress_modeluse"]
-
+    
     # add cell cycle options
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
@@ -231,7 +230,6 @@ def createSeurat(infile, outfile):
                    --log_filename=%(log_file)s
                 '''
     P.run(statement)
-
     IOTools.touch_file(outfile)
 
 
@@ -321,18 +319,16 @@ def runNormalization(infile, outfile):
     if os.path.isdir(PARAMS["hvg_annotation"]):
         options["vargenes_dir"] = PARAMS["hvg_annotation"]
 
-    if PARAMS["regress_latentvars"] is not none:
-        options["regress_latentvars"] = PARAMS["regress_latentvars"]
+    options["regress_latentvars"] = PARAMS["regress_latentvars"]
     options["regress_modeluse"] = PARAMS["regress_modeluse"]
 
     # add cell cycle options
-    if PARAMS["regress_cellcycle"] is not "none" :
-        if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
-            os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
-            options["sgenes"] = PARAMS["cellcycle_sgenes"]
-            options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-        options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
-
+    options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
+    if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
+        os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
+        options["sgenes"] = PARAMS["cellcycle_sgenes"]
+        options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
+    
 
     # resource allocation
     nslots = PARAMS["resources_nslots"]
@@ -446,20 +442,10 @@ def runIntegration(infile, outfile):
     options["seurat_obj"] = norm_seurat
     options["split_var"] = PARAMS["integration_split_factor"]
     options["tool"] = tool
-
-    # add cell cycle options to latentvars if required
-    if PARAMS["regress_cellcycle"] is not "none" :
-        if PARAMS["regress_latentvars"] is not "none":
-            if ',' in PARAMS["regress_latentvars"]:
-                vregs = PARAMS["regress_latentvars"].split(",")
-            else:
-                vregs = [PARAMS["regress_latentvars"]]
-            options["regress_latentvars"] = ",".join(vregs + [PARAMS["regress_cellcycle"]])
-        else:
-            options["regress_latentvars"] = PARAMS["regress_cellcycle"]
-    else:
-        options["regress_latentvars"] = PARAMS["regress_latentvars"]
-
+    
+    # specify variables to regress
+    options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
+    options["regress_latentvars"] = PARAMS["regress_latentvars"]
     options["regress_modeluse"] = PARAMS["regress_modeluse"]
 
     # add path to the list of hv genes to use for integration
@@ -524,20 +510,6 @@ def plotsIntegration(infile, outfile):
     options["seurat_obj"] = norm_seurat
     options["split_var"] = PARAMS["integration_split_factor"]
     options["tool"] = tool
-    # add cell cycle options to latentvars if required
-    if PARAMS["regress_cellcycle"] is not "none" :
-        if PARAMS["regress_latentvars"] is not "none":
-            if ',' in PARAMS["regress_latentvars"]:
-                vregs = PARAMS["regress_latentvars"].split(",")
-            else:
-                vregs = [PARAMS["regress_latentvars"]]
-            options["regress_latentvars"] = ",".join(vregs + [PARAMS["regress_cellcycle"]])
-        else:
-            options["regress_latentvars"] = PARAMS["regress_cellcycle"]
-    else:
-        options["regress_latentvars"] = PARAMS["regress_latentvars"]
-
-    options["regress_modeluse"] = PARAMS["regress_modeluse"]
 
     # add path to the list of hv genes to use for integration
     if os.path.isfile(PARAMS["hvg_list"]):

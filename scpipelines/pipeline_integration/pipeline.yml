@@ -65,7 +65,8 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to run findVariableGenes on merged dataset or per batch.
+    # Whether to run normalization and findVariableGenes on merged dataset 
+    # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
     # Supply a comma-separated list (no spaces) for this option
     merged_normalisation: 0,1
 

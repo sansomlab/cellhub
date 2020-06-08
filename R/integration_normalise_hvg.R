@@ -68,7 +68,7 @@ default_options <- list(
   "regress_modeluse" = "linear",
 
   # Variables to regress, example: percent.mito
-  "regress_latentvars" = NULL,
+  "regress_latentvars" = "none",
 
   # Whether to regress cell cycle, options: none, difference, all
   "regress_cellcycle" = "none",
@@ -123,7 +123,7 @@ s.full_misc <- s.full@misc
 
 
 # Set variables to regress
-if ( ! is.null(opt$regress_latentvars)){
+if ( ! identical(opt$regress_latentvars, "none")){
   if(grepl(",", opt$regress_latentvars)){
     vreg <- unlist(strsplit(opt$regress_latentvars, split=","))
   } else {

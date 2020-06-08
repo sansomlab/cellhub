@@ -58,8 +58,11 @@ default_options <- list(
   
   # Variables to regress, example: percent.mito
   # cell cycle already added to this as part of the pipeline.py
-  "regress_latentvars" = NULL,
+  "regress_latentvars" = "none",
   
+  # Whether to regress cell cycle, options: none, difference, all
+  "regress_cellcycle" = "none",
+
   # Model used to regress out latent variables (log-normalisation)
   "regress_modeluse" = "linear",
   
@@ -109,7 +112,7 @@ flog.info("Default assay of Seurat object: %s", DefaultAssay(s.full))
 s.full_misc <- s.full@misc
 
 # Set variables to regress
-if ( ! is.null(opt$regress_latentvars)){
+if ( ! identical(opt$regress_latentvars, "none")){
   if(grepl(",", opt$regress_latentvars)){
     vreg <- unlist(strsplit(opt$regress_latentvars, split=","))
   } else {
@@ -120,16 +123,19 @@ if ( ! is.null(opt$regress_latentvars)){
   flog.info("No variable regression...")
 }
 
-## add cell cycle to regression variables
-if ( c("all") %in% opt$regress_latentvars ) {
-  flog.info("Cell cycle correction for S and G2M scores will be applied")
-  vreg <- c(vreg[!grepl("all", vreg)], "S.Score", "G2M.Score")
-} else if ( c("difference") %in% opt$regress_latentvars ){
-  flog.info("Cell cycle correction for the difference between G2M and S phase scores will be applied")
-  vreg <- c(vreg[!grepl("difference", vreg)], "CC.Difference")
-} else {
+if ( identical(opt$regress_cellcycle, "none") ) {
   flog.info("Data will be scaled without correcting for cell cycle")
-} 
+} else {
+  if ( identical(opt$regress_cellcycle, "all") ){
+    flog.info("Cell cycle correction for S and G2M scores will be applied")
+    vreg <- c(vreg, "S.Score", "G2M.Score")
+  } else if ( identical(opt$regress_cellcycle, "difference") ) {
+    flog.info("Cell cycle correction for the difference between G2M and S phase scores will be applied")
+    vreg <- c(vreg, "CC.Difference")
+  } else {
+    stop("Cell cycle regression type not recognised")
+  }
+}
 
 ## ######################################################################### ##
 ## ################ (ii) re-run PCA on selected hv genes ################### ##

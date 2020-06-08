@@ -52,13 +52,6 @@ default_options <- list(
   # the PCA + harmony integration
   "hv_genes" = NULL,
   
-  # Variables to regress, example: percent.mito
-  # cell cycle already added to this as part of the pipeline.py
-  "regress_latentvars" = NULL,
-  
-  # Model used to regress out latent variables (log-normalisation)
-  "regress_modeluse" = "linear",
-  
   # Harmony or rawdata
   "tool" = "harmony",
   
