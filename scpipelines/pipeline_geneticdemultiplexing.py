@@ -73,6 +73,7 @@ def parsechannel(outfile):
     samples = samples_str.strip().replace(" ", "").split(",")
     os.mkdir("results.channel.dir")
     os.chdir("results.channel.dir")
+    rchannel ="results.channel.dir" 
     statements = []    
     for sam in samples: 
         outdir= "results." + sam
@@ -88,7 +89,7 @@ def parsechannel(outfile):
                                 --samplename=%(sam)s
                                 --subset=%(subset)s
                                 --outdir=%(outdir)s
-                                &> %(outdir)s/%(logfile)s
+                                &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())     
         P.run(statements)
     IOTools.touch_file(outfile)
