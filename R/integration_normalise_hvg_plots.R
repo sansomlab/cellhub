@@ -41,7 +41,8 @@ opts_chunk$set(echo=FALSE,
                warning=FALSE,
                message = FALSE,
                include = FALSE,
-               fig.path = params$fig_path)
+               fig.path = params$fig_path,
+	       dev.args = list(png = list(type = "cairo")))
 
 # Parameters -------------------------------------------------------------------
 # The script expects the following paramters:
