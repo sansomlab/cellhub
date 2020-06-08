@@ -58,13 +58,17 @@ if len(sys.argv) > 1:
 
 @originate("results.channel.dir/parsechannel.sentinel")
 def parsechannel(outfile):
-    samples_str=str(PARAMS["channel_sample"])
+    
     basedir=PARAMS["channel_basedir"]
     demultiplexing=PARAMS["channel_demultiplexing"]
     subset=PARAMS["channel_subset"]
     job_threads = PARAMS["channel_numcpu"]
 
-    samples = samples_str.strip().replace(" ", "").split(",")
+    
+    dem = os.listdir(basedir)[0]
+    tmpdir=os.path.join(basedir, dem)
+    drname = os.listdir(tmpdir)
+    samples = list(dict.fromkeys([i.split('-', 1)[0] for i in drname])) 
     rchannel ="results.channel.dir"
     
     if not os.path.exists(rchannel):
