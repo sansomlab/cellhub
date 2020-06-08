@@ -71,7 +71,8 @@ def parsechannel(outfile):
     job_threads = PARAMS["channel_numcpu"]
     
     samples = samples_str.strip().replace(" ", "").split(",")
-
+    os.mkdir("results.channel.dir")
+    os.chdir("results.channel.dir")
     statements = []    
     for sam in samples: 
         outdir= "results." + sam
@@ -80,8 +81,7 @@ def parsechannel(outfile):
             os.mkdir(outdir)
         
         logfile = "channel.parser.log"
-        
-        
+        cellhub_dir = PARAMS["cellhub_dir"] 
         statements.append('''Rscript %(cellhub_dir)s/R/parse_genetic_multiplexing.R 
                                 --basedir=%(basedir)s
                                 --demultiplexing=%(demultiplexing)s
@@ -93,6 +93,8 @@ def parsechannel(outfile):
         P.run(statements)
     IOTools.touch_file(outfile)
 
+os.chdir('../')
+
 @follows(parsechannel)
 #prob not transform ???
 @transform(parsechannel,
@@ -102,13 +104,14 @@ def reportall(infile,outfile):
     
     project=PARAMS["project_project"]
     
-    outdir= "results." + project
+    outdir= "results." + project + ".dir"
     if not os.path.exists(outdir):
         os.mkdir(outdir)
     
     samples=PARAMS["project_sampledir"]
     subset=PARAMS["project_subset"]
-    baseoutdir =PARAMS["project_basedir"] 
+    #baseoutdir =PARAMS["project_basedir"] 
+    baseoutdir = "results.channel.dir"
     job_threads = PARAMS["project_numcpu"]    
     logfile = "project.parser.log"
     
