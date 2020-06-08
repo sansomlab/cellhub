@@ -71,9 +71,11 @@ def parsechannel(outfile):
     job_threads = PARAMS["channel_numcpu"]
     
     samples = samples_str.strip().replace(" ", "").split(",")
-    os.mkdir("results.channel.dir")
-    os.chdir("results.channel.dir")
     rchannel ="results.channel.dir" 
+    if not os.path.exists(rchannel):
+        os.mkdir(rchannel)
+    os.chdir(rchannel)
+    
     statements = []    
     for sam in samples: 
         outdir= "results." + sam
