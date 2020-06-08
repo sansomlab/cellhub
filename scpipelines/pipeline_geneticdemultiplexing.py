@@ -77,7 +77,7 @@ def parsechannel(outfile):
 
     statements = []
     for sam in samples:
-        outdir= "results." + sam
+        outdir= "results.channel.dir/results." + sam
 
         if not os.path.exists(outdir):
             os.mkdir(outdir)
@@ -89,18 +89,18 @@ def parsechannel(outfile):
                                 --demultiplexing=%(demultiplexing)s
                                 --samplename=%(sam)s
                                 --subset=%(subset)s
-                                --outdir=%(rchannel)s/%(outdir)s
-                                &> %(rchannel)s/%(outdir)s/%(logfile)s
+                                --outdir=%(outdir)s
+                                &> %(outdir)s/%(logfile)s
                           ''' % locals())
         P.run(statements)
     IOTools.touch_file(outfile)
 
-os.chdir('../')
+
 
 @follows(parsechannel)
 #prob not transform ???
 @transform(parsechannel,
-           regex(r"(.*)/results.channel.dir/parsechannel.sentinel"),
+           regex(r"parsechannel.sentinel"),
            r"project.parser.sentinel")
 def reportall(infile,outfile):
 
