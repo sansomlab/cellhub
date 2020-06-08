@@ -101,7 +101,7 @@ os.chdir('../')
 @follows(parsechannel)
 #prob not transform ???
 @transform(parsechannel,
-           regex(r"results.channel.dir/parsechannel.sentinel"),
+           regex(r"(.*)/results.channel.dir/parsechannel.sentinel"),
            r"project.parser.sentinel")
 def reportall(infile,outfile):
     
