@@ -88,7 +88,7 @@ def parsechannel(outfile):
                                 --demultiplexing=%(demultiplexing)s
                                 --samplename=%(sam)s
                                 --subset=%(subset)s
-                                --outdir=%(outdir)s
+                                --outdir=%(rchannel)s/%(outdir)s
                                 &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())     
         P.run(statements)
