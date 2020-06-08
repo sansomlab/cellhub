@@ -101,7 +101,7 @@ os.chdir('../')
 @follows(parsechannel)
 #prob not transform ???
 @transform(parsechannel,
-           regex(r"parsechannel.sentinel"),
+           regex(r"results.channel.dir/parsechannel.sentinel"),
            r"project.parser.sentinel")
 def reportall(infile,outfile):
     
@@ -127,7 +127,7 @@ def reportall(infile,outfile):
                             &> %(outdir)s/%(logfile)s
                 '''
     P.run(statement)
-    
+    IOTools.touch_file(outfile)
     
 
 # ########################################################################### #                             
