@@ -62,7 +62,7 @@ os.chdir(baseoutdir)
 # ########################################################################### #
 
 
-@originate("parsechannel.sentinel")
+@originate("results.channel.dir/parsechannel.sentinel")
 def parsechannel(outfile):
     samples_str=str(PARAMS["channel_sample"])
     basedir=PARAMS["channel_basedir"]
@@ -74,23 +74,23 @@ def parsechannel(outfile):
     rchannel ="results.channel.dir"
     if not os.path.exists(rchannel):
         os.mkdir(rchannel)
-
+    os.chdir(rchannel)
     statements = []
     for sam in samples:
-        outdir= "results.channel.dir/results." + sam
+        outdir= "results." + sam
 
         if not os.path.exists(outdir):
             os.mkdir(outdir)
 
         logfile = "channel.parser.log"
         cellhub_dir = PARAMS["cellhub_dir"]
-        statements.append('''cd %(rchannel)s && Rscript %(cellhub_dir)s/R/parse_genetic_multiplexing.R
+        statements.append('''Rscript %(cellhub_dir)s/R/parse_genetic_multiplexing.R
                                 --basedir=%(basedir)s
                                 --demultiplexing=%(demultiplexing)s
                                 --samplename=%(sam)s
                                 --subset=%(subset)s
-                                --outdir=%(outdir)s
-                                &> %(outdir)s/%(logfile)s
+                                --outdir=%(rchannel)s%(outdir)s
+                                &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())
         P.run(statements)
     IOTools.touch_file(outfile)
@@ -100,7 +100,7 @@ def parsechannel(outfile):
 @follows(parsechannel)
 #prob not transform ???
 @transform(parsechannel,
-           regex(r"parsechannel.sentinel"),
+           regex(r"results.channel.dir/parsechannel.sentinel"),
            r"project.parser.sentinel")
 def reportall(infile,outfile):
 
