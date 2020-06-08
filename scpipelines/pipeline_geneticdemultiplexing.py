@@ -66,9 +66,12 @@ def parsechannel(outfile):
 
     samples = samples_str.strip().replace(" ", "").split(",")
     rchannel ="results.channel.dir"
+    
     if not os.path.exists(rchannel):
         os.mkdir(rchannel)
+    
     os.chdir(rchannel)
+    
     statements = []
     for sam in samples:
         outdir= "results." + sam
@@ -87,7 +90,7 @@ def parsechannel(outfile):
                                 &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())
         P.run(statements)
-      
+    os.chdir("../")      
     IOTools.touch_file(outfile)
 
 
@@ -105,9 +108,8 @@ def reportall(infile,outfile):
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
-    samples=PARAMS["project_sampledir"]
+    samples=PARAMS["project_skipsamples"]
     subset=PARAMS["project_subset"]
-    #baseoutdir =PARAMS["project_basedir"]
     baseoutdir = "results.channel.dir"
     job_threads = PARAMS["project_numcpu"]
     logfile = "project.parser.log"

@@ -40,8 +40,8 @@ project:
   numcpu: 1
   # the name of the projet results folder 
   project: P190381
-  # which channels belong to this project and you want to exclude from plots because they failed? (leave empty if you want to plot everything)
-  skipsamples: 726070_GX06
+  # which channels belong to this project and you want to exclude from plots because they failed? (leave empty or NULL if you want to plot everything)
+  skipsamples: 
   # just subset the plotting of specific diagnostic on some param*alg combinations. 
   # can be different than the first subset specified in the per channel task
   subset: demuxlet-gtf-0.1,demuxlet-wgs-0.1,vireo-gtf,vireo-known,vireo-wgs
