@@ -83,19 +83,46 @@ def connect():
     return dbh
 
 
+
+@transform(PARAMS['data_sequencing_info'],
+           regex("\S+/(\S+).tsv"),
+           r"\1.tsv")
+def preprocess_metadata_sequencing(infile, outfile):
+    '''Process metadata from sequencig core because it contains the column Index'''
+
+    df = pd.read_table(infile)
+    df.columns = df.columns.str.replace(' ','_')
+    df.rename(columns={'Index':'SampleIndex'}, inplace=True)
+    df.to_csv(outfile, sep='\t', index=False)
+    
+
+
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(preprocess_metadata_sequencing,
+           suffix(".tsv"),
+           r"\1.load")
+def load_metadata_sequencing(infile, outfile):
+    '''load metadata of sequencing data into database '''
+
+
+    P.load(infile, outfile,
+           tablename="metadata_sequencing",
+           options="--primary-key=Sequencing_ID")
+
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform("metadata/*_metadata.tsv.gz",
            suffix(".tsv.gz"),
            ".load")
-def load_metadata(infile, outfile):
-    '''load metadata into database '''
+def load_metadata_samples(infile, outfile):
+    '''load metadata of patients into database '''
 
     P.load(infile, outfile,
-           tablename="metadata_%s" % P.to_table(outfile),
+           tablename="metadata_patient",
            options="--primary-key=")
 
 
-@follows(load_metadata)
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform("scrublet/*_scrublet.tsv.gz",
            suffix(".tsv.gz"),
@@ -117,7 +144,8 @@ def load_merged_scrublet(infiles, outfile):
 
 
     P.concatenate_and_load(infiles, outfile,
-           tablename="merged_scrublet")
+                           tablename="merged_scrublet",
+                           options="--primary-key=barcode")
 
 
 @follows(load_merged_scrublet)
@@ -131,6 +159,19 @@ def load_qcmetrics(infile, outfile):
     P.load(infile, outfile,
            tablename="qcmetrics_%s" % P.to_table(outfile),
            options="--primary-key=barcode")
+
+
+@follows(load_merged_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@merge("qc_metrics/*_metrics.tsv.gz",
+           "qcmetrics_merge.load")
+def load_merged_qcmetrics(infiles, outfile):
+    '''load qcmetrics output data into database '''
+
+
+    P.concatenate_and_load(infiles, outfile,
+                           tablename="merged_qcmetric",
+                           options="--primary-key=barcode")
 
 
 
