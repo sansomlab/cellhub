@@ -68,6 +68,7 @@ def parsechannel(outfile):
     dem = os.listdir(basedir)[0]
     tmpdir=os.path.join(basedir, dem)
     drname = os.listdir(tmpdir)
+    drname = [filename for filename in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir,filename))]
     samples = list(dict.fromkeys([i.split('-', 1)[0] for i in drname])) 
     rchannel ="results.channel.dir"
     
@@ -93,7 +94,7 @@ def parsechannel(outfile):
                                 --outdir=%(rchannel)s/%(outdir)s
                                 &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())
-        P.run(statements)
+    P.run(statements)
     os.chdir("../")      
     IOTools.touch_file(outfile)
 
