@@ -58,20 +58,19 @@ import glob
 
 @collate(glob.glob(os.path.join(PARAMS['channel_basedir'],"*/*/")),
          regex("\S+/\S+/(\S+)"),
-         r"results.channel.dir/results.\1/-parsechannel.sentinel")
-def parsechannel(outfile):
+         r"results.channel.dir/results.\1/\1_General_demultiplexing_results.tsv.gz")
+def parsechannel(infiles, outfile):
     
+    infile = infiles[0]
+    infile_name = infile.replace("-channel","")
+    infile_name = os.path.basename(os.path.normpath(infile_name))
+
     basedir=PARAMS["channel_basedir"]
     demultiplexing=PARAMS["channel_demultiplexing"]
     subset=PARAMS["channel_subset"]
     job_threads = PARAMS["channel_numcpu"]
 
-    
-    dem = os.listdir(basedir)[0]
-    tmpdir=os.path.join(basedir, dem)
-    drname = os.listdir(tmpdir)
-    drname = [filename for filename in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir,filename))]
-    samples = list(dict.fromkeys([i.split('-', 1)[0] for i in drname])) 
+ 
     rchannel ="results.channel.dir"
     
     if not os.path.exists(rchannel):
@@ -80,33 +79,30 @@ def parsechannel(outfile):
     os.chdir(rchannel)
     
     statements = []
-    for sam in samples:
-        outdir= "results." + sam
 
-        if not os.path.exists(outdir):
-            os.mkdir(outdir)
+    outdir = "results." + infile_name
 
-        logfile = "channel.parser.log"
-        cellhub_dir = PARAMS["cellhub_dir"]
-        statements.append('''Rscript %(cellhub_dir)s/R/parse_genetic_multiplexing.R
-                                --basedir=%(basedir)s
-                                --demultiplexing=%(demultiplexing)s
-                                --samplename=%(sam)s
-                                --subset=%(subset)s
-                                --outdir=%(rchannel)s/%(outdir)s
-                                &> %(rchannel)s/%(outdir)s/%(logfile)s
-                          ''' % locals())
-    P.run(statements)
-    os.chdir("../")      
-    IOTools.touch_file(outfile)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    logfile = "channel.parser.log"
+    cellhub_dir = PARAMS["cellhub_dir"]
+    statement = '''Rscript %(cellhub_dir)s/R/parse_genetic_multiplexing.R
+                   --basedir=%(basedir)s
+                   --demultiplexing=%(demultiplexing)s
+                   --samplename=%(infile_name)s
+                   --subset=%(subset)s
+                   --outdir=%(rchannel)s/%(outdir)s
+                   &> %(rchannel)s/%(outdir)s/%(logfile)s
+                   ''' % locals()
+    P.run(statement)
 
 
 
 @follows(parsechannel)
-#prob not transform ???
 @transform(parsechannel,
-           regex(r"results.channel.dir/parsechannel.sentinel"),
-           r"project.parser.sentinel")
+           regex("results.channel.dir/results.(/S+)/(/S+)_General_demultiplexing_results.tsv.gz"),
+           r"\1-project.parser.sentinel")
 def reportall(infile,outfile):
 
     project=PARAMS["project_project"]
@@ -130,7 +126,6 @@ def reportall(infile,outfile):
                             &> %(outdir)s/%(logfile)s
                 '''
     P.run(statement)
-    IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
