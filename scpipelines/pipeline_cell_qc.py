@@ -115,11 +115,11 @@ def qc_metrics_jobs():
     
     for sample_name in samples.index:
       out_sample = "_".join([sample_name, "qcmetrics.tsv.gz"])
-      out_sentinel = "/".join(["qc_metrics", out_sample])
+      out_sentinel = "/".join(["qcmetrics.dir", out_sample])
       infile = None
       yield(infile, out_sentinel)
 
-@follows(mkdir("qc_metrics"))
+@follows(mkdir("qcmetrics.dir"))
 @files(qc_metrics_jobs)
 def calculate_qc_metrics(infile, outfile):
     '''This task will run R/calculate_qc_metrics.R, 
@@ -127,7 +127,7 @@ def calculate_qc_metrics(infile, outfile):
     Ouput: creates a qc_metrics folder and a sample_qcmetrics.tsv.gz table per sample/channel
     '''
 
-    # Get cellranger directory
+    # Get cellranger directory and id
     sample_name = outfile.split("/")[-1].replace("_qcmetrics.tsv.gz", "")
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
@@ -147,6 +147,7 @@ def calculate_qc_metrics(infile, outfile):
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/calculate_qc_metrics.R
                  --cellranger_dir=%(cellranger_dir)s
+                 --id=%(sample_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
                  --outfile=%(outfile)s
@@ -166,11 +167,11 @@ def qc_doublet_scoring_jobs():
     
     for sample_name in samples.index:
       out_sample = "_".join([sample_name, "scrublet.sentinel"])
-      out_sentinel = "/".join(["scrublet", out_sample])
+      out_sentinel = "/".join(["scrublet.dir", out_sample])
       infile = None
       yield(infile, out_sentinel)
 
-@follows(mkdir("scrublet"))
+@follows(mkdir("scrublet.dir"))
 @files(qc_doublet_scoring_jobs)
 def run_scrublet(infile, outfile):
     '''This task will run python/run_scrublet.py, 
