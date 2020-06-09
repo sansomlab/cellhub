@@ -19,12 +19,14 @@ options(stringsAsFactors = F)
 option_list <- list(
   make_option(c("--cellranger_dir"), default=".",
               help="Folder with filtered cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
+  make_option(c("--id"), default=NULL,
+              help="sample or channel id"),
   make_option(c("--genesets_file"), default=NULL,
               help="Two-column tsv file with genesets to evaluate, one geneset per row. First column: name of geneset; Second column: name of the file containing the geneset. The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row)."),
   make_option(c("--numcores"), default=2,
               help="Number of cores used to run scater's perCellQCMetrics function"),
-  make_option(c("--log_filename"), default="qc_metrics.log"),
-  make_option(c("--outfile"), default="qc_metrics.tsv.gz")
+  make_option(c("--log_filename"), default="qcmetrics.log"),
+  make_option(c("--outfile"), default="qcmetrics.tsv.gz")
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -66,6 +68,7 @@ total_UMI <- colSums(counts(s))
 
 # Create dataframe 
 cell_qc <- tibble(barcode = colData(s)$Barcode, 
+                  id=opt$id,
                   ngenes = ngenes, 
                   total_UMI= total_UMI) 
 
@@ -158,6 +161,6 @@ cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
 
 # Write table
 flog.info("Writing output table")
-write.table(cell_qc, file = gzfile(opt$outfile), quote=FALSE, row.names = FALSE)
+write.table(cell_qc, file = gzfile(opt$outfile), quote=FALSE, row.names = FALSE, sep="\t")
 
 flog.info("Completed")
