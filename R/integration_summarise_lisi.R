@@ -4,7 +4,7 @@
 #'  html_document:
 #'   self_contained: false
 #' params:
-#'  task_yml: "/gfs/devel/kjansen/integration_pipeline/Rmd/integration_harmony.test.yml"
+#'  task_yml: ""
 #'  fig_path: "fig.dir/"
 #'  log_filename: "summarise_lisi.log"
 #' ---
@@ -23,15 +23,10 @@
 stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(ggplot2))
-stopifnot(require(Seurat))
-stopifnot(require(Matrix))
 stopifnot(require(dplyr))
 stopifnot(require(tidyr))
-stopifnot(require(reshape2))
-stopifnot(require(tenxutils))
 stopifnot(require(knitr))
 stopifnot(require(RColorBrewer))
-stopifnot(require(gridExtra))
 stopifnot(require(futile.logger))
 
 # set chunk options
@@ -118,8 +113,10 @@ gp <- ggplot(plot_data, aes(x=lisi_value, color = integration_setting)) + geom_d
 gp <- gp + theme_bw() + scale_color_manual(values = colors_use) 
 gp <- gp + xlab("iLISI")
 
-save_ggplots(file.path(opt$outdir, "iLISI_all"), 
-             gp, width = 15)
+ggsave(file.path(opt$outdir, "iLISI_all.pdf"), 
+       plot = gp, device = cairo_pdf, width=15,
+       units="in")
+
 
 #' 
 #' **Summary of iLISI results:**
@@ -133,9 +130,9 @@ gp <- ggplot(plot_data, aes(x=lisi_value, color = parameters)) + geom_density()
 gp <- gp + facet_wrap(~tool, ncol=1) + scale_color_manual(values = colors_use) + theme_bw()
 gp <- gp + xlab("iLISI")
 
-save_ggplots(file.path(opt$outdir, "iLISI_by_tool"), 
-             gp, width = 10, height = 10)
-
+ggsave(file.path(opt$outdir, "iLISI_by_tool.pdf"), 
+       plot = gp, device = cairo_pdf, width=10,
+       height=10, units="in")
 
 
 #'  
@@ -149,15 +146,15 @@ gp <- ggplot(plot_data, aes(x=lisi_value, fill = parameters)) + geom_histogram(p
 gp <- gp + facet_wrap(~tool, ncol=1) + scale_fill_manual(values = colors_use) + theme_bw()
 gp <- gp + xlab("iLISI") + ylab("Number of cells")
 
-save_ggplots(file.path(opt$outdir, "iLISI_histograms_by_tool"), 
-             gp, width = 10, height = 10)
+ggsave(file.path(opt$outdir, "iLISI_histograms_by_tool.pdf"), 
+       plot = gp, device = cairo_pdf, width=10,
+       height=10, units="in")
 
 #' 
 #'  **Summary of iLISI results split by integration tool (histogram):**
 #+ summary_lisi_histogram_byTool, include=TRUE, fig.height=5, fig.cap="", fig.align="center"
 print(gp)
 #+ include=FALSE
-
 
 
 write.table(plot_data, file.path(opt$outdir, "iLISI_all.tsv"),

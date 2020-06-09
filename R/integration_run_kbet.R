@@ -4,7 +4,7 @@
 #'  html_document:
 #'   self_contained: false
 #' params:
-#'  task_yml: "/gfs/devel/kjansen/integration_pipeline/Rmd/integration_harmony.test.yml"
+#'  task_yml: ""
 #'  fig_path: "fig.dir/"
 #'  log_filename: "kbet.log"
 #' ---
@@ -24,9 +24,6 @@ stopifnot(require(optparse))
 stopifnot(require(yaml))
 stopifnot(require(ggplot2))
 stopifnot(require(Seurat))
-stopifnot(require(Matrix))
-stopifnot(require(dplyr))
-stopifnot(require(tenxutils))
 stopifnot(require(knitr))
 stopifnot(require(futile.logger))
 stopifnot(require(kBET))
@@ -139,8 +136,9 @@ gp <- ggplot(plot.data, aes(class, data)) + geom_boxplot()
 gp <- gp + labs(x='Test', y='Rejection rate',title='kBET test results') 
 gp <- gp + theme_bw() + scale_y_continuous(limits=c(0,1))
 
-save_ggplots(file.path(opt$outdir, "k_bet_boxplot"), 
-             gp)
+
+ggsave(file.path(opt$outdir, "k_bet_boxplot.pdf"), 
+       plot = gp, device = cairo_pdf)
 
 #' Boxplot of kBET results
 #+ boxplot_kbet, include=TRUE, fig.height=3

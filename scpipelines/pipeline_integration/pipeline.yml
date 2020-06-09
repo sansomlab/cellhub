@@ -15,21 +15,15 @@ author: Sansom group
 # compute resource options
 # ------------------------
 resources:
-    # Number of cores used for parallel jobs
-    numcores: 5
-    # Seurat needs a high memory, so fewer cores possible
-    numcores_seurat: 3
+    # number of slots to use for the other tasks.
+    # This is passed via job_threads and to the R scripts.
+    # One slot is assumed to have 1 CPU, 16 GB RAM
+    nslots: 1
 
-    # Memory options for the different steps
-    # Memory_low is used if no further specified
-    memory_low: 10G
-    # Memory_standard is used for createSeurat, integration using
-    # mnn, harmony (1.5 fold), seurat rPCA, calculateSeuratMetrics,
-    # runKBET, runLISI, runClustering
-    memory_standard: 30G
-    # Memory_high is used for tasks: Seurat CCA integration
-    memory_high: 340G
-
+    # Number of slots to use for the integration task
+    # This is passed via job threads
+    # One slot is assumed to have 1 CPU, 16 GB RAM
+    integration_slots: 1
 
 # Regression parameters
 # ---------------------
@@ -58,7 +52,9 @@ cellcycle:
 
 regress:
     ## Removal of unwanted variation (see Seurat::ScaleData)
-    # Latent variables to regress out
+    # Latent variables to regress out, which need to be column
+    # names in the metadata (cell cycle phase does not need to be
+    # added here). If nothing should be regressed, set this to none.
     latentvars: pct_mitochondrial
     # Model used to regress out latent variables
     # Choices: 'linear'|'poisson'|'negbinom'
@@ -69,7 +65,8 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to run findVariableGenes on merged dataset or per batch.
+    # Whether to run normalization and findVariableGenes on merged dataset 
+    # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
     # Supply a comma-separated list (no spaces) for this option
     merged_normalisation: 0,1
 
