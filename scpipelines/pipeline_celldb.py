@@ -53,6 +53,7 @@ from ruffus import *
 import sys
 import os
 import re
+import sqlite3
 import pandas as pd
 
 import cgatcore.experiment as E
@@ -75,10 +76,7 @@ def connect():
     Returns a database connection.
     '''
 
-    dbh = sqlite3.connect(PARAMS["database_url"])
-    cc = dbh.cursor()
-    cc.execute(statement)
-    cc.close()
+    dbh = database.connect(url=PARAMS["database_url"])
 
     return dbh
 
@@ -122,58 +120,117 @@ def load_metadata_samples(infile, outfile):
            options="--primary-key=")
 
 
+@merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
+           "scrublet_merge.tsv")
+def process_merged_scrublet(infiles, outfile):
+    '''Process concatenate data together from scrublet'''
+
+    li = []
+
+    for fname in infiles:
+        df = pd.read_table(fname, index_col=None)
+        df['barcode_id'] = df['barcode'] + df['id']
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform("scrublet/*_scrublet.tsv.gz",
-           suffix(".tsv.gz"),
+@transform(process_merged_scrublet,
+           suffix(".tsv"),
            ".load")
-def load_scrublet(infile, outfile):
+def load_merged_scrublet(infile, outfile):
     '''load scrublet output data into database '''
 
+
     P.load(infile, outfile,
-           tablename="scrublet_%s" % P.to_table(outfile),
-           options="--primary-key=barcode")
+           tablename="merged_scrublet",
+           options="--primary-key=barcode_id")
 
 
-@follows(load_scrublet)
+@merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
+           "qcmetrics_merge.tsv")
+def process_merged_qcmetrics(infiles, outfile):
+    '''Process concatenate data together from qcmetrics'''
+
+    li = []
+
+    for fname in infiles:
+        df = pd.read_table(fname, index_col=None)
+        df['barcode_id'] = df['barcode'] + df['id']
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@merge("scrublet/*_scrublet.tsv.gz",
-           "scrublet_merge.load")
-def load_merged_scrublet(infiles, outfile):
-    '''load scrublet output data into database '''
-
-
-    P.concatenate_and_load(infiles, outfile,
-                           tablename="merged_scrublet",
-                           options="--primary-key=barcode")
-
-
-@follows(load_merged_scrublet)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform("qc_metrics/*_metrics.tsv.gz",
-           suffix(".tsv.gz"),
+@transform(process_merged_qcmetrics,
+           suffix(".tsv"),
            ".load")
-def load_qcmetrics(infile, outfile):
+def load_merged_qcmetrics(infile, outfile):
     '''load qcmetrics output data into database '''
+
 
     P.load(infile, outfile,
-           tablename="qcmetrics_%s" % P.to_table(outfile),
-           options="--primary-key=barcode")
+           tablename="merged_qcmetric",
+           options="--primary-key=barcode_id")
 
 
-@follows(load_merged_scrublet)
+@merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
+       "demux_merged.tsv")
+def process_merged_demux(infiles, outfile):
+    '''Process concatenate data together from qcmetrics'''
+
+    li = []
+
+    for fname in infiles:
+        name = os.path.basename(fname).replace("_SingleCellMetadata_demultiplexing_results.tsv.gz","")
+        df = pd.read_table(fname, index_col=None)
+        df.columns = ['barcode','demuxlet','demuxletV2', 'vireo']
+        df['barcode_id'] = df['barcode'] + name
+        df['id'] = name
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@merge("qc_metrics/*_metrics.tsv.gz",
-           "qcmetrics_merge.load")
-def load_merged_qcmetrics(infiles, outfile):
-    '''load qcmetrics output data into database '''
+@transform(process_merged_demux,
+           suffix(".tsv"),
+           "demux_merged.load")
+def load_merged_demux(infile, outfile):
+    ''' '''
+
+    P.load(infile, outfile,
+           tablename="merged_demux",
+           options="--primary-key=barcode_id")
 
 
-    P.concatenate_and_load(infiles, outfile,
-                           tablename="merged_qcmetric",
-                           options="--primary-key=barcode")
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_demux_qcmetric.load")
+def merge_demux_qcmetric(outfile):
+    ''' '''
 
+    dbh = connect()
+    statement = '''CREATE TABLE merged_qc AS
+                   SELECT * 
+                   FROM merged_qcmetric
+                   LEFT JOIN merged_scrublet
+                   ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id 
+                   LEFT JOIN merged_demux
+                   ON merged_qcmetric.barcode_id = merged_demux.barcode_id;'''
 
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
 
 def full():
     pass
