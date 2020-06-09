@@ -34,16 +34,15 @@ print(opt)
 
 run<- opt$outdir
 opt[which(opt=="NULL")] <- NULL
+opt[which(opt=="None")] <- NULL
 
 
-
-opt$subset<-strsplit(opt$subset,",")[[1]]
-gsub(" ","",opt$subset)->opt$subset
 
 #skip samples instead of listing them
 
 rdir<-system(paste0("ls -d ",opt$basedir,"/results.*"),intern=T)
 gsub("results.","",basename(rdir)) ->rdir
+
 
 if(!is.null(opt$samplename)){
   message("skipping these channels: ")
@@ -52,6 +51,15 @@ if(!is.null(opt$samplename)){
   print(opt$samplename)
   rdir <- rdir[!rdir  %in% opt$samplename]
 }
+
+if(!is.null(opt$subset)){
+  opt$subset<-strsplit(opt$subset,",")[[1]]
+  gsub(" ","",opt$subset)->opt$subset
+}else{
+  cnames<-read.table( paste0(opt$basedir, "results.",rdir[1],"/",rdir[1],"_SingleCellMetadata_demultiplexing_results.tsv.gz"), header=T, sep="\t", check.names = F)
+  opt$subset <- colnames(cnames)[colnames(cnames)!="BARCODE"]
+}
+
 
 
 dlist<- list()
@@ -69,7 +77,7 @@ res.list<-lapply(dlist, function(x) do.call("rbind",x))
 
 for (sub in opt$subset){
   write.table(res.list[[sub]],file=paste0(run, sub, "_demultiplexing_results.tsv"), row.names = F, col.names = T, sep="\t", quote = F)
-  unique(unlist(res.list[[sub]][,sub])) ->gnr
+  as.character(unique(unlist(res.list[[sub]][,sub])) )->gnr
   c("DOUBLET","UNASSIGNED",gnr[!gnr %in% c("DOUBLET","UNASSIGNED")])->gnr
   sum(!gnr %in% c("DOUBLET","UNASSIGNED")) ->vc
   colormap(colormap=colormaps$portland,vc) ->ccol
@@ -94,6 +102,28 @@ for (sub in opt$subset){
       ggtitle(sub)->g1
   
   ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results.pdf")), width=10, height = 7)
+  
+  res.list[[sub]] %>% 
+    rename(general=sub) %>% 
+    mutate(general=factor(general, levels=gnr)) %>% 
+    group_by(sample,general) %>% 
+    summarise(tot=n()) %>% 
+    group_by(sample) %>% 
+    mutate(persample=sum(tot), 
+           percent=100*tot/persample) %>% 
+    ggplot(aes(sample, tot, fill=general)) +
+    geom_bar(stat="identity", position="stack", color="black") +
+    scale_fill_manual(values = vcol, 
+                      breaks=gnr, 
+                      limits=gnr) +
+    theme(axis.text.x = element_text(angle=72, hjust=1 ,vjust=1),
+          legend.position="top", legend.key.size = unit(0.3, "cm")) +
+    guides(colour = guide_legend(nrow = 3))+
+    ggtitle(sub) + ylab("cell yield") ->g1
+  
+  ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results_cellcount.pdf")), width=10, height = 7)
+  
+  
   
 }
 
