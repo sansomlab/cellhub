@@ -54,9 +54,11 @@ if len(sys.argv) > 1:
 # ########################################################################### #
 # ############################# pipeline tasks ############################## #
 # ########################################################################### #
+import glob
 
-
-@originate("results.channel.dir/parsechannel.sentinel")
+@collate(glob.glob(os.path.join(PARAMS['channel_basedir'],"*/*/")),
+         regex("\S+/\S+/(\S+)"),
+         r"results.channel.dir/results.\1/-parsechannel.sentinel")
 def parsechannel(outfile):
     
     basedir=PARAMS["channel_basedir"]
@@ -93,7 +95,7 @@ def parsechannel(outfile):
                                 --outdir=%(rchannel)s/%(outdir)s
                                 &> %(rchannel)s/%(outdir)s/%(logfile)s
                           ''' % locals())
-        P.run(statements)
+    P.run(statements)
     os.chdir("../")      
     IOTools.touch_file(outfile)
 
