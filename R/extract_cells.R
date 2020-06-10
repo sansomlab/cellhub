@@ -37,9 +37,9 @@ print(opt)
 
 if(opt$matrixtype=="mm")
 {
-    matrix_path <- file.path(opt$matrixdir, "matrix.mtx")
-    matrix_barcodes <- file.path(opt$matrixdir, "barcodes.tsv")
-    matrix_features <- file.path(opt$matrixdir, "features.tsv")
+    matrix_path <- file.path(opt$matrixdir, "matrix.mtx.gz")
+    matrix_barcodes <- file.path(opt$matrixdir, "barcodes.tsv.gz")
+    matrix_features <- file.path(opt$matrixdir, "features.tsv.gz")
 
     x <- readMM(matrix_path)
     colnames(x)  <- read.table(matrix_barcodes, stringsAsFactors=FALSE)$V1
@@ -69,7 +69,7 @@ print(dim(x))
 ## Save the results
 matrix_path = file.path(opt$outdir, "matrix.mtx")
 barcodes_path = file.path(opt$outdir, "barcodes.tsv")
-features_path = file.path(opt$outdir, "features.tsv")
+features_path = file.path(opt$outdir, "features.tsv.gz")
 
 ## write out the matrix
 writeMM(x, matrix_path)
@@ -87,4 +87,4 @@ file.copy(matrix_features, features_path)
 ## compress the outputs
 gzip(matrix_path, overwrite=TRUE)
 gzip(barcodes_path, overwrite=TRUE)
-gzip(features_path, overwrite=TRUE)
+
