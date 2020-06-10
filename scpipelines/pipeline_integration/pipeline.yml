@@ -118,9 +118,9 @@ assessment:
     neighbors: 100
 
 qc_integration:
-    # Other columns in metadata to plot,
+    # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
-    plot: nFeature_RNA
+    plot: none
 
 kbet:
     # Number of PCs to use for kbet (50 by default),

@@ -655,7 +655,7 @@ def runScanpyHarmony(infile, outfile):
     
 
     # resource allocation
-    nslots = PARAMS["resources_nslots"]
+    nslots = PARAMS["resources_integration_slots"]
     job_threads = nslots
 
     # save the parameters
@@ -668,10 +668,54 @@ def runScanpyHarmony(infile, outfile):
                     --task-yml=%(task_yaml_file)s &> %(log_file)s
                 '''
     P.run(statement)
-    #IOTools.touch_file(outfile)
+    IOTools.touch_file(outfile)
 
 
-@follows(runScanpyHarmony)
+@active_if(USE_PYTHON)
+@transform(runScanpyHarmony,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
+def plotScanpy(infile, outfile):
+    '''Run scanpy UMAP and make plots'''
+
+    indir = os.path.dirname(infile)
+    outdir = os.path.dirname(outfile)
+    sampleDir = "/".join(indir.split("/")[:-2])
+    tool = sampleDir.split("/")[1].split(".")[0]
+
+    plot_vars_str = str(PARAMS["qc_integration_plot"])
+    if plot_vars_str == 'none':
+        plot_vars = str(PARAMS["integration_split_factor"])
+    else:
+        plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
+        plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
+
+    options = {}
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    # this dir also contains the normalized_integrated_anndata.h5ad file
+    options["outdir"] = outdir
+    options["plot_vars"] = plot_vars
+    options["tool"] = tool
+    log_file = outfile.replace(".sentinel", ".log")
+
+    # resource allocation
+    nslots = PARAMS["resources_nslots"]
+    job_threads = nslots
+
+    # save the parameters
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_umap_scanpy.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+
+    statement = ''' python %(code_dir)s/python/plot_umap_scanpy.py
+                    --task-yml=%(task_yaml_file)s &> %(log_file)s
+                '''
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
+@follows(plotScanpy)
 def python_workflow():
     pass
 
@@ -680,6 +724,7 @@ def python_workflow():
 # ########### Assess the integration using different tools ################## #
 # ########################################################################### #
 
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
@@ -693,8 +738,11 @@ def plotUMAP(infile, outfile):
         os.makedirs(outdir)
 
     plot_vars_str = str(PARAMS["qc_integration_plot"])
-    plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
-    plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
+    if plot_vars_str == 'none':
+        plot_vars = str(PARAMS["integration_split_factor"])
+    else:
+        plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
+        plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
 
     sampleDir = "/".join(indir.split("/")[:-1])
     tool = sampleDir.split("/")[1].split(".")[0]

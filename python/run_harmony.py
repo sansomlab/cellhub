@@ -53,15 +53,6 @@ L.info("Writing output to file %s", results_file)
 # ########################################################################### #
 
 
-#folder_10x = "/well/combat/projects/preprocess/test_datasets/sim_test_data/testData/1400cells_140patients_70channels_input_files/"
-#folder_10x = "/well/combat/projects/preprocess/test_datasets/pbmc_calli/callipbmc/DEN5923A4/filtered_feature_bc_matrix/"
-#matrix_dir = "/users/combat/nci082/work/dropflow_tests/dropflow_integration/test_folder"
-#regress_var = "ExpLibSize"
-#ngenes = 3000
-#batch_var = "Patient"
-#batch_key could be passed to highly variable genes to find them per batch and then merge!
-
-
 adata = sc.read_10x_mtx(opt["matrixdir"],
                         var_names='gene_symbols', cache=True)
 # could use gene_symbols here but then also required:
@@ -95,7 +86,6 @@ else:
     L.info("Determine hv genes using scanpy")
     sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
     #sc.pl.highly_variable_genes(adata)
-
 
 
 # * Note that: previous highly-variable-genes detection is stored as an annotation in .var.highly_variable and auto-detected by PCA --> do not filter for hv genes here
@@ -163,17 +153,3 @@ if opt["tool"] == 'harmony' :
 ## save anndata object
 adata.write(results_file)
 L.info("Completed")
-
-
-### UMAP
-#sc.pp.neighbors(adata, use_rep='X_harmony' , n_pcs = 30, n_neighbors = 20)
-#sc.tl.umap(adata)
-
-
-#adata.obsm['X_umap']=adjusted_pcs.values
-#adata.obsm['X_pca']=adjusted_pcs.values
-#sc.pl.pca(adata, color='ExpLibSize')
-
-# ### Plot harmony components (assigned as umap)
-#sc.pl.umap(adata, color='ExpLibSize')
-#sc.pl.umap(adata, color='Batch', size=12)
