@@ -33,6 +33,7 @@ stopifnot(require(tidyverse))
 stopifnot(require(ComplexHeatmap))
 stopifnot(require(RColorBrewer))
 stopifnot(require(grDevices))
+stopifnot(require(optparse))
 
 
 # set chunk options
@@ -43,6 +44,20 @@ opts_chunk$set(echo=FALSE,
                fig.path = params$fig_path)
 
 # Parameters -------------------------------------------------------------------
+
+option_list <- list(
+  make_option(
+    c("--task_yml"),
+    dest = "task_yml",
+    help="Path to yml file"
+  ),
+  make_option(
+    c("--log_filename"),
+    dest = "log_filename",
+    help="Path to log file"
+  ))
+params <- parse_args(OptionParser(option_list=option_list))
+
 # The script expects the following paramters:
 default_options <- list(
   # Path to the ambient RNA summary output file
@@ -338,9 +353,10 @@ m3 <- Heatmap(m,
 flog.info("Joinning heatmaps")
 ht_list <- m1 + m1ns + m3
 w = 110 * length(samples)
-# png(paste0(opt$outdir, "/top_ambient_heatmap.png"), height = 1000, width=w)
-# draw(ht_list, ht_gap = unit(0.5, "cm"))
-# dev.off()
+
+png(paste0(opt$outdir, "/top_ambient_heatmap.png"), height = 1000, width=w, type="cairo")
+draw(ht_list, ht_gap = unit(0.5, "cm"))
+dev.off()
 
 # set chunk options
 w = 14
