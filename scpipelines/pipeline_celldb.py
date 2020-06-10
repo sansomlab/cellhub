@@ -53,11 +53,13 @@ from ruffus import *
 import sys
 import os
 import re
-import pandas
+import sqlite3
+import pandas as pd
 
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
+import cgatcore.database as database
 
 
 # Load options from the config file
@@ -67,23 +69,225 @@ PARAMS = P.get_parameters(
      "../pipeline.yml",
      "pipeline.yml"])
 
-# Insert database functions here
 
-# Example of loading all tsv to database
-# Need to limit jobs to 1 because cant have concurrent connections with SQLite
+def connect():
+    '''connect to database.
+    Use this method to connect to additional databases.
+    Returns a database connection.
+    '''
+
+    dbh = database.connect(url=PARAMS["database_url"])
+
+    return dbh
+
+
+
+@transform(PARAMS['data_sequencing_info'],
+           regex("\S+/(\S+).tsv"),
+           r"\1.tsv")
+def preprocess_metadata_sequencing(infile, outfile):
+    '''Process metadata from sequencig core because it contains the column Index'''
+
+    df = pd.read_table(infile)
+    df.columns = df.columns.str.replace(' ','_')
+    df.rename(columns={'Index':'SampleIndex'}, inplace=True)
+    df.to_csv(outfile, sep='\t', index=False)
+    
+
+
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(infiles,
+@transform(preprocess_metadata_sequencing,
+           suffix(".tsv"),
+           r"\1.load")
+def load_metadata_sequencing(infile, outfile):
+    '''load metadata of sequencing data into database '''
+
+
+    P.load(infile, outfile,
+           tablename="metadata_sequencing",
+           options="--primary-key=Sequencing_ID")
+
+
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform("metadata/*_metadata.tsv.gz",
+           suffix(".tsv.gz"),
+           ".load")
+def load_metadata_samples(infile, outfile):
+    '''load metadata of patients into database '''
+
+    P.load(infile, outfile,
+           tablename="metadata_patient",
+           options="--primary-key=")
+
+
+@merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
+           "scrublet_merge.tsv")
+def process_merged_scrublet(infiles, outfile):
+    '''Process concatenate data together from scrublet'''
+
+    li = []
+
+    for fname in infiles:
+        df = pd.read_table(fname, index_col=None)
+        df['barcode_id'] = df['barcode'] + df['id']
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
+
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_scrublet,
            suffix(".tsv"),
            ".load")
-def loadExample(infile, outfile):
-    '''load comparison data into database.'''
-
-    # csvdb otpions
-    options = ""
-    P.load(infile, outfile, options)
+def load_merged_scrublet(infile, outfile):
+    '''load scrublet output data into database '''
 
 
-# -------------------------------
+    P.load(infile, outfile,
+           tablename="merged_scrublet",
+           options="--primary-key=barcode_id")
+
+
+@merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
+           "qcmetrics_merge.tsv")
+def process_merged_qcmetrics(infiles, outfile):
+    '''Process concatenate data together from qcmetrics'''
+
+    li = []
+
+    for fname in infiles:
+        df = pd.read_table(fname, index_col=None)
+        df['barcode_id'] = df['barcode'] + df['id']
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
+
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_qcmetrics,
+           suffix(".tsv"),
+           ".load")
+def load_merged_qcmetrics(infile, outfile):
+    '''load qcmetrics output data into database '''
+
+
+    P.load(infile, outfile,
+           tablename="merged_qcmetric",
+           options="--primary-key=barcode_id")
+
+
+@merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
+       "demux_merged.tsv")
+def process_merged_demux(infiles, outfile):
+    '''Process concatenate data together from qcmetrics'''
+
+    li = []
+
+    for fname in infiles:
+        name = os.path.basename(fname).replace("_SingleCellMetadata_demultiplexing_results.tsv.gz","")
+        df = pd.read_table(fname, index_col=None)
+        df.columns = ['barcode','demuxlet','demuxletV2', 'vireo']
+        df['barcode_id'] = df['barcode'] + name
+        df['id'] = name
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_demux,
+           suffix(".tsv"),
+           "demux_merged.load")
+def load_merged_demux(infile, outfile):
+    ''' '''
+
+    P.load(infile, outfile,
+           tablename="merged_demux",
+           options="--primary-key=barcode_id")
+
+
+@follows(load_merged_qcmetrics, load_merged_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_scrublet_qcmetric.load")
+def merge_scrublet_qcmetric(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp1 
+                   AS SELECT 
+                   merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
+                   merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
+                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin, 
+                   merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
+                   merged_qcmetric.id, merged_qcmetric.barcode,
+                   merged_scrublet.scrub_doublet_scores,
+                   merged_scrublet.scrub_predicted_doublets
+                   FROM merged_qcmetric
+                   INNER JOIN merged_scrublet
+                   ON merged_scrublet.barcode_id = merged_qcmetric.barcode_id;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+    
+    iotools.touch_file(outfile)
+
+@follows(merge_scrublet_qcmetric, load_merged_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_demux.load")
+def merge_with_demux(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp2 
+                   AS
+                   SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
+                   merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
+                   merged_tmp1.pct_immunoglobin, merged_tmp1.pct_hemoglobin,
+                   merged_tmp1.mitoribo_ratio, merged_tmp1.barcode_id,
+                   merged_tmp1.id, merged_tmp1.barcode,
+                   merged_tmp1.scrub_doublet_scores,
+                   merged_tmp1.scrub_predicted_doublets,
+                   merged_demux.demuxlet, merged_demux.demuxletV2,
+                   merged_demux.vireo
+                   FROM merged_tmp1
+                   LEFT JOIN merged_demux
+                   ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+
+@follows(load_metadata_sequencing)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_demux.load")
+def merge_with_seqmeta(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp3
+                   AS
+                   SELECT * FROM merged_tmp2
+                   LEFT JOIN metadata_sequencing
+                   ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
 
 
 def full():
