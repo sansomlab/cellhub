@@ -340,6 +340,7 @@ def runNormalization(infile, outfile):
     then store the seurat object for integration.'''
 
     outdir = os.path.dirname(outfile)
+    expdir = infile.split("/")[0]
     tool = outfile.split("/")[1].split(".")[0]
     run_options = outfile.split("/")[2][:-len(".run.dir")]
     log_file = outfile.replace(".sentinel", ".log")
@@ -348,7 +349,7 @@ def runNormalization(infile, outfile):
     # add task specific options
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
-    options["seurat_obj"] = infile
+    options["seurat_obj"] = os.path.join(expdir, "seurat.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
     options["ngenes"] = int(run_options.split("_")[1])
     if 'harmony' in outfile:
@@ -627,8 +628,8 @@ def runScanpyHarmony(infile, outfile):
     if 'harmony' in outfile:
         options["merge_normalisation"] = run_options.split("_")[2]
  
-    options["regress_latentvars"] = PARAMS["regress_latentvars"]
-    options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
+    options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
+    options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
 
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):

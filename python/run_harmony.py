@@ -20,8 +20,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 L = logging.getLogger("run_harmony")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
-
-sc.logging.print_versions()
+# comment this because of numba issues
+#sc.logging.print_versions()
 
 # ########################################################################### #
 # ############################ Script arguments ############################# #
@@ -44,6 +44,9 @@ sc.settings.set_figure_params(dpi=300, dpi_save=300)
 # write folder                                                                                    
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
+L.info("Running with options ---> %s", opt)
+
+L.info("Writing output to file %s", results_file)
 
 # ########################################################################### #
 # ######################## Read input data ################################## #
@@ -60,7 +63,7 @@ results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
 
 adata = sc.read_10x_mtx(opt["matrixdir"],
-                   var_names='gene_symbols')
+                        var_names='gene_symbols', cache=True)
 # could use gene_symbols here but then also required:
 adata.var_names_make_unique()
 
@@ -105,17 +108,22 @@ if ',' in opt["regress_latentvars"]:
 else:
     regress_vars = opt["regress_latentvars"]
 
-sc.pp.regress_out(adata, [regress_vars])
+if opt["regress_latentvars"] == 'none':
+    L.info("No regression performed")
+else:
+    L.info("Starting regression")
+    sc.pp.regress_out(adata)
 
 # Clip values exceeding standard deviation 10 according to tutorial.
 sc.pp.scale(adata, max_value=10)
 
+# TODO
 # run cell cycle scoring
-s_genes = pd.read_csv(opt["sgenes"])[0].tolist()
-g2m_genes = pd.read_csv(opt["g2mgenes"])[0].tolist()
+#s_genes = pd.read_csv(opt["sgenes"])[0].tolist()
+#g2m_genes = pd.read_csv(opt["g2mgenes"])[0].tolist()
 # match the gene ids here!
 
-sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
+#sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
 
 adata.write(results_file)
 
@@ -146,12 +154,20 @@ if opt["tool"] == 'harmony' :
     ## save harmony components
     harmony_out = pd.DataFrame(adata.obsm["X_harmony"],
                                index=adata.obs['barcode'])
+    harmony_out.columns = ["harmony_" + str(i) for i in range(1,harmony_out.shape[1]+1)]
+    harmony_out.reset_index(inplace=True)
+
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
 ## save anndata object
 adata.write(results_file)
 L.info("Completed")
+
+
+### UMAP
+#sc.pp.neighbors(adata, use_rep='X_harmony' , n_pcs = 30, n_neighbors = 20)
+#sc.tl.umap(adata)
 
 
 #adata.obsm['X_umap']=adjusted_pcs.values
