@@ -238,7 +238,7 @@ def ambient_rna_compare(infile, outfile):
     job_threads = PARAMS["resources_threads"]
 
     # Formulate and run statement
-    statement = '''Rscript -e %(code_dir)s/R/ambient_rna_compare.R
+    statement = '''Rscript %(code_dir)s/R/ambient_rna_compare.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
