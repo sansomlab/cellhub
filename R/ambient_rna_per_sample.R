@@ -42,6 +42,22 @@ opts_chunk$set(echo=FALSE,
                include = FALSE)
 
 # Parameters -------------------------------------------------------------------
+
+# these parameters are passed from Rscript run
+option_list <- list(
+  make_option(
+    c("--task_yml"),
+    dest = "task_yml",
+    help="Path to yml file"
+  ),
+  make_option(
+    c("--log_filename"),
+    dest = "log_filename",
+    help="Path to log file"
+  ))
+params <- parse_args(OptionParser(option_list=option_list))
+
+
 # The script expects the following parameters:
 default_options <- list(
   # The path to the directory containing the cellranger 
@@ -59,6 +75,8 @@ default_options <- list(
   
   # Path to the file containing barcodes for blacklisting
   "blacklist" = NULL
+  
+  
 )
 
 
