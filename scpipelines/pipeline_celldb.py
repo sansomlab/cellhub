@@ -214,23 +214,81 @@ def load_merged_demux(infile, outfile):
            options="--primary-key=barcode_id")
 
 
+@follows(load_merged_qcmetrics, load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_demux_qcmetric.load")
-def merge_demux_qcmetric(outfile):
+@originate("merge_scrublet_qcmetric.load")
+def merge_scrublet_qcmetric(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_qc AS
-                   SELECT * 
+    statement = '''CREATE TABLE merged_tmp1 
+                   AS SELECT 
+                   merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
+                   merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
+                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin, 
+                   merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
+                   merged_qcmetric.id, merged_qcmetric.barcode,
+                   merged_scrublet.scrub_doublet_scores,
+                   merged_scrublet.scrub_predicted_doublets
                    FROM merged_qcmetric
-                   LEFT JOIN merged_scrublet
-                   ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id 
-                   LEFT JOIN merged_demux
-                   ON merged_qcmetric.barcode_id = merged_demux.barcode_id;'''
+                   INNER JOIN merged_scrublet
+                   ON merged_scrublet.barcode_id = merged_qcmetric.barcode_id;'''
 
     cc = database.executewait(dbh, statement, retries=5)
 
     cc.close()
+    
+    iotools.touch_file(outfile)
+
+@follows(merge_scrublet_qcmetric, load_merged_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_demux.load")
+def merge_with_demux(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp2 
+                   AS
+                   SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
+                   merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
+                   merged_tmp1.pct_immunoglobin, merged_tmp1.pct_hemoglobin,
+                   merged_tmp1.mitoribo_ratio, merged_tmp1.barcode_id,
+                   merged_tmp1.id, merged_tmp1.barcode,
+                   merged_tmp1.scrub_doublet_scores,
+                   merged_tmp1.scrub_predicted_doublets,
+                   merged_demux.demuxlet, merged_demux.demuxletV2,
+                   merged_demux.vireo
+                   FROM merged_tmp1
+                   LEFT JOIN merged_demux
+                   ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+
+@follows(load_metadata_sequencing)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_demux.load")
+def merge_with_seqmeta(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp3
+                   AS
+                   SELECT * FROM merged_tmp2
+                   LEFT JOIN metadata_sequencing
+                   ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
 
 def full():
     pass
