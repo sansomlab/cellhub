@@ -213,6 +213,8 @@ write.table(ambient.genes, gzfile(paste0(opt$outdir, "/ambient_genes.txt.gz")),
 
 x <- cowplot::plot_grid(x,p, ncol=2, scale = 0.9, rel_widths = c(1,1))
 
+ggsave(x, filename = paste0(opt$outdir, "/ambient_umi_distribution.png"), height=7, width=8)
+
 #' ## UMIs in ambient droplets `r opt$sample_name`
 #+ umi_in_ambient_droplets, include=TRUE, fig.width=12, fig.cap="", fig.align="center"
 x
