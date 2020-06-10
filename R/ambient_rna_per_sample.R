@@ -32,7 +32,8 @@ stopifnot(require(yaml),
           require(ggExtra),
           require(cowplot),
           require(scales),
-          require(reshape2)
+          require(reshape2),
+          require(optparse)
           )
 
 # set chunk options
