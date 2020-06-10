@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+
+import argparse
+import matplotlib
+matplotlib.use('Agg')  # plotting backend compatible with screen
+import sys
+import os
+import scanpy as sc
+import harmonypy as hm
+import pandas as pd
+import matplotlib.pyplot as plt
+import logging
+import yaml
+
+# ########################################################################### #
+# ############### Set up the log and figure folder ########################## #
+# ########################################################################### #
+
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+L = logging.getLogger("run_harmony")
+
+sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
+
+sc.logging.print_versions()
+
+# ########################################################################### #
+# ############################ Script arguments ############################# #
+# ########################################################################### #
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--task-yml", default="", type=str,
+                    help="yml for this task")
+args = parser.parse_args()
+
+
+# Read YAML file
+with open(args.task_yml, 'r') as stream:
+    opt = yaml.safe_load(stream)
+
+# figures folder                                                                                  
+sc.settings.figdir = opt["outdir"]
+sc.settings.set_figure_params(dpi=300, dpi_save=300)
+
+# write folder                                                                                    
+results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
+
+
+# ########################################################################### #
+# ######################## Read input data ################################## #
+# ########################################################################### #
+
+
+#folder_10x = "/well/combat/projects/preprocess/test_datasets/sim_test_data/testData/1400cells_140patients_70channels_input_files/"
+#folder_10x = "/well/combat/projects/preprocess/test_datasets/pbmc_calli/callipbmc/DEN5923A4/filtered_feature_bc_matrix/"
+#matrix_dir = "/users/combat/nci082/work/dropflow_tests/dropflow_integration/test_folder"
+#regress_var = "ExpLibSize"
+#ngenes = 3000
+#batch_var = "Patient"
+#batch_key could be passed to highly variable genes to find them per batch and then merge!
+
+
+adata = sc.read_10x_mtx(opt["matrixdir"],
+                   var_names='gene_symbols')
+# could use gene_symbols here but then also required:
+adata.var_names_make_unique()
+
+# ## add metadata for cells
+metadata = pd.read_csv(os.path.join(opt["matrixdir"], "metadata.tsv.gz"), sep="\t")
+adata.obs = metadata
+
+L.info("Made anndata object")
+
+# ########################################################################### #
+# ################ Run normalization and scaling ############################ #
+# ########################################################################### #
+
+## Basic normalization & log-transformation
+
+sc.pp.normalize_total(adata, target_sum=1e4)
+sc.pp.log1p(adata)
+
+L.info("Finished normalization and log-transform")
+
+## Identify highly variable genes
+
+# If n_top_genes is used then the flavour = 'cellranger'
+if 'hv_genes' in opt.keys():
+    L.info("Use hv genes from list")
+    gene_list = pd.read_csv(opt["hv_genes"])
+    #adata.var.highly_variable = 
+else:
+    L.info("Determine hv genes using scanpy")
+    sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
+    #sc.pl.highly_variable_genes(adata)
+
+
+
+# * Note that: previous highly-variable-genes detection is stored as an annotation in .var.highly_variable and auto-detected by PCA --> do not filter for hv genes here
+
+## Regression & scaling
+
+# convert comma-separate string to list
+if ',' in opt["regress_latentvars"]:
+    regress_vars = opt["regress_latentvars"].split(',')
+else:
+    regress_vars = opt["regress_latentvars"]
+
+sc.pp.regress_out(adata, [regress_vars])
+
+# Clip values exceeding standard deviation 10 according to tutorial.
+sc.pp.scale(adata, max_value=10)
+
+# run cell cycle scoring
+s_genes = pd.read_csv(opt["sgenes"])[0].tolist()
+g2m_genes = pd.read_csv(opt["g2mgenes"])[0].tolist()
+# match the gene ids here!
+
+sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
+
+adata.write(results_file)
+
+
+# ########################################################################### #
+# ###################### Run PCA & Harmony ################################## #
+# ########################################################################### #
+
+## Run PCA
+sc.tl.pca(adata, n_comps = opt["nPCs"])
+
+## extract for harmony
+if opt["tool"] == 'harmony' :
+    L.info("Running harmony")
+    data_mat = adata.obsm['X_pca']
+    meta_data = adata.obs
+    vars_use = [opt["split_var"]]
+
+    ho = hm.run_harmony(data_mat, meta_data, vars_use,
+                        sigma = opt["sigma"],
+                        plot_convergence = True, max_iter_kmeans=30)
+
+    L.info("Finished harmony")
+    adjusted_pcs = pd.DataFrame(ho.Z_corr).T
+
+    adata.obsm['X_harmony']=adjusted_pcs.values
+
+    ## save harmony components
+    harmony_out = pd.DataFrame(adata.obsm["X_harmony"],
+                               index=adata.obs['barcode'])
+    harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
+
+## save anndata object
+adata.write(results_file)
+L.info("Completed")
+
+
+#adata.obsm['X_umap']=adjusted_pcs.values
+#adata.obsm['X_pca']=adjusted_pcs.values
+#sc.pl.pca(adata, color='ExpLibSize')
+
+# ### Plot harmony components (assigned as umap)
+#sc.pl.umap(adata, color='ExpLibSize')
+#sc.pl.umap(adata, color='Batch', size=12)
