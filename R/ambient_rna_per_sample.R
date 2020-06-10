@@ -40,7 +40,8 @@ stopifnot(require(yaml),
 opts_chunk$set(echo=FALSE,
                warning=FALSE,
                message = FALSE,
-               include = FALSE)
+               include = FALSE,
+               dev.args = list(png = list(type = "cairo")))
 
 # Parameters -------------------------------------------------------------------
 
