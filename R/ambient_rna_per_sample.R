@@ -39,8 +39,7 @@ stopifnot(require(yaml),
 opts_chunk$set(echo=FALSE,
                warning=FALSE,
                message = FALSE,
-               include = FALSE,
-               fig.path = params$fig_path)
+               include = FALSE)
 
 # Parameters -------------------------------------------------------------------
 # The script expects the following parameters:
