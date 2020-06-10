@@ -175,13 +175,11 @@ def ambient_rna_per_input(infile, outfile):
     job_threads = PARAMS["resources_threads"]
 
     # Formulate and run statement
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/ambient_rna_per_sample.R',
-                   output_dir = '%(output_dir)s',
-                   intermediates_dir = '%(output_dir)s',
-                   knit_root_dir= '%(knit_root_dir)s',
-                   params=list('task_yml' = '%(task_yaml_file)s',
-                               'fig_path' = '%(fig_path)s',
-                               'log_filename' = '%(log_file)s' ) )"
+    statement = '''Rscript %(code_dir)s/R/ambient_rna_per_sample.R' 
+                   --output_dir=%(output_dir)s
+                   --task_yml=%(task_yaml_file)s
+                   --fig_path=%(fig_path)s
+                   --log_filename=%(log_file)s
                 '''
     P.run(statement)
 
