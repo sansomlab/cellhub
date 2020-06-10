@@ -175,7 +175,7 @@ def ambient_rna_per_input(infile, outfile):
     job_threads = PARAMS["resources_threads"]
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/ambient_rna_per_sample.R' 
+    statement = '''Rscript %(code_dir)s/R/ambient_rna_per_sample.R
                    --output_dir=%(output_dir)s
                    --task_yml=%(task_yaml_file)s
                    --fig_path=%(fig_path)s
