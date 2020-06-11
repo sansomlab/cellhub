@@ -141,8 +141,8 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     # check that genes are in adata
     s_genes = [x for x in s_genes if x in adata.var_names]
     g2m_genes = [x for x in g2m_genes if x in adata.var_names]
-    L.info("Number of G2M genes: " + len(g2m_genes))
-    L.info("Number of S genes: " + len(s_genes))
+    L.info("Number of G2M genes: " + str(len(g2m_genes)))
+    L.info("Number of S genes: " + str(len(s_genes)))
 
     sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
     # add score for difference between phases

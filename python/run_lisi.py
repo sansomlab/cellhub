@@ -54,6 +54,8 @@ L.info("Read input components and metadata")
 select = ['barcode'] + [(opt["split_var"])]
 metadata_lisi = metadata.loc[:, select]
 
+L.info("Compute lisi")
+
 lisi = hm.compute_lisi(components, metadata_lisi, [(opt["split_var"])])
 
 lisi = pd.DataFrame(lisi)

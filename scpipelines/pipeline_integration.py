@@ -710,11 +710,6 @@ def plotScanpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(plotScanpy)
-def python_workflow():
-    pass
-
-
 @active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
@@ -1118,6 +1113,9 @@ def runLISIpy(infile, outfile):
     #IOTools.touch_file(outfile)
 
 
+@follows(plotScanpy, runLISIpy)
+def python_workflow():
+    pass
 
 
 @follows(summariseSeuratMetrics, summariseLISI,
