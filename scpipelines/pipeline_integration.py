@@ -1110,7 +1110,7 @@ def runLISIpy(infile, outfile):
                 '''
 
     P.run(statement)
-    #IOTools.touch_file(outfile)
+    IOTools.touch_file(outfile)
 
 
 @follows(plotScanpy, runLISIpy)
