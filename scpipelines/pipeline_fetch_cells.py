@@ -115,13 +115,14 @@ if len(sys.argv) > 1:
 
 # ------------------------------ < functions > ------------------------------ #
 
-# from:
+# adapted from:
 # https://stackoverflow.com/questions/3431825/
 # generating-an-md5-checksum-of-a-file
 
-def md5(fname):
+def md5gz(fname):
+
     hash_md5 = hashlib.md5()
-    with open(fname, "rb") as f:
+    with gzip.open(fname, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
@@ -282,6 +283,8 @@ def mergeSubsets(infiles, outfile):
 
     feature_file_checksums = []
 
+    statement = ""
+
     for matrix_id in matrices_to_merge:
 
         mtx_file = mtx_specs[matrix_id]["mtx_file"]
@@ -290,20 +293,19 @@ def mergeSubsets(infiles, outfile):
                                      "barcodes.tsv.gz")
 
         # append the matrix values, offsetting the column index
-        statement = '''zcat %(mtx_file)s
+        statement += '''zcat %(mtx_file)s
                        | awk 'NR>2{print $1,$2 + %(column_offset)s,$3}'
-                       >> %(mtx_outfile)s
-                    '''
+                       >> %(mtx_outfile)s; 
+                    ''' % locals()
 
-        P.run(statement)
+        #P.run(statement)
 
         # append the barcodes, adding the matrix identifier
-        statement = '''zcat %(barcodes_file)s
+        statement += '''zcat %(barcodes_file)s
                        | awk '{print $1"-%(matrix_id)s"}'
-                       >> %(barcodes_outfile)s
-                    '''
+                       >> %(barcodes_outfile)s; 
+                    ''' % locals()
 
-        P.run(statement)
 
         # increase the column offset by the number of appended columns
         column_offset += mtx_specs[matrix_id]["ncol"]
@@ -311,11 +313,16 @@ def mergeSubsets(infiles, outfile):
         features_file = os.path.join(os.path.dirname(mtx_file),
                                      "features.tsv.gz")
 
-        feature_file_checksums.append(md5(features_file))
+        feature_file_checksums.append(md5gz(features_file))
+
+    # run the job.
+    P.run(statement)
 
     # check that all of the subsets have identical features.
     if len(set(feature_file_checksums)) != 1:
         raise ValueError("The matrices have different features")
+    else:
+        print("The matrices have the same features")
 
     # compress the outfiles
     statement = '''gzip %(mtx_outfile)s;
