@@ -68,16 +68,23 @@ else:
     obsm_use = 'X_pca'
     key_add = None
 
+dim_red = str(obsm_use.split("_")[1])
+L.info("UMAP is run on the following dimension reduction components: " + dim_red)
+
 # 15 neighbors is default, use 30 harmony components or pcas here
 sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
                 key_added = key_add)
 # umap uses the neighbor coordinates 
 sc.tl.umap(adata, neighbors_key = key_add)
-
 adata.write(results_file)
 
-L.info("Finished running UMAP")
+umap_coord = pd.DataFrame(adata.obsm['X_umap'])
+umap_coord.columns = ["UMAP_1", "UMAP_2"]
+umap_coord['barcode'] = adata.obs['barcode'].tolist()
+umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
 
+L.info("Finished running UMAP and writing coordinates")
 
 # ########################################################################### #
 # ########################## Make plots ##################################### #
