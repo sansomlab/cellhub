@@ -645,14 +645,6 @@ def runScanpyHarmony(infile, outfile):
         ## TO DO: add theta and lambda as options
         sigma = run_options.split("_")[0]
         options["sigma"] = float(sigma)
-    
-    # add cell cycle options
-    # options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
-    # if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
-    #     os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
-    #     options["sgenes"] = PARAMS["cellcycle_sgenes"]
-    #     options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-    
 
     # resource allocation
     nslots = PARAMS["resources_integration_slots"]
@@ -670,6 +662,9 @@ def runScanpyHarmony(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
+# ########################################################################### #
+# ########### Assess the integration using different tools ################## #
+# ########################################################################### #
 
 @active_if(USE_PYTHON)
 @transform(runScanpyHarmony,
@@ -719,10 +714,6 @@ def plotScanpy(infile, outfile):
 def python_workflow():
     pass
 
-
-# ########################################################################### #
-# ########### Assess the integration using different tools ################## #
-# ########################################################################### #
 
 @active_if(USE_R)
 @transform(runIntegration,
@@ -780,6 +771,7 @@ def plotUMAP(infile, outfile):
 
 
 
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/assessIntegration.sentinel")
@@ -851,6 +843,7 @@ def calculateSeuratMetrics(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(USE_R)
 @follows(calculateSeuratMetrics)
 @transform("*.exp.dir/create_seurat.sentinel",
            regex(r"(.*).exp.dir/create_seurat.sentinel"),
@@ -905,6 +898,7 @@ def summariseSeuratMetrics(infile, outfile):
 
 
 ## kbet
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/run_kBET.sentinel")
@@ -968,6 +962,7 @@ def runKBET(infile, outfile):
 
 
 ## LISI
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/run_ilisi.sentinel")
@@ -1019,6 +1014,7 @@ def runLISI(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(USE_R)
 @follows(runLISI)
 @transform("*.exp.dir/create_seurat.sentinel",
            regex(r"(.*).exp.dir/create_seurat.sentinel"),
@@ -1069,6 +1065,59 @@ def summariseLISI(infile, outfile):
 
     P.run(statement)
     IOTools.touch_file(outfile)
+
+
+
+@active_if(USE_PYTHON)
+@transform(runScanpyHarmony,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
+
+def runLISIpy(infile, outfile):
+    '''Assess the integration using iLISI (lisi on batch/dataset). 
+       Use the python implementation as part of the harmonypy package
+    '''
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    # extract tool from file name
+    tool = outfile.split("/")[1].split(".")[0]
+    log_file = outfile.replace(".sentinel", ".log")
+
+    options = {}
+    options["split_var"] = PARAMS["integration_split_factor"]
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+    # extract path from input_samples.tsv
+    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+    infolder = samples.loc[sample_name, "path"]
+    options["matrixdir"] = infolder
+
+    if tool == "harmony":
+        file_name = "harmony.tsv.gz"
+    else:
+        file_name = "pca.tsv.gz"
+
+    options["comp_file"] = os.path.join(os.path.dirname(infile),
+                                        file_name)
+
+    job_threads = PARAMS["resources_nslots"]
+
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "run_ilisi.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+    statement = ''' python %(code_dir)s/python/run_lisi.py
+                    --task-yml=%(task_yaml_file)s &> %(log_file)s
+                '''
+
+    P.run(statement)
+    #IOTools.touch_file(outfile)
+
+
 
 
 @follows(summariseSeuratMetrics, summariseLISI,

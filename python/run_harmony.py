@@ -54,7 +54,7 @@ L.info("Writing output to file %s", results_file)
 
 
 adata = sc.read_10x_mtx(opt["matrixdir"],
-                        var_names='gene_symbols', cache=True)
+                        var_names='gene_symbols')
 # could use gene_symbols here but then also required:
 adata.var_names_make_unique()
 
@@ -219,6 +219,13 @@ if opt["tool"] == 'harmony' :
 
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
+else:
+    L.info("Write out PCA components")
+    pca_out = pd.DataFrame(adata.obsm['X_pca'])
+    pca_out.columns = ["PC_" + str(i) for i in range(1,pca_out.shape[1]+1)]
+    pca_out['barcode'] = adata.obs['barcode'].tolist()
+    pca_out.to_csv(os.path.join(opt["outdir"], "pca.tsv.gz"),
+                   sep="\t", index=False, compression="gzip")
 
 ## save anndata object
 adata.write(results_file)

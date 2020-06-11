@@ -17,7 +17,7 @@ import yaml
 # ########################################################################### #
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-L = logging.getLogger("run_harmony")
+L = logging.getLogger("run_umap")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
 # comment this because of numba issues
