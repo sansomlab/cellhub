@@ -232,7 +232,9 @@ write.table(ambient.genes, gzfile(paste0(opt$outdir, "/ambient_genes.txt.gz")),
 
 x <- cowplot::plot_grid(x,p, ncol=2, scale = 0.9, rel_widths = c(1,1))
 
-ggsave(x, filename = paste0(opt$outdir, "/umi_in_ambient_droplets.png"), height=7, width=8, type = "cairo")
+ggsave(x, filename = paste0(opt$outdir, "/",
+                            opt$sample_name, 
+                            "_umi_in_ambient_droplets.png"), height=7, width=12, type = "cairo")
 
 #' ## UMIs in ambient droplets `r opt$sample_name`
 #+ umi_in_ambient_droplets, include=TRUE, fig.width=12, fig.cap="", fig.align="center"
@@ -292,7 +294,9 @@ p3 <- ggplot(top_genes, aes(x=Symbol, y=percentage_barcodes_expressing, fill=typ
 
 x <- cowplot::plot_grid(p1,p2,p3, nrow=3, align = "v")
 
-ggsave(x, filename = paste0(opt$outdir, "/top_ambient_genes_barplot.png"), height=10, width=15, type="cairo") 
+ggsave(x, filename = paste0(opt$outdir, "/",
+                            opt$sample_name, 
+                            "_top_ambient_genes_barplot.png"), height=10, width=15, type="cairo") 
 
 #' ## Top genes detected in ambient RNA `r opt$sample_name`
 #' The plots below show the top 50 genes with highest UMI counts across ambient droplets
@@ -333,7 +337,9 @@ p <- ggplot(ambient.barcodes.topgenes, aes(x=Symbol, y=value, col=type)) +
         legend.title = element_blank(),
         legend.position = c(0.87, 0.85))
 
-ggsave(p, filename = paste0(opt$outdir, "/top_ambient_genes_expression_boxplots.png"), height=3, width=15, type="cairo")
+ggsave(p, filename = paste0(opt$outdir, "/",
+                            opt$sample_name,
+                            "_top_ambient_genes_expression_boxplots.png"), height=3, width=15, type="cairo")
 
 #' ## Expression of top genes detected in ambient RNA `r opt$sample_name`
 #+ top_ambient_genes_expression_boxplots, include=TRUE, fig.width=15, fig.height=4, fig.cap="", fig.align="center"
