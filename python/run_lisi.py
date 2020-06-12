@@ -51,15 +51,22 @@ L.info("Read input components and metadata")
 # ################################# Run LISI ################################ #
 # ########################################################################### #
 
-select = ['barcode'] + [(opt["split_var"])]
+if ',' in opt["split_var"]:
+    vars_use = opt["split_var"].split(',')
+else:
+    vars_use = [opt["split_var"]]
+
+select = ['barcode'] + vars_use
 metadata_lisi = metadata.loc[:, select]
 
 L.info("Compute lisi")
+L.info("Variables used for lisi are " + ",".join(vars_use))
 
-lisi = hm.compute_lisi(components, metadata_lisi, [(opt["split_var"])])
+lisi = hm.compute_lisi(components, metadata_lisi, vars_use)
 
 lisi = pd.DataFrame(lisi)
-lisi.columns = ["iLISI"]
+col_names = [n + "_iLISI" for n in vars_use]
+lisi.columns = col_names
 lisi['barcode'] = metadata_lisi.loc[:,'barcode']
 
 lisi.to_csv(os.path.join(opt["outdir"], "lisi.tsv.gz"),
@@ -73,7 +80,7 @@ if not os.path.exists(figdir):
 
 # make a simple histogram
 lisi.plot.hist(grid=True, bins=20, rwidth=0.9,
-                   color='#607c8e')
+               alpha = 0.6)
 plt.xlabel('iLISI')
 plt.ylabel('n cells')
 plt.grid(axis='y', alpha=0.75)

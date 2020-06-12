@@ -200,7 +200,12 @@ if opt["tool"] == 'harmony' :
     L.info("Running harmony")
     data_mat = adata.obsm['X_pca']
     meta_data = adata.obs
-    vars_use = [opt["split_var"]]
+    if ',' in opt["split_var"]:
+        vars_use = opt["split_var"].split(',')
+    else:
+        vars_use = [opt["split_var"]]
+
+    L.info("Using following variables for harmony integration: " + ",".join(vars_use))
 
     ho = hm.run_harmony(data_mat, meta_data, vars_use,
                         sigma = opt["sigma"],
