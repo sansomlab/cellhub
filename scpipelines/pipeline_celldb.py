@@ -80,6 +80,15 @@ def connect():
 
     return dbh
 
+def connect_virtual_table():
+    '''connect to database for creating virtual table.
+    Use this method to connect to additional databases.
+    Returns a database connection.
+    '''
+
+    cursor = database.apsw_connect(dbname="csvdb")
+
+    return cursor
 
 
 @transform(PARAMS['data_sequencing_info'],
@@ -92,7 +101,6 @@ def preprocess_metadata_sequencing(infile, outfile):
     df.columns = df.columns.str.replace(' ','_')
     df.rename(columns={'Index':'SampleIndex'}, inplace=True)
     df.to_csv(outfile, sep='\t', index=False)
-    
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
@@ -221,11 +229,11 @@ def merge_scrublet_qcmetric(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp1 
-                   AS SELECT 
+    statement = '''CREATE TABLE merged_tmp1
+                   AS SELECT
                    merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
                    merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
-                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin, 
+                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin,
                    merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
                    merged_qcmetric.id, merged_qcmetric.barcode,
                    merged_scrublet.scrub_doublet_scores,
@@ -237,7 +245,7 @@ def merge_scrublet_qcmetric(outfile):
     cc = database.executewait(dbh, statement, retries=5)
 
     cc.close()
-    
+
     iotools.touch_file(outfile)
 
 @follows(merge_scrublet_qcmetric, load_merged_demux)
@@ -247,7 +255,7 @@ def merge_with_demux(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp2 
+    statement = '''CREATE TABLE merged_tmp2
                    AS
                    SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
                    merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
@@ -286,6 +294,27 @@ def merge_with_seqmeta(outfile):
     cc = database.executewait(dbh, statement, retries=5)
 
     cc.close()
+
+    iotools.touch_file(outfile)
+
+
+
+
+
+###############################################
+# Virtual table uploads
+###############################################
+@active_if(PARAMS['virtual_active'])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(preprocess_metadata_sequencing,
+           suffix(".tsv"),
+           r"\1.virtualload")
+def virt_load_metadata_sequencing(infile, outfile):
+    '''load metadata of sequencing data into database'''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table tmp using tsv("+infile+")")
 
     iotools.touch_file(outfile)
 
