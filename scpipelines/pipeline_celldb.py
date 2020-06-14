@@ -117,15 +117,15 @@ def load_metadata_sequencing(infile, outfile):
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform("metadata/*_metadata.tsv.gz",
-           suffix(".tsv.gz"),
+@transform(PARAMS['data_patient_metadata'],
+           suffix(".tsv"),
            ".load")
 def load_metadata_samples(infile, outfile):
     '''load metadata of patients into database '''
 
     P.load(infile, outfile,
            tablename="metadata_patient",
-           options="--primary-key=")
+           options="")
 
 
 @merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
@@ -298,7 +298,70 @@ def merge_with_seqmeta(outfile):
     iotools.touch_file(outfile)
 
 
+@follows(load_metadata_sequencing, merge_with_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_seqmeta.load")
+def merge_with_seqmeta(outfile):
+    ''' '''
 
+    dbh = connect()
+    statement = '''CREATE TABLE merged_tmp3
+                   AS
+                   SELECT * FROM merged_tmp2
+                   LEFT JOIN metadata_sequencing
+                   ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+@follows(merge_with_seqmeta, load_channel_lookup)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_lookups.load")
+def merge_lookups(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE merged_lookup
+                   AS 
+                   SELECT * FROM
+                   combatid_lookup
+                   LEFT JOIN channel_lookup
+                   ON combatid_lookup.Pool = channel_lookup.Pool;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+@follows(merge_lookups)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_lookups.load")
+def merge_with_lookups(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement = '''CREATE TABLE final
+                   AS
+                   SELECT merged_tmp3.*, merged_lookup.Replicate,
+                          merged_lookup.ID, merged_lookup.Pool,
+                          merged_lookup.Channel, merged_lookup.gPlex,
+                          merged_lookup.Source 
+                   FROM merged_tmp3
+                   LEFT JOIN merged_lookup
+                   ON merged_tmp3.demuxlet = merged_lookup.baseID
+                   AND merged_tmp3.Sequencing_ID = merged_lookup.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
 
 
 ###############################################
@@ -314,9 +377,107 @@ def virt_load_metadata_sequencing(infile, outfile):
 
     cursor = connect_virtual_table()
 
-    cursor.execute("create virtual table tmp using tsv("+infile+")")
+    cursor.execute("create virtual table virt_metaseq using tsv("+infile+")")
 
     iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_metadata_sequencing)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_patient_metadata'],
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_metadata_samples(infile, outfile):
+    '''load metadata of patients into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_meta_sample using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_metadata_samples)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_qcmetrics,
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_merged_qcmetrics(infile, outfile):
+    '''load qcmetrics output data into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_qcmetrics using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_qcmetrics)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_demux,
+           suffix(".tsv"),
+           "demux_merged.virtualload")
+def virt_load_merged_demux(infile, outfile):
+    ''' '''
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_demux using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_scrublet,
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_merged_scrublet(infile, outfile):
+    '''load scrublet output data into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_scrublet using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_qcmetrics, virt_load_merged_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_scrublet_qcmetric.virtualload")
+def virt_merge_scrublet_qcmetric(outfile):
+    ''' '''
+
+    cursor = connect_virtual_table()
+
+    statement = '''SELECT
+                   virt_qcmetrics.ngenes, virt_qcmetrics.total_UMI,
+                   virt_qcmetrics.pct_mitochondrial, virt_qcmetrics.pct_ribosomal,
+                   virt_qcmetrics.pct_immunoglobin, virt_qcmetrics.pct_hemoglobin,
+                   virt_qcmetrics.mitoribo_ratio, virt_qcmetrics.barcode_id,
+                   virt_qcmetrics.id, virt_qcmetrics.barcode,
+                   virt_scrublet.scrub_doublet_scores,
+                   virt_scrublet.scrub_predicted_doublets
+                   FROM virt_qcmetrics
+                   INNER JOIN virt_scrublet
+                   ON virt_scrublet.barcode_id = virt_qcmetrics.barcode_id;'''
+
+    outfile = open("text.csv", "w")
+    for out in cursor.execute(statement):
+        outfile.write(str(out))
+
+    outfile.close()
+    
+    iotools.touch_file(outfile)
+
 
 
 def full():

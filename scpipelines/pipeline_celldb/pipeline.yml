@@ -9,6 +9,8 @@ data:
     # about the indexed, sample names, genome used, sequencing ID
     sequencing_info: '/ifs/projects/adam/combat_project/database_data/samples-metadata.tsv'
 
+    patient_metadata: '/ifs/projects/adam/combat_project/database_data/qc/CBD-CLIN-00001/Final_COMBAT_basic_clinical_data_freeze_090620.tsv'
+
     # Location of the demultiplex results.channel.dir
     demux: /ifs/projects/adam/combat_project/database_data/results.channel.dir
 
@@ -18,6 +20,12 @@ data:
     # location of the qcmetrics data directory
     qcmetrics: /ifs/projects/adam/combat_project/database_data/qc/qcmetrics.dir
 
+    # Lookup table with combatid to pool
+    lookup_combatid: /ifs/projects/adam/combat_project/database_data/grid_and_COMBATID.tsv
+
+    # Lookup table mapping pool to channel
+    lookup_pool: /ifs/projects/adam/combat_project/database_data/Pool_to_channel.tsv
+
 virtual:
-    # Build the database using virtual tables
+    # Build the database using virtual tables, if 0 then it will generate a non-virtual database 
     active: 1
