@@ -10,7 +10,12 @@
 projectname: 10x single cell analysis
 
 # Author
-author: Sansom group
+author: Kathrin Jansen
+
+# Whether to run the python and/or R-based 
+# workflow for integration
+use_python: 1
+use_R: 1
 
 # compute resource options
 # ------------------------
@@ -42,6 +47,8 @@ cellcycle:
     #
     # sgenes: /gfs/archive/sansom/datasets/cell_cycle/human/wang.g1-s.txt
     # g2mgenes: /gfs/archive/sansom/datasets/cell_cycle/human/wang.g2-m.txt
+    # sgenes: /well/combat/users/nci082/work/references/s_genes.tsv
+    # g2mgenes: /well/combat/users/nci082/work/references/g2m_genes.tsv
 
     sgenes: none
     g2mgenes: none
@@ -113,9 +120,9 @@ assessment:
     neighbors: 100
 
 qc_integration:
-    # Other columns in metadata to plot,
+    # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
-    plot: nFeature_RNA
+    plot: none
 
 kbet:
     # Number of PCs to use for kbet (50 by default),

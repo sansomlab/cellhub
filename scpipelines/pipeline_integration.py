@@ -141,6 +141,15 @@ if len(sys.argv) > 1:
         if(sys.argv[1] == "config") and __name__ == "__main__":
                     sys.exit(P.main(sys.argv))
 
+# variable to turn on python functions
+if PARAMS["use_python"]:
+    USE_PYTHON = True
+else:
+    USE_PYTHON = False
+if PARAMS["use_R"]:
+    USE_R = True
+else:
+    USE_R = False
 
 # ########################################################################### #
 # ###### check file with input samples and location of aggr matrix ########## #
@@ -166,7 +175,6 @@ def checkInputs(outfile):
 
 
 # Make sample folders first
-@follows(checkInputs)
 def genClusterJobsSeurat():
     ''' Generate cluster jobs for each sample '''
     samples = pd.read_csv("input_samples.tsv", sep='\t')
@@ -178,10 +186,30 @@ def genClusterJobsSeurat():
         yield(infile, outfile)
 
 
+## prep folders if python workflow is used
+@active_if(USE_PYTHON)
+@follows(checkInputs)
+@files(genClusterJobsSeurat)
+def prepExpFolders(infile, outfile):
+    '''Task to prepare experiment folder - this needs to be run 
+       for python-based analyses only. For R the folders are created as 
+       part of createSeurat.'''
+
+    # create the output directories
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    IOTools.touch_file(outfile)
+
+
+
+
 # ########################################################################### #
 # #################### make a Seurat object ################################# #
 # ########################################################################### #
 
+@active_if(USE_R)
 @follows(checkInputs)
 @files(genClusterJobsSeurat)
 def createSeurat(infile, outfile):
@@ -251,8 +279,8 @@ def genClusterJobs():
     #dir_names = [s.split("/")[-1] for s in samples]
 
     for dirname in experiments:
-        infile = os.path.join(dirname, "seurat.rds")
-        outf = "normalization.sentinel"
+        infile = os.path.join(dirname, "create_seurat.sentinel")
+        outf = "prep_folder.sentinel"
 
         # make per-batch merge option (for harmony only)
         mergedsct_str = str(PARAMS["regress_merged_normalisation"])
@@ -284,23 +312,35 @@ def genClusterJobs():
                     yield [infile, outfile]
 
 
-
-
-# ########################################################################### #
-# ############ Normalization and highly variable genes ###################### #
-# ########################################################################### #
-
-@follows(createSeurat)
+@follows(prepExpFolders, createSeurat)
 @files(genClusterJobs)
-def runNormalization(infile, outfile):
-    '''Load Seurat object, run normalisation and assess highly variable genes,
-    then store the seurat object for integration.'''
+def prepFolders(infile, outfile):
+    '''Task to prepare folders for integration - this needs to be run 
+       for R and python-based analyses.'''
 
     # create the output directories
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    IOTools.touch_file(outfile)
+
+
+# ########################################################################### #
+# ############ Normalization and highly variable genes ###################### #
+# ########################################################################### #
+
+@active_if(USE_R)
+@follows(createSeurat)
+@transform(prepFolders,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/normalization.sentinel")
+def runNormalization(infile, outfile):
+    '''Load Seurat object, run normalisation and assess highly variable genes,
+    then store the seurat object for integration.'''
+
+    outdir = os.path.dirname(outfile)
+    expdir = infile.split("/")[0]
     tool = outfile.split("/")[1].split(".")[0]
     run_options = outfile.split("/")[2][:-len(".run.dir")]
     log_file = outfile.replace(".sentinel", ".log")
@@ -309,7 +349,7 @@ def runNormalization(infile, outfile):
     # add task specific options
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
-    options["seurat_obj"] = infile
+    options["seurat_obj"] = os.path.join(expdir, "seurat.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
     options["ngenes"] = int(run_options.split("_")[1])
     if 'harmony' in outfile:
@@ -350,17 +390,14 @@ def runNormalization(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(USE_R)
 @transform(runNormalization,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/normalization.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/normalization_plots.sentinel")
 def plotsNormalization(infile, outfile):
     '''Make html with plots for normalisation, hv genes and PCA. '''
 
-    # create the output directories
     outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-
     tool = outfile.split("/")[1].split(".")[0]
     run_options = outfile.split("/")[2][:-len(".run.dir")]
     log_file = outfile.replace(".sentinel", ".log")
@@ -416,6 +453,7 @@ def plotsNormalization(infile, outfile):
 # ############ run integration of Seurat object ############################# #
 # ########################################################################### #
 
+@active_if(USE_R)
 @transform(runNormalization,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/normalization.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/integration.sentinel")
@@ -484,6 +522,7 @@ def runIntegration(infile, outfile):
     # remove the intermediate Seurat object
     #os.remove(norm_seurat)
 
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/integration_plots.sentinel")
@@ -551,11 +590,127 @@ def plotsIntegration(infile, outfile):
 def integration_plots():
     pass
 
+# ########################################################################### #
+# ############################ Python workflow ############################## #
+# ########################################################################### #
+
+@active_if(USE_PYTHON)
+@transform(prepFolders,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/integration_python.sentinel")
+def runScanpyHarmony(infile, outfile):
+    '''Run scanpy normalization, hv genes and harmonypy on the data'''
+
+    outdir = os.path.dirname(outfile)
+    # make scanpy.dir for output files
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    tool = outfile.split("/")[1].split(".")[0]
+    run_options = outfile.split("/")[2][:-len(".run.dir")]
+    log_file = outfile.replace(".sentinel", ".log")
+
+    options = {}
+    # add task specific options
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+
+    # extract path from input_samples.tsv
+    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+    infolder = samples.loc[sample_name, "path"]
+
+    options["matrixdir"] = infolder
+    options["tool"] = tool
+    options["split_var"] = PARAMS["integration_split_factor"]
+    options["ngenes"] = int(run_options.split("_")[1])
+    if 'harmony' in outfile:
+        options["merge_normalisation"] = run_options.split("_")[2]
+ 
+    options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
+    options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
+
+    if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
+        os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
+        options["sgenes"] = PARAMS["cellcycle_sgenes"]
+        options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
+    
+    # add path to the list of hv genes to use for integration
+    if os.path.isfile(PARAMS["hvg_list"]):
+        options["hv_genes"] = PARAMS["hvg_list"]
+
+    options["nPCs"] = int(PARAMS["harmony_number_pcs"])
+    if tool == 'harmony':
+        ## TO DO: add theta and lambda as options
+        sigma = run_options.split("_")[0]
+        options["sigma"] = float(sigma)
+
+    # resource allocation
+    nslots = PARAMS["resources_integration_slots"]
+    job_threads = nslots
+
+    # save the parameters
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_python.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+
+    statement = ''' python %(code_dir)s/python/run_harmony.py
+                    --task-yml=%(task_yaml_file)s &> %(log_file)s
+                '''
+    P.run(statement)
+    IOTools.touch_file(outfile)
 
 # ########################################################################### #
 # ########### Assess the integration using different tools ################## #
 # ########################################################################### #
 
+@active_if(USE_PYTHON)
+@transform(runScanpyHarmony,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
+def plotScanpy(infile, outfile):
+    '''Run scanpy UMAP and make plots'''
+
+    indir = os.path.dirname(infile)
+    outdir = os.path.dirname(outfile)
+    sampleDir = "/".join(indir.split("/")[:-2])
+    tool = sampleDir.split("/")[1].split(".")[0]
+
+    plot_vars_str = str(PARAMS["qc_integration_plot"])
+    if plot_vars_str == 'none':
+        plot_vars = str(PARAMS["integration_split_factor"])
+    else:
+        plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
+        plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
+
+    options = {}
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    # this dir also contains the normalized_integrated_anndata.h5ad file
+    options["outdir"] = outdir
+    options["plot_vars"] = plot_vars
+    options["tool"] = tool
+    log_file = outfile.replace(".sentinel", ".log")
+
+    # resource allocation
+    nslots = PARAMS["resources_nslots"]
+    job_threads = nslots
+
+    # save the parameters
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_umap_scanpy.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+
+    statement = ''' python %(code_dir)s/python/plot_umap_scanpy.py
+                    --task-yml=%(task_yaml_file)s &> %(log_file)s
+                '''
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
@@ -569,8 +724,11 @@ def plotUMAP(infile, outfile):
         os.makedirs(outdir)
 
     plot_vars_str = str(PARAMS["qc_integration_plot"])
-    plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
-    plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
+    if plot_vars_str == 'none':
+        plot_vars = str(PARAMS["integration_split_factor"])
+    else:
+        plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
+        plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
 
     sampleDir = "/".join(indir.split("/")[:-1])
     tool = sampleDir.split("/")[1].split(".")[0]
@@ -608,6 +766,7 @@ def plotUMAP(infile, outfile):
 
 
 
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/assessIntegration.sentinel")
@@ -679,6 +838,7 @@ def calculateSeuratMetrics(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(USE_R)
 @follows(calculateSeuratMetrics)
 @transform("*.exp.dir/create_seurat.sentinel",
            regex(r"(.*).exp.dir/create_seurat.sentinel"),
@@ -733,6 +893,7 @@ def summariseSeuratMetrics(infile, outfile):
 
 
 ## kbet
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/run_kBET.sentinel")
@@ -796,6 +957,7 @@ def runKBET(infile, outfile):
 
 
 ## LISI
+@active_if(USE_R)
 @transform(runIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*)/integration.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3/assess.integration.dir/run_ilisi.sentinel")
@@ -847,6 +1009,7 @@ def runLISI(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(USE_R)
 @follows(runLISI)
 @transform("*.exp.dir/create_seurat.sentinel",
            regex(r"(.*).exp.dir/create_seurat.sentinel"),
@@ -897,6 +1060,62 @@ def summariseLISI(infile, outfile):
 
     P.run(statement)
     IOTools.touch_file(outfile)
+
+
+
+@active_if(USE_PYTHON)
+@transform(runScanpyHarmony,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
+
+def runLISIpy(infile, outfile):
+    '''Assess the integration using iLISI (lisi on batch/dataset). 
+       Use the python implementation as part of the harmonypy package
+    '''
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    # extract tool from file name
+    tool = outfile.split("/")[1].split(".")[0]
+    log_file = outfile.replace(".sentinel", ".log")
+
+    options = {}
+    options["split_var"] = PARAMS["integration_split_factor"]
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+    # extract path from input_samples.tsv
+    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+    infolder = samples.loc[sample_name, "path"]
+    options["matrixdir"] = infolder
+
+    if tool == "harmony":
+        file_name = "harmony.tsv.gz"
+    else:
+        file_name = "pca.tsv.gz"
+
+    options["comp_file"] = os.path.join(os.path.dirname(infile),
+                                        file_name)
+
+    job_threads = PARAMS["resources_nslots"]
+
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "run_ilisi.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+    statement = ''' python %(code_dir)s/python/run_lisi.py
+                    --task-yml=%(task_yaml_file)s &> %(log_file)s
+                '''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
+@follows(plotScanpy, runLISIpy)
+def python_workflow():
+    pass
 
 
 @follows(summariseSeuratMetrics, summariseLISI,
