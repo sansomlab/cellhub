@@ -134,10 +134,10 @@ def prepFolders(infile, outfile):
 
 @transform(prepFolders,
            regex(r"profile_per_input/(.*)/prep.sentinel"),
-           r"profile_per_input/\1/ambient_rna.sentinel")
+           r"profile_per_input.dir/\1/ambient_rna.sentinel")
 def ambient_rna_per_input(infile, outfile):
     '''Explore count and gene expression profiles of ambient RNA droplets per input
-    - The output is saved in profile_per_input/<input_id> 
+    - The output is saved in profile_per_input.dir/<input_id> 
     - The output consists on a html report and a ambient_genes.txt.gz file
     - See more details of the output in the ambient_rna_per_sample.R
     '''
@@ -189,10 +189,10 @@ def ambient_rna_per_input(infile, outfile):
 # Compare ambient rna profiles from all inputs (e.g channel, sample)
 
 @merge(ambient_rna_per_input,
-       "profile_compare/ambient_rna_compare.sentinel")
+       "profile_compare.dir/ambient_rna_compare.sentinel")
 def ambient_rna_compare(infile, outfile):
     '''Compare the expression of top ambient RNA genes across inputs
-    - The output is saved in profile_compare
+    - The output is saved in profile_compare.dir
     - Output includes and html report and a ambient_rna_profile.tsv
     - See more details of the output in the ambient_rna_compare.R
     '''
@@ -212,21 +212,9 @@ def ambient_rna_compare(infile, outfile):
     options["sample_id"] = sample_id
     options["sample_table"] = "input_samples.tsv"
     options["outdir"] = outdir
-    if PARAMS["ambientRNA_plot_annotation"] != "none" :
-      if PARAMS["ambientRNA_plot_annotation"] == "all" :
-        cols = samples.columns.values.tolist()
-        remove_cols = {'sample_id','path','blacklist', 'agg_id'}
-        cols = [c for c in cols if c not in remove_cols]
-        cols = ",".join(cols)
-        options["plot_annotation"] = cols
-      else:
-        add_cols = PARAMS["ambientRNA_plot_annotation"]
-        options["plot_annotation"] = "exp_batch,channel_id,seq_batch," + add_cols
-    else:
-      options["plot_annotation"] = "exp_batch,channel_id,seq_batch"
 
     # Write yml file
-    task_yaml_file = os.path.abspath(os.path.join(outdir, "ambientRNA_compare.yml"))
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "ambient_rna_compare.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
     output_dir = os.path.abspath(outdir)
