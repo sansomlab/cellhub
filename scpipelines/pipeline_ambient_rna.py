@@ -205,7 +205,7 @@ def ambient_rna_compare(infile, outfile):
     options = {}
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     sample_id = samples.sample_id.tolist()
-    sample_indir = [ "profile_per_input/" + s for s in sample_id ]
+    sample_indir = [ "profile_per_input.dir/" + s for s in sample_id ]
     sample_indir = ",".join(sample_indir)
     sample_id = ",".join(sample_id)
     options["sample_indir"] = sample_indir
