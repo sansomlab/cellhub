@@ -243,13 +243,13 @@ def process_merged_demux(infiles, outfile):
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_demux,
            suffix(".tsv"),
-           "demux_merged.load")
+           ".load")
 def load_merged_demux(infile, outfile):
     ''' '''
 
     P.load(infile, outfile,
            tablename="merged_demux",
-           options="--primary-key=barcode_id")
+           options="")
 
 
 @follows(load_merged_qcmetrics, load_merged_scrublet)
@@ -259,7 +259,9 @@ def merge_scrublet_qcmetric(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp1
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp1;'''
+    statement2 = '''CREATE TABLE IF NOT EXISTS merged_tmp1
                    AS SELECT
                    merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
                    merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
@@ -272,7 +274,8 @@ def merge_scrublet_qcmetric(outfile):
                    INNER JOIN merged_scrublet
                    ON merged_scrublet.barcode_id = merged_qcmetric.barcode_id;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
 
@@ -285,7 +288,9 @@ def merge_with_demux(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp2
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp2;'''
+    statement2 = '''CREATE TABLE merged_tmp2
                    AS
                    SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
                    merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
@@ -300,7 +305,8 @@ def merge_with_demux(outfile):
                    LEFT JOIN merged_demux
                    ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
 
@@ -315,13 +321,15 @@ def merge_with_seqmeta(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp3
-                   AS
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp3;'''
+    statement2 = '''CREATE TABLE merged_tmp3 AS
                    SELECT * FROM merged_tmp2
                    LEFT JOIN metadata_sequencing
                    ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=50)
 
     cc.close()
 
@@ -335,28 +343,32 @@ def merge_lookups(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_lookup
+
+    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
+    statement2 = '''CREATE TABLE merged_lookup
                    AS 
                    SELECT * FROM
                    combatid_lookup
                    LEFT JOIN channel_lookup
                    ON combatid_lookup.Pool = channel_lookup.Pool;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
 
     iotools.touch_file(outfile)
 
 
-@follows(merge_lookups)
+@follows(merge_lookups, merge_with_seqmeta)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_with_lookups.load")
 def merge_with_lookups(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE final
+    statement1 = '''DROP TABLE IF EXISTS final;'''
+    statement2 = '''CREATE TABLE final
                    AS
                    SELECT merged_tmp3.*, merged_lookup.Replicate,
                           merged_lookup.ID, merged_lookup.Pool,
@@ -367,11 +379,30 @@ def merge_with_lookups(outfile):
                    ON merged_tmp3.demuxlet = merged_lookup.baseID
                    AND merged_tmp3.Sequencing_ID = merged_lookup.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=50)
 
     cc.close()
 
     iotools.touch_file(outfile)
+
+
+@follows(merge_with_lookups)
+def cleanup():
+
+    dbh = connect()
+
+    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
+    statement2 = '''DROP TABLE IF EXISTS merged_tmp1;'''
+    statement3 = '''DROP TABLE IF EXISTS merged_tmp2;'''
+    statement4 = '''DROP TABLE IF EXISTS merged_tmp3;'''
+
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
+    cc = database.executewait(dbh, statement3, retries=5)
+    cc = database.executewait(dbh, statement4, retries=5)
+
+    cc.close()
 
 
 ###############################################
