@@ -116,6 +116,33 @@ def load_metadata_sequencing(infile, outfile):
            options="--primary-key=Sequencing_ID")
 
 
+@follows(load_metadata_sequencing)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_lookup_combatid'],
+           suffix(".tsv"),
+           r".load")
+def load_combatid_lookup(infile, outfile):
+    '''load lookup table of combat ids into database '''
+
+    P.load(infile, outfile,
+           tablename="combatid_lookup",
+           options="")
+
+
+@follows(load_combatid_lookup)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_lookup_pool'],
+           suffix(".tsv"),
+           r".load")
+def load_channel_lookup(infile, outfile):
+    '''load lookup table of channel ids into database '''
+
+    P.load(infile, outfile,
+           tablename="channel_lookup",
+           options="")
+
+
+@follows(load_channel_lookup)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(PARAMS['data_patient_metadata'],
            suffix(".tsv"),
@@ -146,6 +173,7 @@ def process_merged_scrublet(infiles, outfile):
 
 
 
+@follows(load_metadata_samples)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_scrublet,
            suffix(".tsv"),
@@ -177,6 +205,7 @@ def process_merged_qcmetrics(infiles, outfile):
 
 
 
+@follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_qcmetrics,
            suffix(".tsv"),
@@ -210,6 +239,7 @@ def process_merged_demux(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
+@follows(load_merged_qcmetrics)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_demux,
            suffix(".tsv"),
@@ -278,7 +308,7 @@ def merge_with_demux(outfile):
 
 
 
-@follows(load_metadata_sequencing)
+@follows(load_metadata_sequencing, merge_with_demux)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_with_demux.load")
 def merge_with_seqmeta(outfile):
@@ -298,27 +328,7 @@ def merge_with_seqmeta(outfile):
     iotools.touch_file(outfile)
 
 
-@follows(load_metadata_sequencing, merge_with_demux)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_with_seqmeta.load")
-def merge_with_seqmeta(outfile):
-    ''' '''
-
-    dbh = connect()
-    statement = '''CREATE TABLE merged_tmp3
-                   AS
-                   SELECT * FROM merged_tmp2
-                   LEFT JOIN metadata_sequencing
-                   ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
-
-    cc = database.executewait(dbh, statement, retries=5)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
-
-@follows(merge_with_seqmeta, load_channel_lookup)
+@follows(merge_with_seqmeta)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_lookups.load")
 def merge_lookups(outfile):
@@ -453,28 +463,19 @@ def virt_load_merged_scrublet(infile, outfile):
 @follows(virt_load_merged_qcmetrics, virt_load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_scrublet_qcmetric.virtualload")
-def virt_merge_scrublet_qcmetric(outfile):
+def merge_data(outfile):
     ''' '''
 
     cursor = connect_virtual_table()
 
     statement = '''SELECT
-                   virt_qcmetrics.ngenes, virt_qcmetrics.total_UMI,
-                   virt_qcmetrics.pct_mitochondrial, virt_qcmetrics.pct_ribosomal,
-                   virt_qcmetrics.pct_immunoglobin, virt_qcmetrics.pct_hemoglobin,
-                   virt_qcmetrics.mitoribo_ratio, virt_qcmetrics.barcode_id,
-                   virt_qcmetrics.id, virt_qcmetrics.barcode,
-                   virt_scrublet.scrub_doublet_scores,
-                   virt_scrublet.scrub_predicted_doublets
+                   virt_qcmetrics.*, virt_scrublet.*
                    FROM virt_qcmetrics
                    INNER JOIN virt_scrublet
-                   ON virt_scrublet.barcode_id = virt_qcmetrics.barcode_id;'''
+                   ON virt_qcmetrics.barcode_id = virt_scrublet.barcode_id;'''
 
-    outfile = open("text.csv", "w")
-    for out in cursor.execute(statement):
-        outfile.write(str(out))
 
-    outfile.close()
+    cursor.execute(statement)
     
     iotools.touch_file(outfile)
 
