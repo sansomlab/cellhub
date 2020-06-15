@@ -32,7 +32,7 @@ if major < 3:
     raise SystemExit("""Requires Python 3 or later.""")
 
 cellhub_packages = find_packages()
-cellhub_package_dirs = {'pipelines': 'pipelines'}
+cellhub_package_dirs = {'scpipelines': 'scpipelines'}
 
 ##########################################################
 ##########################################################

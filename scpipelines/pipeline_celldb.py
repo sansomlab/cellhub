@@ -80,6 +80,15 @@ def connect():
 
     return dbh
 
+def connect_virtual_table():
+    '''connect to database for creating virtual table.
+    Use this method to connect to additional databases.
+    Returns a database connection.
+    '''
+
+    cursor = database.apsw_connect(dbname="csvdb")
+
+    return cursor
 
 
 @transform(PARAMS['data_sequencing_info'],
@@ -92,7 +101,6 @@ def preprocess_metadata_sequencing(infile, outfile):
     df.columns = df.columns.str.replace(' ','_')
     df.rename(columns={'Index':'SampleIndex'}, inplace=True)
     df.to_csv(outfile, sep='\t', index=False)
-    
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
@@ -108,16 +116,43 @@ def load_metadata_sequencing(infile, outfile):
            options="--primary-key=Sequencing_ID")
 
 
+@follows(load_metadata_sequencing)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform("metadata/*_metadata.tsv.gz",
-           suffix(".tsv.gz"),
+@transform(PARAMS['data_lookup_combatid'],
+           suffix(".tsv"),
+           r".load")
+def load_combatid_lookup(infile, outfile):
+    '''load lookup table of combat ids into database '''
+
+    P.load(infile, outfile,
+           tablename="combatid_lookup",
+           options="")
+
+
+@follows(load_combatid_lookup)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_lookup_pool'],
+           suffix(".tsv"),
+           r".load")
+def load_channel_lookup(infile, outfile):
+    '''load lookup table of channel ids into database '''
+
+    P.load(infile, outfile,
+           tablename="channel_lookup",
+           options="")
+
+
+@follows(load_channel_lookup)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_patient_metadata'],
+           suffix(".tsv"),
            ".load")
 def load_metadata_samples(infile, outfile):
     '''load metadata of patients into database '''
 
     P.load(infile, outfile,
            tablename="metadata_patient",
-           options="--primary-key=")
+           options="")
 
 
 @merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
@@ -138,6 +173,7 @@ def process_merged_scrublet(infiles, outfile):
 
 
 
+@follows(load_metadata_samples)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_scrublet,
            suffix(".tsv"),
@@ -169,6 +205,7 @@ def process_merged_qcmetrics(infiles, outfile):
 
 
 
+@follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_qcmetrics,
            suffix(".tsv"),
@@ -202,16 +239,17 @@ def process_merged_demux(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
+@follows(load_merged_qcmetrics)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_demux,
            suffix(".tsv"),
-           "demux_merged.load")
+           ".load")
 def load_merged_demux(infile, outfile):
     ''' '''
 
     P.load(infile, outfile,
            tablename="merged_demux",
-           options="--primary-key=barcode_id")
+           options="")
 
 
 @follows(load_merged_qcmetrics, load_merged_scrublet)
@@ -221,11 +259,13 @@ def merge_scrublet_qcmetric(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp1 
-                   AS SELECT 
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp1;'''
+    statement2 = '''CREATE TABLE IF NOT EXISTS merged_tmp1
+                   AS SELECT
                    merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
                    merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
-                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin, 
+                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin,
                    merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
                    merged_qcmetric.id, merged_qcmetric.barcode,
                    merged_scrublet.scrub_doublet_scores,
@@ -234,10 +274,11 @@ def merge_scrublet_qcmetric(outfile):
                    INNER JOIN merged_scrublet
                    ON merged_scrublet.barcode_id = merged_qcmetric.barcode_id;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
-    
+
     iotools.touch_file(outfile)
 
 @follows(merge_scrublet_qcmetric, load_merged_demux)
@@ -247,7 +288,9 @@ def merge_with_demux(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp2 
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp2;'''
+    statement2 = '''CREATE TABLE merged_tmp2
                    AS
                    SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
                    merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
@@ -262,7 +305,8 @@ def merge_with_demux(outfile):
                    LEFT JOIN merged_demux
                    ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
 
@@ -270,24 +314,202 @@ def merge_with_demux(outfile):
 
 
 
-@follows(load_metadata_sequencing)
+@follows(load_metadata_sequencing, merge_with_demux)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_with_demux.load")
 def merge_with_seqmeta(outfile):
     ''' '''
 
     dbh = connect()
-    statement = '''CREATE TABLE merged_tmp3
-                   AS
+
+    statement1 = '''DROP TABLE IF EXISTS merged_tmp3;'''
+    statement2 = '''CREATE TABLE merged_tmp3 AS
                    SELECT * FROM merged_tmp2
                    LEFT JOIN metadata_sequencing
                    ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement, retries=5)
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=50)
 
     cc.close()
 
     iotools.touch_file(outfile)
+
+
+@follows(merge_with_seqmeta)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_lookups.load")
+def merge_lookups(outfile):
+    ''' '''
+
+    dbh = connect()
+
+    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
+    statement2 = '''CREATE TABLE merged_lookup
+                   AS 
+                   SELECT * FROM
+                   combatid_lookup
+                   LEFT JOIN channel_lookup
+                   ON combatid_lookup.Pool = channel_lookup.Pool;'''
+
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+@follows(merge_lookups, merge_with_seqmeta)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_with_lookups.load")
+def merge_with_lookups(outfile):
+    ''' '''
+
+    dbh = connect()
+    statement1 = '''DROP TABLE IF EXISTS final;'''
+    statement2 = '''CREATE TABLE final
+                   AS
+                   SELECT merged_tmp3.*, merged_lookup.Replicate,
+                          merged_lookup.ID, merged_lookup.Pool,
+                          merged_lookup.Channel, merged_lookup.gPlex,
+                          merged_lookup.Source 
+                   FROM merged_tmp3
+                   LEFT JOIN merged_lookup
+                   ON merged_tmp3.demuxlet = merged_lookup.baseID
+                   AND merged_tmp3.Sequencing_ID = merged_lookup.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=50)
+
+    cc.close()
+
+    iotools.touch_file(outfile)
+
+
+@follows(merge_with_lookups)
+def cleanup():
+
+    dbh = connect()
+
+    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
+    statement2 = '''DROP TABLE IF EXISTS merged_tmp1;'''
+    statement3 = '''DROP TABLE IF EXISTS merged_tmp2;'''
+    statement4 = '''DROP TABLE IF EXISTS merged_tmp3;'''
+
+    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement2, retries=5)
+    cc = database.executewait(dbh, statement3, retries=5)
+    cc = database.executewait(dbh, statement4, retries=5)
+
+    cc.close()
+
+
+###############################################
+# Virtual table uploads
+###############################################
+@active_if(PARAMS['virtual_active'])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(preprocess_metadata_sequencing,
+           suffix(".tsv"),
+           r"\1.virtualload")
+def virt_load_metadata_sequencing(infile, outfile):
+    '''load metadata of sequencing data into database'''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_metaseq using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_metadata_sequencing)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(PARAMS['data_patient_metadata'],
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_metadata_samples(infile, outfile):
+    '''load metadata of patients into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_meta_sample using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_metadata_samples)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_qcmetrics,
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_merged_qcmetrics(infile, outfile):
+    '''load qcmetrics output data into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_qcmetrics using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_qcmetrics)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_demux,
+           suffix(".tsv"),
+           "demux_merged.virtualload")
+def virt_load_merged_demux(infile, outfile):
+    ''' '''
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_demux using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_scrublet,
+           suffix(".tsv"),
+           ".virtualload")
+def virt_load_merged_scrublet(infile, outfile):
+    '''load scrublet output data into database '''
+
+    cursor = connect_virtual_table()
+
+    cursor.execute("create virtual table virt_scrublet using tsv("+infile+")")
+
+    iotools.touch_file(outfile)
+
+
+
+@active_if(PARAMS['virtual_active'])
+@follows(virt_load_merged_qcmetrics, virt_load_merged_scrublet)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("merge_scrublet_qcmetric.virtualload")
+def merge_data(outfile):
+    ''' '''
+
+    cursor = connect_virtual_table()
+
+    statement = '''SELECT
+                   virt_qcmetrics.*, virt_scrublet.*
+                   FROM virt_qcmetrics
+                   INNER JOIN virt_scrublet
+                   ON virt_qcmetrics.barcode_id = virt_scrublet.barcode_id;'''
+
+
+    cursor.execute(statement)
+    
+    iotools.touch_file(outfile)
+
 
 
 def full():
