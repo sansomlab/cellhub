@@ -22,18 +22,18 @@
 
 # Libraries --------------------------------------------------------------------
 
-stopifnot(require(yaml))
-stopifnot(require(ggplot2))
-stopifnot(require(futile.logger))
-stopifnot(require(knitr))
-stopifnot(require(dplyr))
-stopifnot(require(ggrepel))
-stopifnot(require(stringr))
-stopifnot(require(tidyverse))
-stopifnot(require(ComplexHeatmap))
-stopifnot(require(RColorBrewer))
-stopifnot(require(grDevices))
-stopifnot(require(optparse))
+stopifnot(require(yaml),
+          require(ggplot2),
+          require(futile.logger),
+          require(knitr),
+          require(dplyr),
+          require(ggrepel),
+          require(stringr),
+          require(tidyverse),
+          require(ComplexHeatmap),
+          require(RColorBrewer),
+          require(grDevices),
+          require(optparse))
 
 
 # set chunk options
@@ -123,32 +123,20 @@ for (n in names(indir)){
 }
 df <- df %>% filter(ensembl %in% keep)
 
-## ################################################################ ##
-## ###################### (ii) Make heatmaps ###################### ##
-## ################################################################ ##
-
-# Prepare annotation for heatmap
-sample_table <- read.table(opt$sample_table, header=TRUE, stringsAsFactors = FALSE)
-annotation <- sample_table %>% dplyr::select(-path)
-annotation <- apply(annotation, 2, as.character) %>% as.data.frame()
-rownames(annotation) <- annotation$sample_id
-annotation$sample_id <- NULL
-# Keep annotations from options
-keep <-  str_trim(unlist(str_split(opt$plot_annotation, 
-                                     pattern = "," )),
-                  side="both")
-annotation <- annotation[ , keep , drop=FALSE]
-# Keep annotations with more than 1 level
-annotation <- annotation[,which(apply(annotation,2, function(x) length(unique(x)))>1), drop=FALSE]
-
-#  Make heatmap - percentage of total UMI count ---------------
-flog.info("Creating heatmap of top ambient gene UMI count")
+#  Build matrix
+flog.info("Creating ambient profile matrix")
 df.wide <- df %>% dplyr::select(count_percentage, Symbol, sample) %>% 
   pivot_wider(.,  names_from = sample,values_from = count_percentage) 
 rownames.df.wide <- as.character(df.wide$Symbol)
 df.wide$Symbol <- NULL
 m <- as.matrix(df.wide)
 rownames(m) <- rownames.df.wide
+
+# Save as ambient RNA profile
+m.out = data.frame(gene=rownames(m), m)
+write.table(m.out, file = file.path(opt$outdir, "ambient_rna_profile.tsv"),
+            sep="\t", quote = FALSE, row.names = FALSE)
+
 
 # Set NAs to 0
 m.scaled <- m
@@ -185,36 +173,41 @@ if ( ncol(annotation)>0) {
       cols <- colorRampPalette(RColorBrewer::brewer.pal(palettes[c], n = 8))(length(levels))
       names(cols) <- levels
       col.list[[colnames(annotation)[c]]] <- cols
-      }
-    } else {
-      levels <- unique(as.character(annotation[,1]))
-      cols <- colorRampPalette(RColorBrewer::brewer.pal(palettes[1], n = 8))(length(levels))
-      names(cols) <- levels
-      col.list[[colnames(annotation)]] <- cols
     }
+  } else {
+    levels <- unique(as.character(annotation[,1]))
+    cols <- colorRampPalette(RColorBrewer::brewer.pal(palettes[1], n = 8))(length(levels))
+    names(cols) <- levels
+    col.list[[colnames(annotation)]] <- cols
+  }
   ha <- HeatmapAnnotation(df = annotation, 
                           col = col.list)
 } else {
   ha <- NULL
 }
 
-# Calculate size of plot
+# Calculate size of heatmap body
 ws <- setNames(seq(from = 2.5, to=10, length.out = length(15:2)), nm = as.character(15:2))
 w <- ws[as.character(length(samples))]
 
 # Make heatmap
 m1 <- Heatmap(m.scaled,
-        name = "% of total UMI count\n(row-scaled)", 
-        top_annotation = ha,
-        column_names_rot = 65,
-        row_names_gp = gpar(fontsize = 10),
-        cluster_rows = FALSE,
-        cluster_columns = FALSE, 
-        column_title = "Percentage of\ntotal UMI count\n(row-scaled)",
-        column_names_side = "top",
-        rect_gp = gpar(col='white', lwd=0.5), 
-        heatmap_width = unit(w, "npc"),
-        na_col = "black")
+              name = "% of total UMI count\n(row-scaled)", 
+              top_annotation = ha,
+              column_names_rot = 65,
+              row_names_gp = gpar(fontsize = 10),
+              cluster_rows = FALSE,
+              cluster_columns = FALSE, 
+              column_title = "Percentage of\ntotal UMI count\n(row-scaled)",
+              column_names_side = "top",
+              rect_gp = gpar(col='white', lwd=0.5), 
+              heatmap_width = unit(w, "npc"),
+              na_col = "black")
+
+
+pdf(file = "heatmap_pct_of_total_scaled.pdf", height = 8, width=9)
+draw(m1)
+dev.off()
 
 #  Make heatmap - percentage of total UMI count, non-scaled ---------------
 flog.info("Creating heatmap of top ambient gene barcode percentage detection")
@@ -235,18 +228,18 @@ w <- ws[as.character(length(samples))]
 col_fun = RColorBrewer::brewer.pal(n = 8, name = "YlOrRd")
 
 m1ns <- Heatmap(m,
-              name = "% of total UMI count ", 
-              top_annotation = ha,
-              column_names_rot = 65,
-              row_names_gp = gpar(fontsize = 10),
-              cluster_rows = FALSE, 
-              cluster_columns = FALSE,
-              column_title = "Percentage of\ntotal UMI count",
-              column_names_side = "top",
-              rect_gp = gpar(col='white', lwd=0.5),
-              heatmap_width = unit(w, "npc"),
-              col = col_fun, 
-              na_col = "black")
+                name = "% of total UMI count ", 
+                top_annotation = ha,
+                column_names_rot = 65,
+                row_names_gp = gpar(fontsize = 10),
+                cluster_rows = FALSE, 
+                cluster_columns = FALSE,
+                column_title = "Percentage of\ntotal UMI count",
+                column_names_side = "top",
+                rect_gp = gpar(col='white', lwd=0.5),
+                heatmap_width = unit(w, "npc"),
+                col = col_fun, 
+                na_col = "black")
 
 # Save as ambient RNA profile
 m.out = data.frame(gene=rownames(m), m)
@@ -276,17 +269,17 @@ ws <- setNames(seq(from = 2.5, to=10, length.out = length(15:2)), nm = as.charac
 w <- ws[as.character(length(samples))]
 
 m2 <- Heatmap(m.scaled,
-             name = "% of barcodes\nwith 1 or more counts\n(row-scaled)", 
-             top_annotation = ha,
-             column_names_rot = 65,
-             row_names_gp = gpar(fontsize = 10),
-             cluster_rows = FALSE, 
-             cluster_columns = FALSE,
-             column_title = "Percentage of\nbarcodes with 1 or more\ncounts (row-scaled)",
-             column_names_side = "top",
-             rect_gp = gpar(col='white', lwd=0.5),
-             heatmap_width = unit(w, "npc"),
-             na_col = "black")
+              name = "% of barcodes\nwith 1 or more counts\n(row-scaled)", 
+              top_annotation = ha,
+              column_names_rot = 65,
+              row_names_gp = gpar(fontsize = 10),
+              cluster_rows = FALSE, 
+              cluster_columns = FALSE,
+              column_title = "Percentage of\nbarcodes with 1 or more\ncounts (row-scaled)",
+              column_names_side = "top",
+              rect_gp = gpar(col='white', lwd=0.5),
+              heatmap_width = unit(w, "npc"),
+              na_col = "black")
 
 # Make heatmap - percentage_barcodes_expressing, non-scaled ---------------
 flog.info("Creating heatmap of top ambient gene barcode percentage detection")
@@ -304,18 +297,18 @@ w <- ws[as.character(length(samples))]
 col_fun = RColorBrewer::brewer.pal(n = 8, name = "YlOrRd")
 
 m2ns <- Heatmap(m,
-              name = "% of barcodes\nwith 1 or more counts", 
-              top_annotation = ha,
-              column_names_rot = 65,
-              row_names_gp = gpar(fontsize = 10),
-              cluster_rows = FALSE, 
-              cluster_columns = FALSE,
-              column_title = "Percentage of barcodes\nwith 1 or more counts",
-              column_names_side = "top",
-              rect_gp = gpar(col='white', lwd=0.5),
-              heatmap_width = unit(w, "npc"),
-              col = col_fun,
-              na_col = "black")
+                name = "% of barcodes\nwith 1 or more counts", 
+                top_annotation = ha,
+                column_names_rot = 65,
+                row_names_gp = gpar(fontsize = 10),
+                cluster_rows = FALSE, 
+                cluster_columns = FALSE,
+                column_title = "Percentage of barcodes\nwith 1 or more counts",
+                column_names_side = "top",
+                rect_gp = gpar(col='white', lwd=0.5),
+                heatmap_width = unit(w, "npc"),
+                col = col_fun,
+                na_col = "black")
 
 
 # Make heatmap - top or not ---------------
@@ -393,28 +386,4 @@ ht_list <- m2 + m2ns + m3
 draw(ht_list, ht_gap = unit(50, "mm"))
 #'
 
-# Other plots
-# dirs <- paste0(indir)
-# current_dirc <- getwd()
-# for (d in dirs){
-#   system(paste0("cd ", opt$outdir, "/fig.dir"))
-#   system(paste0("ln -s ", current_dirc, 
-#                 "/", d, "/ambient_umi_distribution.png ", 
-#                 paste0(current_dirc,"/",opt$outdir), 
-#                 "/fig.dir/", 
-#                 gsub("\\.dir.*", "", d), 
-#                 "_ambient_umi_distribution.png"))
-#   system(paste0("cd ", current_dirc))
-# }
-# 
-# inplots=paste0("fig.dir/", names(indir),"_ambient_umi_distribution.png")
-# names(inplots) <- names(indir)
-# for (p in inplots){
-#   cat("![](",p,")")
-#   cat("\n")
-# }
-
-
 flog.info("Completed")
-
-
