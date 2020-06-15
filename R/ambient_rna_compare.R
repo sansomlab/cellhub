@@ -71,7 +71,7 @@ default_options <- list(
   "sample_id" = "",
   
   # File with sample metadata
-  "sample_table" = "",
+  "sample_table" = ""
 )
 
 
