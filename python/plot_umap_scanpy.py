@@ -78,13 +78,16 @@ sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)
 
+L.info("Finished running UMAP")
+
+
 umap_coord = pd.DataFrame(adata.obsm['X_umap'])
 umap_coord.columns = ["UMAP_1", "UMAP_2"]
 umap_coord['barcode'] = adata.obs['barcode'].tolist()
 umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
-L.info("Finished running UMAP and writing coordinates")
+L.info("Finished and writing UMAP coordinates")
 
 # ########################################################################### #
 # ########################## Make plots ##################################### #
@@ -97,11 +100,23 @@ if ',' in opt["plot_vars"]:
     for v in opt["plot_vars"].split(','):
         L.info("Making plot for variable: " + str(v))
         file_name = "_" + str(v)
+        if v in adata.uns['qcdata'].columns:
+            adata.obs[v] = adata.uns['qcdata'][v]
+        elif v in adata.uns['metadata'].columns:
+            adata.obs[v] = adata.uns['metadata'][v]
+        else:
+            raise Exception("This variable is not in metadata")
         sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
         sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.info("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
+    if v in adata.uns['qcdata'].columns:
+        adata.obs[v] = adata.uns['qcdata'][v]
+    elif v in adata.uns['metadata'].columns:
+        adata.obs[v] = adata.uns['metadata'][v]
+    else:
+        raise Exception("This variable is not in metadata")
     sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
     sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 

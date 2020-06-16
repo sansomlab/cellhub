@@ -282,14 +282,18 @@ def genClusterJobs():
         infile = os.path.join(dirname, "create_seurat.sentinel")
         outf = "prep_folder.sentinel"
 
+        # which alignment tools to run
+        tools_str = str(PARAMS["integration_tools_run"])
+        tools = tools_str.strip().replace(" ", "").split(",")
+
         # make per-batch merge option (for harmony only)
-        mergedsct_str = str(PARAMS["regress_merged_normalisation"])
-        mergedsct = mergedsct_str.strip().replace(" ", "").split(",")
-        for (i, item) in enumerate(mergedsct):
+        mergedhvg_str = str(PARAMS["regress_merged_normalisation"])
+        mergedhvg = mergedhvg_str.strip().replace(" ", "").split(",")
+        for (i, item) in enumerate(mergedhvg):
             if item == '0':
-                mergedsct[i] = "perbatch"
+                mergedhvg[i] = "perbatch"
             elif item == '1':
-                mergedsct[i] = "merged"
+                mergedhvg[i] = "merged"
             else:
                 raise ValueError("Merge setting for normalisation can only be 0 or 1.")
 
@@ -301,15 +305,34 @@ def genClusterJobs():
                                    "nhvg_"+str(n)+"_merged.run.dir", outf)
             yield [infile, outfile]
 
-        k_str = str(PARAMS["harmony_sigma"])
-        ks = k_str.strip().replace(" ", "").split(",")
-        for n in ngenes:
-            for k in ks:
-                for m in mergedsct:
-                    outname = "_".join([k,n,m]) + ".run.dir"
-                    outfile = os.path.join(dirname, "harmony.integrated.dir",
-                                           outname, outf)
-                    yield [infile, outfile]
+        for tool in tools:
+
+            if 'harmony' in tool:
+                k_str = str(PARAMS["harmony_sigma"])
+                ks = k_str.strip().replace(" ", "").split(",")
+                for n in ngenes:
+                    for k in ks: 
+                        for m in mergedhvg:
+                            outname = "_".join([k,n,m]) + ".run.dir"
+                            outfile = os.path.join(dirname, "harmony.integrated.dir",
+                                                   outname, outf)
+                            yield [infile, outfile]
+
+            if 'bbknn' in tool:
+                for n in ngenes:
+                    for m in mergedhvg:
+                        outname = "_".join([n,m]) + ".run.dir"
+                        outfile = os.path.join(dirname, "bbknn.integrated.dir",
+                                               outname, outf)
+                        yield [infile, outfile]
+
+            if 'scanorama' in tool:
+                for n in ngenes:
+                    for m in mergedhvg:
+                        outname = "_".join([n,m]) + ".run.dir"
+                        outfile = os.path.join(dirname, "scanorama.integrated.dir",
+                                               outname, outf)
+                        yield [infile, outfile]
 
 
 @follows(prepExpFolders, createSeurat)
@@ -598,7 +621,7 @@ def integration_plots():
 @transform(prepFolders,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/integration_python.sentinel")
-def runScanpyHarmony(infile, outfile):
+def runScanpyIntegration(infile, outfile):
     '''Run scanpy normalization, hv genes and harmonypy on the data'''
 
     outdir = os.path.dirname(outfile)
@@ -656,7 +679,7 @@ def runScanpyHarmony(infile, outfile):
         yaml.dump(options, yaml_file)
 
 
-    statement = ''' python %(code_dir)s/python/run_harmony.py
+    statement = ''' python %(code_dir)s/python/run_scanpy_integration.py
                     --task-yml=%(task_yaml_file)s &> %(log_file)s
                 '''
     P.run(statement)
@@ -667,7 +690,7 @@ def runScanpyHarmony(infile, outfile):
 # ########################################################################### #
 
 @active_if(USE_PYTHON)
-@transform(runScanpyHarmony,
+@transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
 def plotScanpy(infile, outfile):
@@ -1064,7 +1087,7 @@ def summariseLISI(infile, outfile):
 
 
 @active_if(USE_PYTHON)
-@transform(runScanpyHarmony,
+@transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
 

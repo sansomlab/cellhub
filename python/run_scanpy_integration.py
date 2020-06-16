@@ -6,6 +6,10 @@ matplotlib.use('Agg')  # plotting backend compatible with screen
 import sys
 import os
 import scanpy as sc
+import anndata
+import bbknn
+import scanorama
+import scanpy.external as sce
 import harmonypy as hm
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -52,17 +56,12 @@ L.info("Writing output to file %s", results_file)
 # ######################## Read input data ################################## #
 # ########################################################################### #
 
-
-adata = sc.read_10x_mtx(opt["matrixdir"],
-                        var_names='gene_symbols')
-# could use gene_symbols here but then also required:
+adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.m5ad"))
+# this is required for gene_symbols:
 adata.var_names_make_unique()
+adata.obs['barcode'] = adata.obs.index
 
-# ## add metadata for cells
-metadata = pd.read_csv(os.path.join(opt["matrixdir"], "metadata.tsv.gz"), sep="\t")
-adata.obs = metadata
-
-L.info("Made anndata object")
+L.info("Loaded anndata object")
 
 # write out gene annotation
 anno_genes = pd.DataFrame(adata.var["gene_ids"])
@@ -81,6 +80,39 @@ sc.pp.normalize_total(adata, target_sum=1e4)
 sc.pp.log1p(adata)
 
 L.info("Finished normalization and log-transform")
+
+L.info("Making separate object for cell cycle scoring")
+
+adata_cc_genes = adata
+sc.pp.scale(adata_cc_genes)
+
+if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
+    # cell cycle scoring similar to Seurat method
+    # see here: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
+    L.info("Running cell cycle scoring")
+
+    s_genes = pd.read_csv(opt["sgenes"], header=None)[0].tolist()             
+    g2m_genes = pd.read_csv(opt["g2mgenes"], header=None)[0].tolist()
+    
+    # check that genes are in adata
+    s_genes = [x for x in s_genes if x in adata_cc_genes.var_names]
+    g2m_genes = [x for x in g2m_genes if x in adata_cc_genes.var_names]
+    L.info("Number of G2M genes: " + str(len(g2m_genes)))
+    L.info("Number of S genes: " + str(len(s_genes)))
+
+    sc.tl.score_genes_cell_cycle(adata_cc_genes, s_genes=s_genes, g2m_genes=g2m_genes)
+    # add score for difference between phases
+    adata_cc_genes.obs['CC.Difference'] = adata_cc_genes.obs['S_score'] - adata_cc_genes.obs['G2M_score']
+
+    ## make new object to run PCA ONLY on cc genes (otherwise all genes are used by Scanpy)
+    L.info("Running PCA based on only cell cycle genes")
+    cell_cycle_genes = s_genes + g2m_genes
+    adata_cc_subset = adata_cc_genes[:, cell_cycle_genes]
+    sc.tl.pca(adata_cc_subset)
+    sc.pl.pca_scatter(adata_cc_subset, color='phase', show=False, save = "_cc_phase.pdf")
+    sc.pl.pca_scatter(adata_cc_subset, color='G2M_score', show=False, save = "_cc_G2Mscore.pdf")
+    sc.pl.pca_scatter(adata_cc_subset, color='S_score', show=False, save = "_cc_Sscore.pdf")
+
 
 ## Identify highly variable genes
 
@@ -113,6 +145,14 @@ sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 
 # * Note that: previous highly-variable-genes detection is stored as an annotation in .var.highly_variable and auto-detected by PCA --> do not filter for hv genes here
 
+# store progress up to here in .raw slot of anndata
+adata.raw = adata
+adata.write(results_file)
+
+## subset to hv genes for all downstream analyses
+L.info("Subset object to hv genes only")
+adata = adata[:, adata.var.highly_variable]
+
 ## Regression & scaling
 
 # convert comma-separate string to list
@@ -120,6 +160,10 @@ if ',' in opt["regress_latentvars"]:
     regress_vars = opt["regress_latentvars"].split(',')
 else:
     regress_vars = [opt["regress_latentvars"]]
+
+## extract required QC metrics for regression
+for v in regress_vars:
+    adata.obs[v] = adata.uns['qcdata'][v]
 
 if opt["regress_latentvars"] == 'none':
     L.info("No regression performed")
@@ -129,34 +173,6 @@ else:
 
 # Clip values exceeding standard deviation 10 according to tutorial.
 sc.pp.scale(adata, max_value=10)
-
-if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
-    # cell cycle scoring similar to Seurat method
-    # see here: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
-    L.info("Running cell cycle scoring")
-
-    s_genes = pd.read_csv(opt["sgenes"], header=None)[0].tolist()             
-    g2m_genes = pd.read_csv(opt["g2mgenes"], header=None)[0].tolist()
-    
-    # check that genes are in adata
-    s_genes = [x for x in s_genes if x in adata.var_names]
-    g2m_genes = [x for x in g2m_genes if x in adata.var_names]
-    L.info("Number of G2M genes: " + str(len(g2m_genes)))
-    L.info("Number of S genes: " + str(len(s_genes)))
-
-    sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
-    # add score for difference between phases
-    adata.obs['CC.Difference'] = adata.obs['S_score'] - adata.obs['G2M_score']
-
-    ## make new object to run PCA ONLY on cc genes (otherwise all genes are used by Scanpy)
-    L.info("Running PCA based on only cell cycle genes")
-    cell_cycle_genes = s_genes + g2m_genes
-    adata_cc_genes = adata[:, cell_cycle_genes]
-    sc.tl.pca(adata_cc_genes)
-    sc.pl.pca_scatter(adata_cc_genes, color='phase', show=False, save = "_cc_phase.pdf")
-    sc.pl.pca_scatter(adata_cc_genes, color='G2M_score', show=False, save = "_cc_G2Mscore.pdf")
-    sc.pl.pca_scatter(adata_cc_genes, color='S_score', show=False, save = "_cc_Sscore.pdf")
-
 
 if opt["regress_cellcycle"] != 'none':
     L.info("Cell cycle scoring performed. It is set to " + str(opt["regress_cellcycle"]))
@@ -184,7 +200,6 @@ if opt["regress_cellcycle"] != 'none':
 else:
     L.info("Cell cycle scoring set to none.")
 
-
 adata.write(results_file)
 
 
@@ -199,11 +214,14 @@ sc.tl.pca(adata, n_comps = opt["nPCs"])
 if opt["tool"] == 'harmony' :
     L.info("Running harmony")
     data_mat = adata.obsm['X_pca']
-    meta_data = adata.obs
     if ',' in opt["split_var"]:
         vars_use = opt["split_var"].split(',')
     else:
         vars_use = [opt["split_var"]]
+
+    for v in vars_use:
+        adata.obs[v] = adata.uns['metadata'][v]
+    meta_data = adata.obs
 
     L.info("Using following variables for harmony integration: " + ",".join(vars_use))
 
@@ -224,6 +242,32 @@ if opt["tool"] == 'harmony' :
 
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
+elif opt["tool"] == "bbknn":
+    if ',' in opt["split_var"]:
+        raise Exception("Scanorama can only take one variable for integration.")
+    sc.external.pp.bbknn(adata_concat, batch_key='batch')
+
+elif opt["tool"] == "scanorama":
+
+    if ',' in opt["split_var"]:
+        raise Exception("Scanorama can only take one variable for integration.")
+
+    list_ids = (set(adata.uns['metadata'][opt["split_var"]].tolist()))
+    all_anndata = []
+
+    adata.obs[opt["split_var"]] = adata.uns['metadata'][opt["split_var"]]
+
+    for p in list_ids:
+        all_anndata = all_anndata + [adata[adata.obs[opt["split_var"]] == p]]
+    
+    #     batch_size: `int`, optional (default: `5000`)
+    #         The batch size used in the alignment vector computation. Useful when
+    #         correcting very large (>100k samples) data sets. Set to large value
+    #         that runs within available memory.
+
+    ## hvg= option could be used but object already subset to hvg
+    integrated = scanorama.integrate_scanpy(all_anndata, dimred=50, batch_size=5000)
+
 else:
     L.info("Write out PCA components")
     pca_out = pd.DataFrame(adata.obsm['X_pca'])

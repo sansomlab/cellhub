@@ -96,6 +96,9 @@ hvg:
 # -------------
 
 integration:
+    # Options are: harmony | bbknn | scanorama
+    # Supply a comma-separated list (no spaces) for this option
+    tools_run: harmony
     # Factor to use for splitting of object
     # This has to be a column in the metadata of the input Seurat
     # object
