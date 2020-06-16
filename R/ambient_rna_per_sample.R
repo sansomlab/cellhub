@@ -234,7 +234,7 @@ x <- cowplot::plot_grid(x,p, ncol=2, scale = 0.9, rel_widths = c(1,1))
 
 ggsave(x, filename = paste0(opt$outdir, "/",
                             opt$sample_name, 
-                            "_umi_in_ambient_droplets.png"), height=7, width=12, type = "cairo")
+                            "_umi_in_ambient_droplets.png"), height=7, width=14, type = "cairo")
 
 #' ## UMIs in ambient droplets `r opt$sample_name`
 #+ umi_in_ambient_droplets, include=TRUE, fig.width=12, fig.cap="", fig.align="center"
