@@ -335,11 +335,52 @@ def mergeSubsets(infiles, outfile):
     copyfile(features_file, features_outfile)
 
 
+@follows(mkdir("anndata.dir"))
+@transform(mergeSubsets,
+           regex(r"output.dir/matrix.mtx.gz"),
+           r"anndata.dir/matrix.m5ad")
+def exportAnnData(infile, outfile):
+    '''
+       Export a h5ad anndata matrix for downstream analysis with
+       scanpy
+    '''
+
+    mtx_dir = os.path.dirname(infile)
+
+    #placeholders
+    if PARAMS["metadata_file"] is not None:
+        metadata = "--metadata=" + PARAMS["metadata_file"].strip()
+    else:
+        metadata = ""
+
+    if PARAMS["qcdata_file"] is not None:
+        qcdata = "--qcdata=" + PARAMS["qcdata_file"].strip()
+    else:
+        qcdata = ""
+
+    outdir = os.path.dirname(outfile)
+    matrix_name = os.path.basename(outfile)
+
+    log_file = outfile + ".log"
+
+    statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
+                          --mtxdir10x=%(mtx_dir)s
+                          %(metadata)s
+                          %(qcdata)s
+                          --outdir=%(outdir)s
+                          --matrixname=%(matrix_name)s
+                    > %(log_file)s
+                 '''
+
+    P.run(statement)
+
+
+
 # ########################################################################### #
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(mergeSubsets)
+@follows(exportAnnData)
 def full():
     pass
 
