@@ -75,7 +75,8 @@ features_path = file.path(opt$outdir, "features.tsv.gz")
 writeMM(x, matrix_path)
 
 ## write out the "cell" barcodes
-write.table(colnames(x), barcodes_path,
+write.table(read.table(text=colnames(x),sep="-")$V1, 
+            barcodes_path,
             col.names=FALSE,
             sep=",",
             row.names=FALSE,

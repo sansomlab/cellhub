@@ -7,3 +7,14 @@ cell_to_matrix_map_file: None
 # cell matrices with columns
 # "matrix_id" "matrix_dir" "matrix_type"
 matrix_table_file: None
+
+# A tsv file containing a table with cell metadata
+# It must have a "barcode" column that corresponds
+# to the final barcodes of the output matrix
+metadata_file: None
+
+# A tsv file containing a table with qc information
+# It must have a "barcode" column that corresponds
+# to the final barcodes of the output matrix
+qcdata_file: None
+
