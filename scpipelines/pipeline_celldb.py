@@ -110,49 +110,79 @@ def preprocess_metadata_sequencing(infile, outfile):
 def load_metadata_sequencing(infile, outfile):
     '''load metadata of sequencing data into database '''
 
+    to_cluster = True
 
-    P.load(infile, outfile,
-           tablename="metadata_sequencing",
-           options="index=Sequencing_ID")
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                          -i "Sequencing_ID" 
+                          --table=metadata_sequencing 
+                 > %(outfile)s
+              '''
 
+    P.run(statement)
 
 @follows(load_metadata_sequencing)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_lookup_combatid'],
-           suffix(".tsv"),
-           r".load")
+@files(PARAMS['data_lookup_combatid'],
+       r"combatid_lookup.load")
 def load_combatid_lookup(infile, outfile):
     '''load lookup table of combat ids into database '''
 
-    P.load(infile, outfile,
-           tablename="combatid_lookup",
-           options="index=Pool")
+    to_cluster = True
+
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                          -i "Pool" 
+                          -i "Sequencing_ID"
+                          --table=combatid_lookup
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @follows(load_combatid_lookup)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_lookup_pool'],
-           suffix(".tsv"),
-           r".load")
+@files(PARAMS['data_lookup_pool'],
+       "channel_lookup.load")
 def load_channel_lookup(infile, outfile):
     '''load lookup table of channel ids into database '''
 
-    P.load(infile, outfile,
-           tablename="channel_lookup",
-           options="index=Pool")
+    statement='''cat %(infile)s
+                 | sed 's/Sequencing.ID/Sequencing_ID/g'
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                          -i "Pool" 
+                          --table=channel_lookup
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @follows(load_channel_lookup)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_patient_metadata'],
-           suffix(".tsv"),
-           ".load")
+@files(PARAMS['data_patient_metadata'],
+       "metadata_patient.load")
 def load_metadata_samples(infile, outfile):
     '''load metadata of patients into database '''
 
-    P.load(infile, outfile,
-           tablename="metadata_patient",
-           options="")
+
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                           -i "COMBATID" 
+                          --table=metadata_patient
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
@@ -183,9 +213,16 @@ def load_merged_scrublet(infile, outfile):
     '''load scrublet output data into database '''
 
 
-    P.load(infile, outfile,
-           tablename="merged_scrublet",
-           options="index=barcode_id")
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                           -i "barcode_id" 
+                          --table=gex_scrublet
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
@@ -215,10 +252,17 @@ def process_merged_qcmetrics(infiles, outfile):
 def load_merged_qcmetrics(infile, outfile):
     '''load qcmetrics output data into database '''
 
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                          -i "barcode_id" 
+                          -i "sample"
+                          --table=gex_qcmetrics
+                 > %(outfile)s
+              '''
 
-    P.load(infile, outfile,
-           tablename="merged_qcmetric",
-           options="index=barcode_id")
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
@@ -250,9 +294,16 @@ def process_merged_demux(infiles, outfile):
 def load_merged_demux(infile, outfile):
     ''' '''
 
-    P.load(infile, outfile,
-           tablename="merged_demux",
-           options="index=barcode_id")
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                           -i "barcode_id" 
+                          --table=gex_demux
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @follows(load_merged_demux, load_combatid_lookup,
@@ -290,13 +341,13 @@ def final(outfile):
 
     dbh = connect()
 
-    statement = '''CREATE VIEW final AS SELECT * FROM merged_qcmetric
-                    LEFT JOIN merged_scrublet
-                    ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id
-                    LEFT JOIN merged_demux
-                    ON merged_qcmetric.barcode_id = merged_demux.barcode_id
+    statement = '''CREATE VIEW final AS SELECT * FROM gex_qcmetrics
+                    LEFT JOIN gex_scrublet
+                    ON gex_qcmetrics.barcode_id = gex_scrublet.barcode_id
+                    LEFT JOIN gex_demux
+                    ON gex_qcmetrics.barcode_id = gex_demux.barcode_id
                     LEFT JOIN metadata_sequencing
-                    ON metadata_sequencing.Sequencing_ID = merged_qcmetric.sample
+                    ON metadata_sequencing.Sequencing_ID = gex_qcmetrics.sample
                     LEFT JOIN merged_lookup
                     ON merged_lookup.Sequencing_ID = metadata_sequencing.Sequencing_ID;'''
 
