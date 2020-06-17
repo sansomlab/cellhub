@@ -24,8 +24,8 @@ parser.add_argument("--cellranger_dir", default="", type=str,
                     help="Matrix of counts")
 parser.add_argument("--keep_barcodes_file", default=None, type=str,
                     help="")
-parser.add_argument("--id", default="id", type=str,
-                    help="")
+parser.add_argument("--sample", default="sample", type=str,
+                    help="sample or channel id")
 parser.add_argument("--expected_doublet_rate", default=0.06, type=float,
                     help="the expected fraction of transcriptomes that are doublets, typically 0.05-0.1. Results are not particularly sensitive to this parameter.")
 parser.add_argument("--min_counts", default=2, type=int,
@@ -96,14 +96,14 @@ if not hasattr(scrub, 'threshold_'):
   scrub.call_doublets(threshold=1)
   # Creating output file with results  
   out = pd.DataFrame({'barcode': barcodes, 
-                    'id': [args.id] * len(barcodes),
+                    'id': [args.sample] * len(barcodes),
                     'scrub_doublet_scores' : doublet_scores, 
                     'scrub_predicted_doublets' : "NA"})
 else: 
   L.info('Calculated doublet score threshold: {}'.format(scrub.threshold_))
   # Creating output file with results  
-  out = pd.DataFrame({'barcode': barcodes, 
-                    'id': [args.id] * len(barcodes),
+  out = pd.DataFrame({'BARCODE': barcodes, 
+                    'sample': [args.sample] * len(barcodes),
                     'scrub_doublet_scores' : doublet_scores, 
                     'scrub_predicted_doublets' : predicted_doublets})
 
@@ -112,13 +112,13 @@ L.info('Final output shape: {} rows, {} columns'.format(out.shape[0], out.shape[
 # Write output 
 L.info('Writing file with doublet scores and predicted doublets')
 out.to_csv(os.path.join(args.outdir, 
-                        "_".join([args.id, "scrublet.tsv.gz"])),
+                        "_".join([args.sample, "scrublet.tsv.gz"])),
                         sep="\t", index = False)
 
 # Save histogram
 scrub.plot_histogram()
 plt.savefig(os.path.join(args.outdir, 
-                         "_".join([args.id,"doublet_score_histogram.png"])))
+                         "_".join([args.sample,"doublet_score_histogram.png"])))
 
 # Run and plot UMAP
 L.info('Running UMAP')
@@ -126,6 +126,6 @@ scrub.set_embedding('UMAP', scr.get_umap(scrub.manifold_obs_, 10, min_dist=0.3))
 L.info('Plotting UMAP')
 scrub.plot_embedding('UMAP', order_points=True)
 plt.savefig(os.path.join(args.outdir, 
-                         "_".join([args.id, "doublet_score_umap.png"])))
+                         "_".join([args.sample, "doublet_score_umap.png"])))
 
 L.info("Complete")

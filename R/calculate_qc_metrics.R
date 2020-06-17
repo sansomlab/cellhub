@@ -19,10 +19,19 @@ options(stringsAsFactors = F)
 option_list <- list(
   make_option(c("--cellranger_dir"), default=".",
               help="Folder with filtered cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
-  make_option(c("--id"), default=NULL,
+  make_option(c("--sample"), default=NULL,
               help="sample or channel id"),
+  make_option(c("--barcodes_to_label_as_True"), default=NULL,
+              help="A header-less, two-column, gziped tsv.gz file with barcodes to label. 
+              The name of the file will be used to set the column name in the output dataframe ('.tsv' will be removed from the final name).
+              First column: barcode name in the format UMI-1, e.g AAACCTGAGAGGTACC-1.
+              Second column: sample or channel id name.
+              If a barcode is included in the input file, it will be labeled as 'True', otherwise as 'False'"),
   make_option(c("--genesets_file"), default=NULL,
-              help="Two-column tsv file with genesets to evaluate, one geneset per row. First column: name of geneset; Second column: name of the file containing the geneset. The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row)."),
+              help="Two-column tsv file with genesets to evaluate, one geneset per row. 
+              First column: name of geneset; 
+              Second column: name of the file containing the geneset. 
+              The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row)."),
   make_option(c("--numcores"), default=2,
               help="Number of cores used to run scater's perCellQCMetrics function"),
   make_option(c("--log_filename"), default="qcmetrics.log"),
@@ -68,7 +77,7 @@ total_UMI <- colSums(counts(s))
 
 # Create dataframe 
 cell_qc <- tibble(barcode = colData(s)$Barcode, 
-                  id=opt$id,
+                  sample=opt$sample,
                   ngenes = ngenes, 
                   total_UMI= total_UMI) 
 
@@ -158,6 +167,26 @@ mitoribo_ratio$barcode <- colData(s)$Barcode
 
 # Append to QC table
 cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
+
+
+# Label barcodes ------
+#######################
+if (!is.null(opt$barcodes_to_label_as_True)){
+  bc <- read.csv(gzfile(opt$barcodes_to_label_as_True), sep="\t", header=FALSE) 
+  colnames(bc) <- c("barcode", "sample")
+  # Filter barcodes from current sample
+  bc <- bc[bc$sample %in% opt$sample,]
+  # Label barcodes in output dataframe
+  cell_qc$newcol <- "False"
+  cell_qc$newcol[cell_qc$barcode %in% bc$barcode] <- "True"
+  # Set column name in output
+  colname <- opt$barcodes_to_label_as_True
+  colname <- gsub(".tsv.gz", "", gsub(".*/", "", colname))
+  colnames(cell_qc)[colnames(cell_qc) == "newcol"] <- colname
+}
+
+# Format ouput to match tables in other pipelines from the cellhub repository
+colnames(cell_qc)[colnames(cell_qc)=="barcode"] <- "BARCODE"
 
 # Write table
 flog.info("Writing output table")
