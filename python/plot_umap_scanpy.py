@@ -9,14 +9,16 @@ import scanpy as sc
 import harmonypy as hm
 import pandas as pd
 import matplotlib.pyplot as plt
+import warnings
 import logging
 import yaml
+warnings.filterwarnings('ignore')
 
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
 # ########################################################################### #
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 L = logging.getLogger("run_umap")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
@@ -65,6 +67,7 @@ if opt["tool"] == 'harmony':
     obsm_use = 'X_harmony'
     key_add = 'harmony'
 elif opt["tool"] == "bbknn":
+    obsm_use = 'X_pca'
     key_add = None
 elif opt["tool"] == "scanorama":
     obsm_use = 'X_scanorama_embedding'
@@ -99,16 +102,17 @@ umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
 L.info("Finished and writing UMAP coordinates")
 
 # write out metadata for plotting in R
-metadata = adata.uns['metadata']
+metadata = adata.uns['metadata'].copy()
 metadata.index.name = 'barcode'
 metadata.reset_index(inplace=True)
-qcdata = adata.uns['qcdata']
+qcdata = adata.uns['qcdata'].copy()
 qcdata.index.name = 'barcode'
 qcdata.reset_index(inplace=True)
 
 metadata_out = pd.merge(metadata, qcdata, on='barcode')
 metadata_out.to_csv(os.path.join(opt["outdir"], "metadata.tsv.gz"),
-                       sep="\t", index=False, compression="gzip")
+                    sep="\t", index=False, compression="gzip")
+
 
 # ########################################################################### #
 # ########################## Make plots ##################################### #
@@ -128,7 +132,7 @@ if ',' in opt["plot_vars"]:
         else:
             raise Exception("This variable is not in metadata")
         sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
-        sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
+        #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.info("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
@@ -139,7 +143,7 @@ else:
     else:
         raise Exception("This variable is not in metadata")
     sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
-    sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
+    #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 
 L.info("Done UMAP plotting")
 

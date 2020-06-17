@@ -23,7 +23,7 @@ warnings.filterwarnings('ignore')
 # ############### Set up the log and figure folder ########################## #
 # ########################################################################### #
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 L = logging.getLogger("run_harmony")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
@@ -253,7 +253,9 @@ if opt["tool"] == 'harmony' :
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 elif opt["tool"] == "bbknn":
-    bbknn.bbknn(adata_concat, batch_key=opt["split_var"], n_pcs = opt["nPCs"])
+    L.info("Running bbknn, no dim reduction will be stored")
+    adata.obs[opt["split_var"]] = adata.uns['metadata'][opt["split_var"]]
+    bbknn.bbknn(adata, batch_key=opt["split_var"], n_pcs = opt["nPCs"])
 
 elif opt["tool"] == "scanorama":
     L.info("Splitting anndata object for scanorama")
@@ -277,6 +279,7 @@ elif opt["tool"] == "scanorama":
 
     embedding_scanorama = np.concatenate(integrated, axis=0)
     adata.obsm["X_scanorama_embedding"] = embedding_scanorama
+    L.info("Finished scanorama and written embeddings into anndata")
     ## save scanorama components
     scanorama_out = pd.DataFrame(adata.obsm["X_scanorama_embedding"],
                                index=adata.obs['barcode'])
@@ -285,7 +288,7 @@ elif opt["tool"] == "scanorama":
 
     scanorama_out.to_csv(os.path.join(opt["outdir"], "scanorama.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
-
+    L.info("Finished writing scanorama embeddings to file")
 else:
     L.info("Write out PCA components")
     pca_out = pd.DataFrame(adata.obsm['X_pca'])

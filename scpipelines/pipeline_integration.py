@@ -302,7 +302,7 @@ def genClusterJobs():
         # make jobs for non-integrated sample
         for n in ngenes:
             outfile = os.path.join(dirname, "rawdata.integrated.dir",
-                                   "nhvg_"+str(n)+"_merged.run.dir", outf)
+                                   str(n)+"_nhvg_merged.run.dir", outf)
             yield [infile, outfile]
 
         for tool in tools:
@@ -313,7 +313,7 @@ def genClusterJobs():
                 for n in ngenes:
                     for k in ks: 
                         for m in mergedhvg:
-                            outname = "_".join([k,n,m]) + ".run.dir"
+                            outname = "_".join([n,m,k]) + ".run.dir"
                             outfile = os.path.join(dirname, "harmony.integrated.dir",
                                                    outname, outf)
                             yield [infile, outfile]
@@ -374,9 +374,9 @@ def runNormalization(infile, outfile):
     options["outdir"] = outdir
     options["seurat_obj"] = os.path.join(expdir, "seurat.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
 
     # add directory with genelist to annotate hv genes
     if os.path.isdir(PARAMS["hvg_annotation"]):
@@ -439,9 +439,9 @@ def plotsNormalization(infile, outfile):
     options["seurat_obj"] = os.path.join(os.path.dirname(infile),
                                          "pre_integrated.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
     options["numcores"] = PARAMS["resources_nslots"]
 
     # add directory with genelist to annotate hv genes
@@ -518,7 +518,7 @@ def runIntegration(infile, outfile):
 
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
         options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
@@ -582,7 +582,7 @@ def plotsIntegration(infile, outfile):
 
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
         options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
@@ -647,9 +647,9 @@ def runScanpyIntegration(infile, outfile):
     options["matrixdir"] = infolder
     options["tool"] = tool
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
  
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
@@ -666,7 +666,7 @@ def runScanpyIntegration(infile, outfile):
     options["nPCs"] = int(PARAMS["harmony_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
 
     # resource allocation
@@ -1088,6 +1088,7 @@ def summariseLISI(infile, outfile):
 
 
 @active_if(USE_PYTHON)
+@follows(runScanpyUMAP)
 @transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
@@ -1117,6 +1118,12 @@ def runLISIpy(infile, outfile):
 
     if tool == "harmony":
         file_name = "harmony.tsv.gz"
+    elif tool == "scanorama":
+        file_name = "scanorama.tsv.gz"
+    elif tool == "bbknn":
+        ## this is not ideal but correction happens
+        ## post PCA.
+        file_name = "umap.tsv.gz"
     else:
         file_name = "pca.tsv.gz"
 
