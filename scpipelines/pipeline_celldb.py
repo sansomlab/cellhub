@@ -123,11 +123,47 @@ def load_metadata_sequencing(infile, outfile):
 
     P.run(statement)
 
+@files(PARAMS['data_sequencing_info'],
+       "pool_to_channels.tsv")
+def extract_channel_info(infile, outfile):
+    '''extract the channel info from the seq metadata'''
+
+    x = pd.read_csv(infile, sep="\t")
+
+    y = pd.DataFrame(x["Sequencing ID"].values, columns=["Sequencing_ID"])
+    y["gPlex"] = [x.split("_")[1] for x in x["Sample Name"]]
+    y["Pool"] = [x[:-1] for x in y["gPlex"]]
+    y["Channel"] = [x[-1:] for x in y["gPlex"]]
+
+    y.to_csv(outfile, sep="\t", index=False)
+
+
 @follows(load_metadata_sequencing)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(extract_channel_info,
+           suffix(".tsv"),
+           ".load")
+def load_channels(infile, outfile):
+    '''load lookup table of channel ids into database '''
+
+    statement='''cat %(infile)s
+                 | sed 's/Sequencing.ID/Sequencing_ID/g'
+                 | python -m cgatcore.csv2db  
+                          --retry  
+                          --database-url=sqlite:///./csvdb 
+                          -i "Pool" 
+                          --table=channels
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
+
+
+@follows(load_channels)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @files(PARAMS['data_lookup_combatid'],
-       r"combatid_lookup.load")
-def load_combatid_lookup(infile, outfile):
+       r"combatids.load")
+def load_combatids(infile, outfile):
     '''load lookup table of combat ids into database '''
 
     to_cluster = True
@@ -138,37 +174,17 @@ def load_combatid_lookup(infile, outfile):
                           --database-url=sqlite:///./csvdb 
                           -i "Pool" 
                           -i "Sequencing_ID"
-                          --table=combatid_lookup
+                          --table=combatids
                  > %(outfile)s
               '''
 
     P.run(statement)
 
 
-@follows(load_combatid_lookup)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@files(PARAMS['data_lookup_pool'],
-       "channel_lookup.load")
-def load_channel_lookup(infile, outfile):
-    '''load lookup table of channel ids into database '''
-
-    statement='''cat %(infile)s
-                 | sed 's/Sequencing.ID/Sequencing_ID/g'
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                          -i "Pool" 
-                          --table=channel_lookup
-                 > %(outfile)s
-              '''
-
-    P.run(statement)
-
-
-@follows(load_channel_lookup)
+@follows(load_combatids)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @files(PARAMS['data_patient_metadata'],
-       "metadata_patient.load")
+       "clinical_metadata.load")
 def load_metadata_samples(infile, outfile):
     '''load metadata of patients into database '''
 
@@ -178,7 +194,7 @@ def load_metadata_samples(infile, outfile):
                           --retry  
                           --database-url=sqlite:///./csvdb 
                            -i "COMBATID" 
-                          --table=metadata_patient
+                          --table=clinical_metadata
                  > %(outfile)s
               '''
 
@@ -306,34 +322,9 @@ def load_merged_demux(infile, outfile):
     P.run(statement)
 
 
-@follows(load_merged_demux, load_combatid_lookup,
-         load_channel_lookup)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_lookups.load")
-def merge_lookups(outfile):
-    ''' '''
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
-    statement2 = '''CREATE TABLE merged_lookup
-                   AS 
-                   SELECT * FROM
-                   combatid_lookup
-                   LEFT JOIN channel_lookup
-                   ON combatid_lookup.Pool = channel_lookup.Pool;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=5)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
-
-
 @follows(load_merged_qcmetrics, load_merged_scrublet,
-         merge_lookups)
+         load_merged_demux,
+         load_channels, load_combatids)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("final.load")
 def final(outfile):
@@ -341,15 +332,30 @@ def final(outfile):
 
     dbh = connect()
 
-    statement = '''CREATE VIEW final AS SELECT * FROM gex_qcmetrics
-                    LEFT JOIN gex_scrublet
-                    ON gex_qcmetrics.barcode_id = gex_scrublet.barcode_id
-                    LEFT JOIN gex_demux
-                    ON gex_qcmetrics.barcode_id = gex_demux.barcode_id
-                    LEFT JOIN metadata_sequencing
-                    ON metadata_sequencing.Sequencing_ID = gex_qcmetrics.sample
-                    LEFT JOIN merged_lookup
-                    ON merged_lookup.Sequencing_ID = metadata_sequencing.Sequencing_ID;'''
+    statement = '''CREATE VIEW final AS 
+                    SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
+                              qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
+                              qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_chrx, qc.pct_chry,
+                              qc.mitoribo_ratio, qc.barcode_id, 
+                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
+                           demux.demuxletV2 baseID,
+                           channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
+                           cids.COMBATID,
+                           cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity
+                    FROM gex_qcmetrics qc
+                    LEFT JOIN gex_scrublet scrub
+                    ON qc.barcode_id = scrub.barcode_id
+                    LEFT JOIN gex_demux demux
+                    ON qc.barcode_id = demux.barcode_id
+                    LEFT JOIN metadata_sequencing seq
+                    ON qc.sample = seq.Sequencing_ID
+                    LEFT JOIN channels
+                    ON qc.sample = channels.Sequencing_ID
+                    LEFT JOIN combatids cids
+                    ON demux.DemuxletV2 = cids.baseID
+                       AND channels.Pool = cids.Pool
+                    LEFT JOIN clinical_metadata cm
+                    ON cids.COMBATID = cm.COMBATID'''
 
     cc = database.executewait(dbh, statement, retries=5)
 
