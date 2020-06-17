@@ -185,7 +185,7 @@ def load_merged_scrublet(infile, outfile):
 
     P.load(infile, outfile,
            tablename="merged_scrublet",
-           options="")
+           options="index=barcode_id")
 
 
 @merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
@@ -218,7 +218,7 @@ def load_merged_qcmetrics(infile, outfile):
 
     P.load(infile, outfile,
            tablename="merged_qcmetric",
-           options="")
+           options="index=barcode_id")
 
 
 @merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
@@ -252,98 +252,11 @@ def load_merged_demux(infile, outfile):
 
     P.load(infile, outfile,
            tablename="merged_demux",
-           options="")
+           options="index=barcode_id")
 
 
-@follows(load_merged_qcmetrics, load_merged_scrublet)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_scrublet_qcmetric.load")
-def merge_scrublet_qcmetric(outfile):
-    ''' '''
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_tmp1;'''
-    statement2 = '''CREATE TABLE IF NOT EXISTS merged_tmp1
-                   AS SELECT
-                   merged_qcmetric.ngenes, merged_qcmetric.total_UMI,
-                   merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
-                   merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin,
-                   merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
-                   merged_qcmetric.sample, merged_qcmetric.BARCODE,
-                   merged_qcmetric.pct_neutrophil, merged_qcmetric.pct_chrx,
-                   merged_qcmetric.pct_chry,
-                   merged_scrublet.scrub_doublet_scores,
-                   merged_scrublet.scrub_predicted_doublets
-                   FROM merged_qcmetric
-                   INNER JOIN merged_scrublet
-                   ON merged_scrublet.barcode_id = merged_qcmetric.barcode_id;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=5)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
-@follows(merge_scrublet_qcmetric, load_merged_demux)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_with_demux.load")
-def merge_with_demux(outfile):
-    ''' '''
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_tmp2;'''
-    statement2 = '''CREATE TABLE merged_tmp2
-                   AS
-                   SELECT merged_tmp1.ngenes, merged_tmp1.total_UMI,
-                   merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
-                   merged_tmp1.pct_immunoglobin, merged_tmp1.pct_hemoglobin,
-                   merged_tmp1.mitoribo_ratio, merged_tmp1.barcode_id,
-                   merged_tmp1.sample, merged_tmp1.BARCODE,
-                   merged_tmp1.pct_neutrophil, merged_tmp1.pct_chrx,
-                   merged_tmp1.pct_chry,
-                   merged_tmp1.scrub_doublet_scores,
-                   merged_tmp1.scrub_predicted_doublets,
-                   merged_demux.demuxlet, merged_demux.demuxletV2,
-                   merged_demux.vireo, merged_demux.vireounknown
-                   FROM merged_tmp1
-                   LEFT JOIN merged_demux
-                   ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=5)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
-
-
-@follows(load_metadata_sequencing, merge_with_demux)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_with_seqmeta.load")
-def merge_with_seqmeta(outfile):
-    ''' '''
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_tmp3;'''
-    statement2 = '''CREATE TABLE merged_tmp3 AS
-                   SELECT * FROM merged_tmp2
-                   LEFT JOIN metadata_sequencing
-                   ON merged_tmp2.sample = metadata_sequencing.Sequencing_ID;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=500)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
-
-@follows(merge_with_seqmeta)
+@follows(load_merged_demux, load_combatid_lookup,
+         load_channel_lookup)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("merge_lookups.load")
 def merge_lookups(outfile):
@@ -367,50 +280,31 @@ def merge_lookups(outfile):
     iotools.touch_file(outfile)
 
 
-@follows(merge_lookups, merge_with_seqmeta)
+
+@follows(load_merged_qcmetrics, load_merged_scrublet,
+         merge_lookups)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_with_lookups.load")
-def merge_with_lookups(outfile):
+@originate("final.load")
+def final(outfile):
     ''' '''
 
     dbh = connect()
-    statement1 = '''DROP TABLE IF EXISTS final;'''
-    statement2 = '''CREATE TABLE final
-                   AS
-                   SELECT merged_tmp3.*, merged_lookup.Replicate,
-                          merged_lookup.ID, merged_lookup.Pool,
-                          merged_lookup.Channel, merged_lookup.gPlex,
-                          merged_lookup.Source 
-                   FROM merged_tmp3
-                   LEFT JOIN merged_lookup
-                   ON merged_tmp3.demuxlet = merged_lookup.baseID
-                   AND merged_tmp3.Sequencing_ID = merged_lookup.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement1, retries=50)
-    cc = database.executewait(dbh, statement2, retries=50)
+    statement2 = '''CREATE VIEW final AS SELECT * FROM merged_qcmetric
+                    LEFT JOIN merged_scrublet
+                    ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id
+                    LEFT JOIN merged_demux
+                    ON merged_qcmetric.barcode_id = merged_demux.barcode_id
+                    LEFT JOIN metadata_sequencing
+                    ON metadata_sequencing.Sequencing_ID = merged_qcmetric.sample
+                    LEFT JOIN merged_lookup
+                    ON merged_lookup.Sequencing_ID = metadata_sequencing.Sequencing_ID;'''
+
+    cc = database.executewait(dbh, statement2, retries=5)
 
     cc.close()
 
     iotools.touch_file(outfile)
-
-
-@follows(merge_with_lookups)
-def cleanup():
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
-    statement2 = '''DROP TABLE IF EXISTS merged_tmp1;'''
-    statement3 = '''DROP TABLE IF EXISTS merged_tmp2;'''
-    statement4 = '''DROP TABLE IF EXISTS merged_tmp3;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=5)
-    cc = database.executewait(dbh, statement3, retries=5)
-    cc = database.executewait(dbh, statement4, retries=5)
-
-    cc.close()
-
 
 ###############################################
 # Virtual table uploads
