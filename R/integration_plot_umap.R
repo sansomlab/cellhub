@@ -142,27 +142,27 @@ for (v in variables_plot) {
   if (nlevels > 15 & !is.numeric(plot_coord[,v])){
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
+    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
     
     # extract legend
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none")
     # save legend and plot separately
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".legend.pdf")), 
-           plot = legend, device = cairo_pdf)
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".pdf")), 
-           plot = gp, device = cairo_pdf)
+    ggsave(file.path(opt$outdir, paste0("umap.", v, ".legend.png")), 
+           plot = legend, type = "cairo")
+    ggsave(file.path(opt$outdir, paste0("umap.", v, ".png")), 
+           plot = gp, type = "cairo")
     #gglist[[v]] <- gp
   } else {
     flog.info("Make plot including legend for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
+    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
     
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
     }
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".pdf")), 
-           plot = gp, device = cairo_pdf)
+    ggsave(file.path(opt$outdir, paste0("umap.", v, ".png")), 
+           plot = gp, type = "cairo")
     #gglist[[v]] <- gp    
   }
 }
@@ -177,7 +177,7 @@ for (v in variables_plot) {
     ncols = floor(sqrt(nlevels))
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
+    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
     
     # extract legend
     legend <- g_legend(gp)
@@ -194,25 +194,25 @@ for (v in variables_plot) {
     h <- max(1, nlevels/ncols)*4
     
     # save legend and plot separately
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".legend.pdf")), 
-           plot = legend, device = cairo_pdf)
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".pdf")), 
-           plot = gp, device = cairo_pdf)
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".legend.png")), 
+           plot = legend, type = "cairo")
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".png")), 
+           plot = gp, type = "cairo")
     #gglist[[v]] <- gp
   } else if (is.numeric(plot_coord[,v])) {
     flog.info("No faceting required as numeric value.")
   } else {
     flog.info("Make plot including legend for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
+    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=3)
 
     # set height and width (2 for each panel + 2 for legend)
     w <- min(3, nlevels)*3 + 2
     h <- max(1, nlevels/3)*3
     
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".pdf")), 
-           plot = gp, device = cairo_pdf, height = h, width = w)
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".png")), 
+           plot = gp, type = "cairo", height = h, width = w)
     #gglist[[v]] <- gp    
   }
 }
