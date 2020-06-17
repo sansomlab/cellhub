@@ -693,7 +693,7 @@ def runScanpyIntegration(infile, outfile):
 @transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
-def plotScanpy(infile, outfile):
+def runScanpyUMAP(infile, outfile):
     '''Run scanpy UMAP and make plots'''
 
     indir = os.path.dirname(infile)
@@ -733,10 +733,17 @@ def plotScanpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@active_if(USE_R)
-@transform(runIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
+## fix this task so it can run on python and R based ?
+# @active_if(USE_R)
+# @transform(runIntegration,
+#            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
+#            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
+
+
+@active_if(USE_PYTHON)
+@transform(runScanpyUMAP,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/plots_umap_scanpy.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/R_plots.dir/plots_umap.sentinel")
 def plotUMAP(infile, outfile):
     '''
     Plot UMAP with different variables
@@ -754,7 +761,7 @@ def plotUMAP(infile, outfile):
         plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
 
     sampleDir = "/".join(indir.split("/")[:-1])
-    tool = sampleDir.split("/")[1].split(".")[0]
+    #tool = sampleDir.split("/")[1].split(".")[0]
 
     coord_file = os.path.join(indir, "umap.tsv.gz")
 
@@ -763,7 +770,8 @@ def plotUMAP(infile, outfile):
     options["outdir"] = outdir
     options["coord_file"] = coord_file
     options["plot_vars"] = plot_vars
-    options["integration_tool"] = tool
+    #options["integration_tool"] = tool
+    options["metadata"] = os.path.join(indir, "metadata.tsv.gz")
 
     log_file = outfile.replace("sentinel","log")
 
@@ -1136,7 +1144,7 @@ def runLISIpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(plotScanpy, runLISIpy)
+@follows(runScanpyUMAP, runLISIpy, plotUMAP)
 def python_workflow():
     pass
 

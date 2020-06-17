@@ -89,6 +89,18 @@ umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
 
 L.info("Finished and writing UMAP coordinates")
 
+# write out metadata for plotting in R
+metadata = adata.uns['metadata']
+metadata.index.name = 'barcode'
+metadata.reset_index(inplace=True)
+qcdata = adata.uns['qcdata']
+qcdata.index.name = 'barcode'
+qcdata.reset_index(inplace=True)
+
+metadata_out = pd.merge(metadata, qcdata, on='barcode')
+metadata_out.to_csv(os.path.join(opt["outdir"], "metadata.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
+
 # ########################################################################### #
 # ########################## Make plots ##################################### #
 # ########################################################################### #
