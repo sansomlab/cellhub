@@ -778,19 +778,12 @@ def plotUMAP(infile, outfile):
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_umap.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
-    output_dir = os.path.abspath(outdir)
-    knit_root_dir = os.getcwd()
-    fig_path =  os.path.join(output_dir, "fig.dir/")
 
     job_threads = PARAMS["resources_nslots"]
 
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_plot_umap.R',
-                   output_dir = '%(output_dir)s',
-                   intermediates_dir = '%(output_dir)s',
-                   knit_root_dir= '%(knit_root_dir)s',
-                   params=list('task_yml' = '%(task_yaml_file)s',
-                               'fig_path' = '%(fig_path)s',
-                               'log_filename' = '%(log_file)s' ) )"
+    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R 
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
                 '''
     P.run(statement)
     IOTools.touch_file(outfile)

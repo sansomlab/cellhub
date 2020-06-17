@@ -35,7 +35,30 @@ stopifnot(require(gridExtra))
 #                fig.path = params$fig_path)
 
 # Parameters -------------------------------------------------------------------
-# The script expects the following paramters:
+
+# these parameters are passed from Rscript run
+option_list <- list(
+  make_option(
+    c("--task_yml"),
+    dest = "task_yml",
+    help="Path to yml file"
+  ),
+  make_option(
+    c("--log_filename"),
+    dest = "log_filename",
+    help="Path to log file"
+  ))
+params <- parse_args(OptionParser(option_list=option_list))
+
+# Prepare the logger and the log file location
+# the logger is by default writing to ROOT logger and the INFO threshold level
+flog.threshold(INFO)
+# now set to append mode
+flog.appender(appender.file(params$log_filename))
+flog.info("Running with parameters: ", params, capture = TRUE)
+
+
+# The script expects the following paramters from yml:
 default_options <- list(
   # Path to the post integration UMAP files.
   "coord_file" = "",
@@ -60,12 +83,6 @@ if(!is.null(options)) {
 } else{
   opt <- default_options
 }
-
-# Prepare the logger and the log file location
-# the logger is by default writing to ROOT logger and the INFO threshold level
-flog.threshold(INFO)
-# now set to append mode
-flog.appender(appender.file(params$log_filename))
 
 flog.info("Running with options:", opt, capture = TRUE)
 flog.info("\n")
@@ -140,6 +157,10 @@ for (v in variables_plot) {
     flog.info("Make plot including legend for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
+    
+    if(is.numeric(plot_coord[,v])) {
+      gp <- gp + scale_color_viridis_c()
+    }
     ggsave(file.path(opt$outdir, paste0("umap.", v, ".pdf")), 
            plot = gp, device = cairo_pdf)
     #gglist[[v]] <- gp    
@@ -157,16 +178,13 @@ for (v in variables_plot) {
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + geom_point(alpha=0.5, shape=20) + theme_bw()
-    if(is.numeric(plot_coord[,v])) {
-      gp <- gp + scale_color_viridis_c()
-    }
     
     # extract legend
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none")
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=ncols)
 
-    if (nlevels > 70){
+    if (nlevels > 50){
       gp <- gp + theme(strip.background = element_blank(),
                        strip.text.x = element_blank())
     }
@@ -190,8 +208,8 @@ for (v in variables_plot) {
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=3)
 
     # set height and width (2 for each panel + 2 for legend)
-    w <- min(3, nlevels)*4 + 2
-    h <- max(1, nlevels/3)*4
+    w <- min(3, nlevels)*3 + 2
+    h <- max(1, nlevels/3)*3
     
     ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".pdf")), 
            plot = gp, device = cairo_pdf, height = h, width = w)

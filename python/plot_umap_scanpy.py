@@ -64,6 +64,11 @@ L.info("Read anndata object")
 if opt["tool"] == 'harmony':
     obsm_use = 'X_harmony'
     key_add = 'harmony'
+elif opt["tool"] == "bbknn":
+    key_add = None
+elif opt["tool"] == "scanorama":
+    obsm_use = 'X_scanorama_embedding'
+    key_add = 'scanorama'
 else:
     obsm_use = 'X_pca'
     key_add = None
@@ -72,8 +77,12 @@ dim_red = str(obsm_use.split("_")[1])
 L.info("UMAP is run on the following dimension reduction components: " + dim_red)
 
 # 15 neighbors is default, use 30 harmony components or pcas here
-sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
-                key_added = key_add)
+if opt["tool"] == "bbknn":
+    L.info("No need to determine neighbors again")
+else:
+    L.info("Find neighbors")
+    sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
+                    key_added = key_add)
 # umap uses the neighbor coordinates 
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)

@@ -9,12 +9,15 @@ import scanpy as sc
 import anndata
 import bbknn
 import scanorama
+import numpy as np
 import scanpy.external as sce
 import harmonypy as hm
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 import yaml
+import warnings
+warnings.filterwarnings('ignore')
 
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
@@ -52,6 +55,14 @@ L.info("Running with options ---> %s", opt)
 
 L.info("Writing output to file %s", results_file)
 
+# checks
+if opt["tool"] == "scanorama" and ',' in opt["split_var"]:
+    raise Exception("Scanorama can only take one variable for integration.")
+
+if opt["tool"] == "bbknn" and ',' in opt["split_var"]:
+    raise Exception("bbknn can only take one variable for integration.")
+
+
 # ########################################################################### #
 # ######################## Read input data ################################## #
 # ########################################################################### #
@@ -81,12 +92,11 @@ sc.pp.log1p(adata)
 
 L.info("Finished normalization and log-transform")
 
-L.info("Making separate object for cell cycle scoring")
-
-adata_cc_genes = adata
-sc.pp.scale(adata_cc_genes)
-
 if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
+    L.info("Making separate object for cell cycle scoring")
+
+    adata_cc_genes = adata
+    sc.pp.scale(adata_cc_genes)
     # cell cycle scoring similar to Seurat method
     # see here: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
     L.info("Running cell cycle scoring")
@@ -233,7 +243,7 @@ if opt["tool"] == 'harmony' :
     adjusted_pcs = pd.DataFrame(ho.Z_corr).T
 
     adata.obsm['X_harmony']=adjusted_pcs.values
-
+ 
     ## save harmony components
     harmony_out = pd.DataFrame(adata.obsm["X_harmony"],
                                index=adata.obs['barcode'])
@@ -243,18 +253,12 @@ if opt["tool"] == 'harmony' :
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 elif opt["tool"] == "bbknn":
-    if ',' in opt["split_var"]:
-        raise Exception("Scanorama can only take one variable for integration.")
-    sc.external.pp.bbknn(adata_concat, batch_key='batch')
+    bbknn.bbknn(adata_concat, batch_key=opt["split_var"], n_pcs = opt["nPCs"])
 
 elif opt["tool"] == "scanorama":
-
-    if ',' in opt["split_var"]:
-        raise Exception("Scanorama can only take one variable for integration.")
-
+    L.info("Splitting anndata object for scanorama")
     list_ids = (set(adata.uns['metadata'][opt["split_var"]].tolist()))
     all_anndata = []
-
     adata.obs[opt["split_var"]] = adata.uns['metadata'][opt["split_var"]]
 
     for p in list_ids:
@@ -264,9 +268,23 @@ elif opt["tool"] == "scanorama":
     #         The batch size used in the alignment vector computation. Useful when
     #         correcting very large (>100k samples) data sets. Set to large value
     #         that runs within available memory.
-
+    # batch_size: `int`, optional (default: `5000`)
+    #     The batch size used in the alignment vector computation. Useful when
+    #     correcting very large (>100k samples) data sets. Set to large value
+    #     that runs within available memory.
     ## hvg= option could be used but object already subset to hvg
     integrated = scanorama.integrate_scanpy(all_anndata, dimred=50, batch_size=5000)
+
+    embedding_scanorama = np.concatenate(integrated, axis=0)
+    adata.obsm["X_scanorama_embedding"] = embedding_scanorama
+    ## save scanorama components
+    scanorama_out = pd.DataFrame(adata.obsm["X_scanorama_embedding"],
+                               index=adata.obs['barcode'])
+    scanorama_out.columns = ["scanorama_" + str(i) for i in range(1,scanorama_out.shape[1]+1)]
+    scanorama_out.reset_index(inplace=True)
+
+    scanorama_out.to_csv(os.path.join(opt["outdir"], "scanorama.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
 
 else:
     L.info("Write out PCA components")
