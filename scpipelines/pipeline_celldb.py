@@ -113,7 +113,7 @@ def load_metadata_sequencing(infile, outfile):
 
     P.load(infile, outfile,
            tablename="metadata_sequencing",
-           options="--primary-key=Sequencing_ID")
+           options="index=Sequencing_ID")
 
 
 @follows(load_metadata_sequencing)
@@ -126,7 +126,7 @@ def load_combatid_lookup(infile, outfile):
 
     P.load(infile, outfile,
            tablename="combatid_lookup",
-           options="")
+           options="index=Pool")
 
 
 @follows(load_combatid_lookup)
@@ -139,7 +139,7 @@ def load_channel_lookup(infile, outfile):
 
     P.load(infile, outfile,
            tablename="channel_lookup",
-           options="")
+           options="index=Pool")
 
 
 @follows(load_channel_lookup)
@@ -290,7 +290,7 @@ def final(outfile):
 
     dbh = connect()
 
-    statement2 = '''CREATE VIEW final AS SELECT * FROM merged_qcmetric
+    statement = '''CREATE VIEW final AS SELECT * FROM merged_qcmetric
                     LEFT JOIN merged_scrublet
                     ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id
                     LEFT JOIN merged_demux
@@ -300,117 +300,11 @@ def final(outfile):
                     LEFT JOIN merged_lookup
                     ON merged_lookup.Sequencing_ID = metadata_sequencing.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement2, retries=5)
+    cc = database.executewait(dbh, statement, retries=5)
 
     cc.close()
 
     iotools.touch_file(outfile)
-
-###############################################
-# Virtual table uploads
-###############################################
-@active_if(PARAMS['virtual_active'])
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(preprocess_metadata_sequencing,
-           suffix(".tsv"),
-           r"\1.virtualload")
-def virt_load_metadata_sequencing(infile, outfile):
-    '''load metadata of sequencing data into database'''
-
-    cursor = connect_virtual_table()
-
-    cursor.execute("create virtual table virt_metaseq using tsv("+infile+")")
-
-    iotools.touch_file(outfile)
-
-
-
-@active_if(PARAMS['virtual_active'])
-@follows(virt_load_metadata_sequencing)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_patient_metadata'],
-           suffix(".tsv"),
-           ".virtualload")
-def virt_load_metadata_samples(infile, outfile):
-    '''load metadata of patients into database '''
-
-    cursor = connect_virtual_table()
-
-    cursor.execute("create virtual table virt_meta_sample using tsv("+infile+")")
-
-    iotools.touch_file(outfile)
-
-
-
-@active_if(PARAMS['virtual_active'])
-@follows(virt_load_metadata_samples)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(process_merged_qcmetrics,
-           suffix(".tsv"),
-           ".virtualload")
-def virt_load_merged_qcmetrics(infile, outfile):
-    '''load qcmetrics output data into database '''
-
-    cursor = connect_virtual_table()
-
-    cursor.execute("create virtual table virt_qcmetrics using tsv("+infile+")")
-
-    iotools.touch_file(outfile)
-
-
-
-@active_if(PARAMS['virtual_active'])
-@follows(virt_load_merged_qcmetrics)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(process_merged_demux,
-           suffix(".tsv"),
-           "demux_merged.virtualload")
-def virt_load_merged_demux(infile, outfile):
-    ''' '''
-    cursor = connect_virtual_table()
-
-    cursor.execute("create virtual table virt_demux using tsv("+infile+")")
-
-    iotools.touch_file(outfile)
-
-
-@active_if(PARAMS['virtual_active'])
-@follows(virt_load_merged_demux)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(process_merged_scrublet,
-           suffix(".tsv"),
-           ".virtualload")
-def virt_load_merged_scrublet(infile, outfile):
-    '''load scrublet output data into database '''
-
-    cursor = connect_virtual_table()
-
-    cursor.execute("create virtual table virt_scrublet using tsv("+infile+")")
-
-    iotools.touch_file(outfile)
-
-
-
-@active_if(PARAMS['virtual_active'])
-@follows(virt_load_merged_qcmetrics, virt_load_merged_scrublet)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_scrublet_qcmetric.virtualload")
-def merge_data(outfile):
-    ''' '''
-
-    cursor = connect_virtual_table()
-
-    statement = '''SELECT
-                   virt_qcmetrics.*, virt_scrublet.*
-                   FROM virt_qcmetrics
-                   INNER JOIN virt_scrublet
-                   ON virt_qcmetrics.barcode_id = virt_scrublet.barcode_id;'''
-
-
-    cursor.execute(statement)
-    
-    iotools.touch_file(outfile)
-
 
 
 def full():
