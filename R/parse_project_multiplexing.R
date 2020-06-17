@@ -67,7 +67,7 @@ for (sub in opt$subset){
   dlist[[sub]]<- list()
   for (sam in rdir){
     dlist[[sub]][[sam]] <- read.table( paste0(opt$basedir, "results.",sam,"/",sam,"_SingleCellMetadata_demultiplexing_results.tsv.gz"), header=T, sep="\t", check.names = F)[,c("BARCODE",sub)]
-    dlist[[sub]][[sam]][,"BARCODE"]<-gsub("-1",paste0("-",sam),dlist[[sub]][[sam]][,"BARCODE"])
+    #dlist[[sub]][[sam]][,"BARCODE"]<-gsub("-1",paste0("-",sam),dlist[[sub]][[sam]][,"BARCODE"])
     dlist[[sub]][[sam]][,"sample"]<-rep(sam)
   }
 }
