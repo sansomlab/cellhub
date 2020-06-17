@@ -362,6 +362,7 @@ def exportAnnData(infile, outfile):
     matrix_name = os.path.basename(outfile)
 
     log_file = outfile + ".log"
+    job_threads = 2
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s
