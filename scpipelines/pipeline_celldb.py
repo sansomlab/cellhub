@@ -164,7 +164,8 @@ def process_merged_scrublet(infiles, outfile):
 
     for fname in infiles:
         df = pd.read_table(fname, index_col=None)
-        df['barcode_id'] = df['barcode'] + df['id']
+        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
+        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
         li.append(df)
 
     frame = pd.concat(li, axis=0, ignore_index=True)
@@ -184,7 +185,7 @@ def load_merged_scrublet(infile, outfile):
 
     P.load(infile, outfile,
            tablename="merged_scrublet",
-           options="--primary-key=barcode_id")
+           options="")
 
 
 @merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
@@ -196,7 +197,8 @@ def process_merged_qcmetrics(infiles, outfile):
 
     for fname in infiles:
         df = pd.read_table(fname, index_col=None)
-        df['barcode_id'] = df['barcode'] + df['id']
+        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
+        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
         li.append(df)
 
     frame = pd.concat(li, axis=0, ignore_index=True)
@@ -216,7 +218,7 @@ def load_merged_qcmetrics(infile, outfile):
 
     P.load(infile, outfile,
            tablename="merged_qcmetric",
-           options="--primary-key=barcode_id")
+           options="")
 
 
 @merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
@@ -229,9 +231,10 @@ def process_merged_demux(infiles, outfile):
     for fname in infiles:
         name = os.path.basename(fname).replace("_SingleCellMetadata_demultiplexing_results.tsv.gz","")
         df = pd.read_table(fname, index_col=None)
-        df.columns = ['barcode','demuxlet','demuxletV2', 'vireo']
-        df['barcode_id'] = df['barcode'] + name
-        df['id'] = name
+        df.columns = ['barcode','demuxlet','demuxletV2', 'vireo', 'vireounknown']
+        #df['barcode_id'] = df["barcode"].str.replace("-1", "")
+        df['barcode_id'] = df['barcode'] + "-" + name
+        df['sample'] = name
         li.append(df)
 
     frame = pd.concat(li, axis=0, ignore_index=True)
@@ -267,7 +270,9 @@ def merge_scrublet_qcmetric(outfile):
                    merged_qcmetric.pct_mitochondrial, merged_qcmetric.pct_ribosomal,
                    merged_qcmetric.pct_immunoglobin, merged_qcmetric.pct_hemoglobin,
                    merged_qcmetric.mitoribo_ratio, merged_qcmetric.barcode_id,
-                   merged_qcmetric.id, merged_qcmetric.barcode,
+                   merged_qcmetric.sample, merged_qcmetric.BARCODE,
+                   merged_qcmetric.pct_neutrophil, merged_qcmetric.pct_chrx,
+                   merged_qcmetric.pct_chry,
                    merged_scrublet.scrub_doublet_scores,
                    merged_scrublet.scrub_predicted_doublets
                    FROM merged_qcmetric
@@ -296,11 +301,13 @@ def merge_with_demux(outfile):
                    merged_tmp1.pct_mitochondrial, merged_tmp1.pct_ribosomal,
                    merged_tmp1.pct_immunoglobin, merged_tmp1.pct_hemoglobin,
                    merged_tmp1.mitoribo_ratio, merged_tmp1.barcode_id,
-                   merged_tmp1.id, merged_tmp1.barcode,
+                   merged_tmp1.sample, merged_tmp1.BARCODE,
+                   merged_tmp1.pct_neutrophil, merged_tmp1.pct_chrx,
+                   merged_tmp1.pct_chry,
                    merged_tmp1.scrub_doublet_scores,
                    merged_tmp1.scrub_predicted_doublets,
                    merged_demux.demuxlet, merged_demux.demuxletV2,
-                   merged_demux.vireo
+                   merged_demux.vireo, merged_demux.vireounknown
                    FROM merged_tmp1
                    LEFT JOIN merged_demux
                    ON merged_demux.barcode_id = merged_tmp1.barcode_id;'''
@@ -316,7 +323,7 @@ def merge_with_demux(outfile):
 
 @follows(load_metadata_sequencing, merge_with_demux)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_with_demux.load")
+@originate("merge_with_seqmeta.load")
 def merge_with_seqmeta(outfile):
     ''' '''
 
@@ -326,10 +333,10 @@ def merge_with_seqmeta(outfile):
     statement2 = '''CREATE TABLE merged_tmp3 AS
                    SELECT * FROM merged_tmp2
                    LEFT JOIN metadata_sequencing
-                   ON merged_tmp2.id = metadata_sequencing.Sequencing_ID;'''
+                   ON merged_tmp2.sample = metadata_sequencing.Sequencing_ID;'''
 
     cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=50)
+    cc = database.executewait(dbh, statement2, retries=500)
 
     cc.close()
 
@@ -379,7 +386,7 @@ def merge_with_lookups(outfile):
                    ON merged_tmp3.demuxlet = merged_lookup.baseID
                    AND merged_tmp3.Sequencing_ID = merged_lookup.Sequencing_ID;'''
 
-    cc = database.executewait(dbh, statement1, retries=5)
+    cc = database.executewait(dbh, statement1, retries=50)
     cc = database.executewait(dbh, statement2, retries=50)
 
     cc.close()

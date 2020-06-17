@@ -21,10 +21,10 @@ data:
     qcmetrics: /ifs/projects/adam/combat_project/database_data/qc/qcmetrics.dir
 
     # Lookup table with combatid to pool
-    lookup_combatid: /ifs/projects/adam/combat_project/database_data/grid_and_COMBATID.tsv
+    lookup_combatid: /ifs/projects/adam/combat_project/database_data/qc/grid_and_COMBATID.tsv
 
     # Lookup table mapping pool to channel
-    lookup_pool: /ifs/projects/adam/combat_project/database_data/Pool_to_channel.tsv
+    lookup_pool: /ifs/projects/adam/combat_project/database_data/qc/Pool_to_channel.tsv
 
 virtual:
     # Build the database using virtual tables, if 0 then it will generate a non-virtual database 
