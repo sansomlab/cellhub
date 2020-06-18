@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 import yaml
+import anndata
 
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
@@ -43,7 +44,10 @@ comp_file = opt["comp_file"]
 components = pd.read_csv(comp_file, sep = "\t")
 components.set_index("barcode", inplace=True)
 
-metadata = pd.read_csv(os.path.join(opt["matrixdir"], "metadata.tsv.gz"), sep = "\t")
+# add metadata
+metadatadir = os.path.dirname(opt['comp_file'])
+metadata = pd.read_csv(os.path.join(metadatadir, "metadata.tsv.gz"), 
+                       sep = "\t")
 
 L.info("Read input components and metadata")
 

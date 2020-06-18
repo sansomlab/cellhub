@@ -282,14 +282,18 @@ def genClusterJobs():
         infile = os.path.join(dirname, "create_seurat.sentinel")
         outf = "prep_folder.sentinel"
 
+        # which alignment tools to run
+        tools_str = str(PARAMS["integration_tools_run"])
+        tools = tools_str.strip().replace(" ", "").split(",")
+
         # make per-batch merge option (for harmony only)
-        mergedsct_str = str(PARAMS["regress_merged_normalisation"])
-        mergedsct = mergedsct_str.strip().replace(" ", "").split(",")
-        for (i, item) in enumerate(mergedsct):
+        mergedhvg_str = str(PARAMS["regress_merged_normalisation"])
+        mergedhvg = mergedhvg_str.strip().replace(" ", "").split(",")
+        for (i, item) in enumerate(mergedhvg):
             if item == '0':
-                mergedsct[i] = "perbatch"
+                mergedhvg[i] = "perbatch"
             elif item == '1':
-                mergedsct[i] = "merged"
+                mergedhvg[i] = "merged"
             else:
                 raise ValueError("Merge setting for normalisation can only be 0 or 1.")
 
@@ -298,18 +302,37 @@ def genClusterJobs():
         # make jobs for non-integrated sample
         for n in ngenes:
             outfile = os.path.join(dirname, "rawdata.integrated.dir",
-                                   "nhvg_"+str(n)+"_merged.run.dir", outf)
+                                   str(n)+"_nhvg_merged.run.dir", outf)
             yield [infile, outfile]
 
-        k_str = str(PARAMS["harmony_sigma"])
-        ks = k_str.strip().replace(" ", "").split(",")
-        for n in ngenes:
-            for k in ks:
-                for m in mergedsct:
-                    outname = "_".join([k,n,m]) + ".run.dir"
-                    outfile = os.path.join(dirname, "harmony.integrated.dir",
-                                           outname, outf)
-                    yield [infile, outfile]
+        for tool in tools:
+
+            if 'harmony' in tool:
+                k_str = str(PARAMS["harmony_sigma"])
+                ks = k_str.strip().replace(" ", "").split(",")
+                for n in ngenes:
+                    for k in ks: 
+                        for m in mergedhvg:
+                            outname = "_".join([n,m,k]) + ".run.dir"
+                            outfile = os.path.join(dirname, "harmony.integrated.dir",
+                                                   outname, outf)
+                            yield [infile, outfile]
+
+            if 'bbknn' in tool:
+                for n in ngenes:
+                    for m in mergedhvg:
+                        outname = "_".join([n,m]) + ".run.dir"
+                        outfile = os.path.join(dirname, "bbknn.integrated.dir",
+                                               outname, outf)
+                        yield [infile, outfile]
+
+            if 'scanorama' in tool:
+                for n in ngenes:
+                    for m in mergedhvg:
+                        outname = "_".join([n,m]) + ".run.dir"
+                        outfile = os.path.join(dirname, "scanorama.integrated.dir",
+                                               outname, outf)
+                        yield [infile, outfile]
 
 
 @follows(prepExpFolders, createSeurat)
@@ -351,9 +374,9 @@ def runNormalization(infile, outfile):
     options["outdir"] = outdir
     options["seurat_obj"] = os.path.join(expdir, "seurat.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
 
     # add directory with genelist to annotate hv genes
     if os.path.isdir(PARAMS["hvg_annotation"]):
@@ -416,9 +439,9 @@ def plotsNormalization(infile, outfile):
     options["seurat_obj"] = os.path.join(os.path.dirname(infile),
                                          "pre_integrated.rds")
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
     options["numcores"] = PARAMS["resources_nslots"]
 
     # add directory with genelist to annotate hv genes
@@ -495,7 +518,7 @@ def runIntegration(infile, outfile):
 
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
         options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
@@ -559,7 +582,7 @@ def plotsIntegration(infile, outfile):
 
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
         options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
@@ -598,7 +621,7 @@ def integration_plots():
 @transform(prepFolders,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/integration_python.sentinel")
-def runScanpyHarmony(infile, outfile):
+def runScanpyIntegration(infile, outfile):
     '''Run scanpy normalization, hv genes and harmonypy on the data'''
 
     outdir = os.path.dirname(outfile)
@@ -624,9 +647,9 @@ def runScanpyHarmony(infile, outfile):
     options["matrixdir"] = infolder
     options["tool"] = tool
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[1])
+    options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[2]
+        options["merge_normalisation"] = run_options.split("_")[1]
  
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
@@ -643,7 +666,7 @@ def runScanpyHarmony(infile, outfile):
     options["nPCs"] = int(PARAMS["harmony_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[0]
+        sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
 
     # resource allocation
@@ -656,7 +679,7 @@ def runScanpyHarmony(infile, outfile):
         yaml.dump(options, yaml_file)
 
 
-    statement = ''' python %(code_dir)s/python/run_harmony.py
+    statement = ''' python %(code_dir)s/python/run_scanpy_integration.py
                     --task-yml=%(task_yaml_file)s &> %(log_file)s
                 '''
     P.run(statement)
@@ -667,10 +690,10 @@ def runScanpyHarmony(infile, outfile):
 # ########################################################################### #
 
 @active_if(USE_PYTHON)
-@transform(runScanpyHarmony,
+@transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
-def plotScanpy(infile, outfile):
+def runScanpyUMAP(infile, outfile):
     '''Run scanpy UMAP and make plots'''
 
     indir = os.path.dirname(infile)
@@ -710,10 +733,17 @@ def plotScanpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@active_if(USE_R)
-@transform(runIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
+## fix this task so it can run on python and R based ?
+# @active_if(USE_R)
+# @transform(runIntegration,
+#            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration.sentinel"),
+#            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap.sentinel")
+
+
+@active_if(USE_PYTHON)
+@transform(runScanpyUMAP,
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/plots_umap_scanpy.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/R_plots.dir/plots_umap.sentinel")
 def plotUMAP(infile, outfile):
     '''
     Plot UMAP with different variables
@@ -731,7 +761,7 @@ def plotUMAP(infile, outfile):
         plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
 
     sampleDir = "/".join(indir.split("/")[:-1])
-    tool = sampleDir.split("/")[1].split(".")[0]
+    #tool = sampleDir.split("/")[1].split(".")[0]
 
     coord_file = os.path.join(indir, "umap.tsv.gz")
 
@@ -740,26 +770,20 @@ def plotUMAP(infile, outfile):
     options["outdir"] = outdir
     options["coord_file"] = coord_file
     options["plot_vars"] = plot_vars
-    options["integration_tool"] = tool
+    #options["integration_tool"] = tool
+    options["metadata"] = os.path.join(indir, "metadata.tsv.gz")
 
     log_file = outfile.replace("sentinel","log")
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_umap.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
-    output_dir = os.path.abspath(outdir)
-    knit_root_dir = os.getcwd()
-    fig_path =  os.path.join(output_dir, "fig.dir/")
 
     job_threads = PARAMS["resources_nslots"]
 
-    statement = '''Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_plot_umap.R',
-                   output_dir = '%(output_dir)s',
-                   intermediates_dir = '%(output_dir)s',
-                   knit_root_dir= '%(knit_root_dir)s',
-                   params=list('task_yml' = '%(task_yaml_file)s',
-                               'fig_path' = '%(fig_path)s',
-                               'log_filename' = '%(log_file)s' ) )"
+    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R 
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
                 '''
     P.run(statement)
     IOTools.touch_file(outfile)
@@ -1064,7 +1088,8 @@ def summariseLISI(infile, outfile):
 
 
 @active_if(USE_PYTHON)
-@transform(runScanpyHarmony,
+@follows(runScanpyUMAP)
+@transform(runScanpyIntegration,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
 
@@ -1084,15 +1109,15 @@ def runLISIpy(infile, outfile):
     options["split_var"] = PARAMS["integration_split_factor"]
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
-    # extract path from input_samples.tsv
-    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    samples.set_index("sample_id", inplace=True)
-    infolder = samples.loc[sample_name, "path"]
-    options["matrixdir"] = infolder
 
     if tool == "harmony":
         file_name = "harmony.tsv.gz"
+    elif tool == "scanorama":
+        file_name = "scanorama.tsv.gz"
+    elif tool == "bbknn":
+        ## this is not ideal but correction happens
+        ## post PCA.
+        file_name = "umap.tsv.gz"
     else:
         file_name = "pca.tsv.gz"
 
@@ -1113,7 +1138,7 @@ def runLISIpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(plotScanpy, runLISIpy)
+@follows(runScanpyUMAP, runLISIpy, plotUMAP)
 def python_workflow():
     pass
 

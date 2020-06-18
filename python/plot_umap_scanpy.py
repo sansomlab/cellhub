@@ -9,14 +9,16 @@ import scanpy as sc
 import harmonypy as hm
 import pandas as pd
 import matplotlib.pyplot as plt
+import warnings
 import logging
 import yaml
+warnings.filterwarnings('ignore')
 
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
 # ########################################################################### #
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 L = logging.getLogger("run_umap")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
@@ -64,6 +66,12 @@ L.info("Read anndata object")
 if opt["tool"] == 'harmony':
     obsm_use = 'X_harmony'
     key_add = 'harmony'
+elif opt["tool"] == "bbknn":
+    obsm_use = 'X_pca'
+    key_add = None
+elif opt["tool"] == "scanorama":
+    obsm_use = 'X_scanorama_embedding'
+    key_add = 'scanorama'
 else:
     obsm_use = 'X_pca'
     key_add = None
@@ -72,19 +80,38 @@ dim_red = str(obsm_use.split("_")[1])
 L.info("UMAP is run on the following dimension reduction components: " + dim_red)
 
 # 15 neighbors is default, use 30 harmony components or pcas here
-sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
-                key_added = key_add)
+if opt["tool"] == "bbknn":
+    L.info("No need to determine neighbors again")
+else:
+    L.info("Find neighbors")
+    sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
+                    key_added = key_add)
 # umap uses the neighbor coordinates 
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)
 
+L.info("Finished running UMAP")
+
+
 umap_coord = pd.DataFrame(adata.obsm['X_umap'])
 umap_coord.columns = ["UMAP_1", "UMAP_2"]
-umap_coord['barcode'] = adata.obs['barcode'].tolist()
+umap_coord['barcode'] = adata.obs.index.tolist()
 umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
-L.info("Finished running UMAP and writing coordinates")
+L.info("Finished and writing UMAP coordinates")
+
+# write out metadata for plotting in R
+metadata_out = adata.obs.copy()
+# if barcode exists, this is likely incorrect -> use index instead
+if 'barcode' in metadata_out.columns:
+    del metadata_out['barcode']
+metadata_out.index.name = 'barcode'
+metadata_out.reset_index(inplace=True)
+metadata_out.head()
+metadata_out.to_csv(os.path.join(opt["outdir"], "metadata.tsv.gz"),
+                    sep="\t", index=False, compression="gzip")
+
 
 # ########################################################################### #
 # ########################## Make plots ##################################### #
@@ -96,14 +123,18 @@ L.info("Plot variables on UMAP")
 if ',' in opt["plot_vars"]:
     for v in opt["plot_vars"].split(','):
         L.info("Making plot for variable: " + str(v))
-        file_name = "_" + str(v)
+        file_name = "_" + str(v) 
+        if v not in adata.obs.columns:
+            raise Exception("This variable is not in metadata")
         sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
-        sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
+        #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.info("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
+    if opt["plot_vars"] not in adata.obs.columns:
+        raise Exception("This variable is not in metadata")
     sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
-    sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
+    #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 
 L.info("Done UMAP plotting")
 
