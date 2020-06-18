@@ -110,18 +110,17 @@ def preprocess_metadata_sequencing(infile, outfile):
 def load_metadata_sequencing(infile, outfile):
     '''load metadata of sequencing data into database '''
 
-    to_cluster = True
-
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                          -i "Sequencing_ID" 
-                          --table=metadata_sequencing 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Sequencing_ID"
+                          --table=metadata_sequencing
                  > %(outfile)s
               '''
 
     P.run(statement)
+
 
 @files(PARAMS['data_sequencing_info'],
        "pool_to_channels.tsv")
@@ -148,10 +147,10 @@ def load_channels(infile, outfile):
 
     statement='''cat %(infile)s
                  | sed 's/Sequencing.ID/Sequencing_ID/g'
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                          -i "Pool" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Pool"
                           --table=channels
                  > %(outfile)s
               '''
@@ -166,13 +165,11 @@ def load_channels(infile, outfile):
 def load_combatids(infile, outfile):
     '''load lookup table of combat ids into database '''
 
-    to_cluster = True
-
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                          -i "Pool" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Pool"
                           -i "Sequencing_ID"
                           --table=combatids
                  > %(outfile)s
@@ -190,10 +187,10 @@ def load_metadata_samples(infile, outfile):
 
 
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                           -i "COMBATID" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "COMBATID"
                           --table=clinical_metadata
                  > %(outfile)s
               '''
@@ -219,7 +216,6 @@ def process_merged_scrublet(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
-
 @follows(load_metadata_samples)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_scrublet,
@@ -228,12 +224,11 @@ def process_merged_scrublet(infiles, outfile):
 def load_merged_scrublet(infile, outfile):
     '''load scrublet output data into database '''
 
-
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                           -i "barcode_id" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "barcode_id"
                           --table=gex_scrublet
                  > %(outfile)s
               '''
@@ -259,7 +254,6 @@ def process_merged_qcmetrics(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
-
 @follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_qcmetrics,
@@ -269,10 +263,10 @@ def load_merged_qcmetrics(infile, outfile):
     '''load qcmetrics output data into database '''
 
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                          -i "barcode_id" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "barcode_id"
                           -i "sample"
                           --table=gex_qcmetrics
                  > %(outfile)s
@@ -311,10 +305,10 @@ def load_merged_demux(infile, outfile):
     ''' '''
 
     statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db  
-                          --retry  
-                          --database-url=sqlite:///./csvdb 
-                           -i "barcode_id" 
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "barcode_id"
                           --table=gex_demux
                  > %(outfile)s
               '''
@@ -332,11 +326,11 @@ def final(outfile):
 
     dbh = connect()
 
-    statement = '''CREATE VIEW final AS 
+    statement = '''CREATE VIEW final AS
                     SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
                               qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
                               qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_chrx, qc.pct_chry,
-                              qc.mitoribo_ratio, qc.barcode_id, 
+                              qc.mitoribo_ratio, qc.barcode_id,
                            scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
                            demux.demuxletV2 baseID,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
