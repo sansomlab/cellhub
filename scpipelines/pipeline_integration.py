@@ -1109,12 +1109,6 @@ def runLISIpy(infile, outfile):
     options["split_var"] = PARAMS["integration_split_factor"]
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
-    # extract path from input_samples.tsv
-    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    samples.set_index("sample_id", inplace=True)
-    infolder = samples.loc[sample_name, "path"]
-    options["matrixdir"] = infolder
 
     if tool == "harmony":
         file_name = "harmony.tsv.gz"

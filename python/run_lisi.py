@@ -45,11 +45,9 @@ components = pd.read_csv(comp_file, sep = "\t")
 components.set_index("barcode", inplace=True)
 
 # add metadata
-adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.m5ad"))
-metadata = adata.uns['metadata']
-metadata.loc[components.index,:]
-metadata.index.name = 'barcode'
-metadata.reset_index(inplace=True)
+metadatadir = os.path.dirname(opt['comp_file'])
+metadata = pd.read_csv(os.path.join(metadatadir, "metadata.tsv.gz"), 
+                       sep = "\t")
 
 L.info("Read input components and metadata")
 

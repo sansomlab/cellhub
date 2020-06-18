@@ -48,7 +48,8 @@ with open(args.task_yml, 'r') as stream:
 sc.settings.figdir = os.path.join(opt["outdir"], "figures.dir")
 sc.settings.set_figure_params(dpi=300, dpi_save=300)
 
-# write folder                                                                                    
+# write two results files 
+results_file_logn = os.path.join(opt["outdir"], "lognormalized_anndata.h5ad")
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
 L.info("Running with options ---> %s", opt)
@@ -67,15 +68,14 @@ if opt["tool"] == "bbknn" and ',' in opt["split_var"]:
 # ######################## Read input data ################################## #
 # ########################################################################### #
 
-adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.m5ad"))
-# this is required for gene_symbols:
-adata.var_names_make_unique()
-adata.obs['barcode'] = adata.obs.index
+adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.h5ad"))
+# create a raw counts layer
+adata.layers['counts'] = adata.X.copy()
 
 L.info("Loaded anndata object")
 
 # write out gene annotation
-anno_genes = pd.DataFrame(adata.var["gene_ids"])
+anno_genes = pd.DataFrame(adata.var["gene_ids"].copy())
 anno_genes.reset_index(inplace=True)
 anno_genes.columns = ["gene_name", "gene_id"]
 anno_genes.to_csv(os.path.join(opt["outdir"], "annotation_genes.tsv.gz"),
@@ -90,12 +90,17 @@ anno_genes.to_csv(os.path.join(opt["outdir"], "annotation_genes.tsv.gz"),
 sc.pp.normalize_total(adata, target_sum=1e4)
 sc.pp.log1p(adata)
 
+# store the log-normalized layer
+adata.layers['log1p'] = adata.X.copy()
+adata.write(results_file_logn)
+adata.write(results_file)
+
 L.info("Finished normalization and log-transform")
 
 if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     L.info("Making separate object for cell cycle scoring")
 
-    adata_cc_genes = adata
+    adata_cc_genes = adata.copy()
     sc.pp.scale(adata_cc_genes)
     # cell cycle scoring similar to Seurat method
     # see here: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
@@ -113,6 +118,12 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     sc.tl.score_genes_cell_cycle(adata_cc_genes, s_genes=s_genes, g2m_genes=g2m_genes)
     # add score for difference between phases
     adata_cc_genes.obs['CC.Difference'] = adata_cc_genes.obs['S_score'] - adata_cc_genes.obs['G2M_score']
+
+    # assign cell cycle scores back to original object
+    adata.obs['S_score'] = adata_cc_genes.obs['S_score']
+    adata.obs['G2M_score'] = adata_cc_genes.obs['G2M_score']
+    adata.obs['phase'] = adata_cc_genes.obs['phase']
+    adata.obs['CC.Difference'] = adata_cc_genes.obs['CC.Difference']
 
     ## make new object to run PCA ONLY on cc genes (otherwise all genes are used by Scanpy)
     L.info("Running PCA based on only cell cycle genes")
@@ -156,7 +167,6 @@ sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 # * Note that: previous highly-variable-genes detection is stored as an annotation in .var.highly_variable and auto-detected by PCA --> do not filter for hv genes here
 
 # store progress up to here in .raw slot of anndata
-adata.raw = adata
 adata.write(results_file)
 
 ## subset to hv genes for all downstream analyses
@@ -170,10 +180,6 @@ if ',' in opt["regress_latentvars"]:
     regress_vars = opt["regress_latentvars"].split(',')
 else:
     regress_vars = [opt["regress_latentvars"]]
-
-## extract required QC metrics for regression
-for v in regress_vars:
-    adata.obs[v] = adata.uns['qcdata'][v]
 
 if opt["regress_latentvars"] == 'none':
     L.info("No regression performed")
@@ -229,9 +235,7 @@ if opt["tool"] == 'harmony' :
     else:
         vars_use = [opt["split_var"]]
 
-    for v in vars_use:
-        adata.obs[v] = adata.uns['metadata'][v]
-    meta_data = adata.obs
+    meta_data = adata.obs[vars_use]
 
     L.info("Using following variables for harmony integration: " + ",".join(vars_use))
 
@@ -245,8 +249,9 @@ if opt["tool"] == 'harmony' :
     adata.obsm['X_harmony']=adjusted_pcs.values
  
     ## save harmony components
-    harmony_out = pd.DataFrame(adata.obsm["X_harmony"],
-                               index=adata.obs['barcode'])
+    harmony_out = pd.DataFrame(adata.obsm["X_harmony"].copy(),
+                               index=adata.obs.index.copy())
+    harmony_out.index.name = 'barcode'
     harmony_out.columns = ["harmony_" + str(i) for i in range(1,harmony_out.shape[1]+1)]
     harmony_out.reset_index(inplace=True)
 
@@ -254,14 +259,12 @@ if opt["tool"] == 'harmony' :
                        sep="\t", index=False, compression="gzip")
 elif opt["tool"] == "bbknn":
     L.info("Running bbknn, no dim reduction will be stored")
-    adata.obs[opt["split_var"]] = adata.uns['metadata'][opt["split_var"]]
     bbknn.bbknn(adata, batch_key=opt["split_var"], n_pcs = opt["nPCs"])
 
 elif opt["tool"] == "scanorama":
     L.info("Splitting anndata object for scanorama")
-    list_ids = (set(adata.uns['metadata'][opt["split_var"]].tolist()))
+    list_ids = (set(adata.obs[opt["split_var"]].tolist()))
     all_anndata = []
-    adata.obs[opt["split_var"]] = adata.uns['metadata'][opt["split_var"]]
 
     for p in list_ids:
         all_anndata = all_anndata + [adata[adata.obs[opt["split_var"]] == p]]
@@ -281,8 +284,9 @@ elif opt["tool"] == "scanorama":
     adata.obsm["X_scanorama_embedding"] = embedding_scanorama
     L.info("Finished scanorama and written embeddings into anndata")
     ## save scanorama components
-    scanorama_out = pd.DataFrame(adata.obsm["X_scanorama_embedding"],
-                               index=adata.obs['barcode'])
+    scanorama_out = pd.DataFrame(adata.obsm["X_scanorama_embedding"].copy(),
+                                 index=adata.obs.index.copy())
+    scanorama_out.index.name = 'barcode'
     scanorama_out.columns = ["scanorama_" + str(i) for i in range(1,scanorama_out.shape[1]+1)]
     scanorama_out.reset_index(inplace=True)
 
@@ -291,9 +295,11 @@ elif opt["tool"] == "scanorama":
     L.info("Finished writing scanorama embeddings to file")
 else:
     L.info("Write out PCA components")
-    pca_out = pd.DataFrame(adata.obsm['X_pca'])
+    pca_out = pd.DataFrame(adata.obsm['X_pca'].copy(),
+                           index = adata.obs.index.copy())
+    pca_out.index.name = 'barcode'
     pca_out.columns = ["PC_" + str(i) for i in range(1,pca_out.shape[1]+1)]
-    pca_out['barcode'] = adata.obs['barcode'].tolist()
+    pca_out.reset_index(inplace=True)
     pca_out.to_csv(os.path.join(opt["outdir"], "pca.tsv.gz"),
                    sep="\t", index=False, compression="gzip")
 

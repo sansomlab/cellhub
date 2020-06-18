@@ -95,21 +95,20 @@ L.info("Finished running UMAP")
 
 umap_coord = pd.DataFrame(adata.obsm['X_umap'])
 umap_coord.columns = ["UMAP_1", "UMAP_2"]
-umap_coord['barcode'] = adata.obs['barcode'].tolist()
+umap_coord['barcode'] = adata.obs.index.tolist()
 umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
 L.info("Finished and writing UMAP coordinates")
 
 # write out metadata for plotting in R
-metadata = adata.uns['metadata'].copy()
-metadata.index.name = 'barcode'
-metadata.reset_index(inplace=True)
-qcdata = adata.uns['qcdata'].copy()
-qcdata.index.name = 'barcode'
-qcdata.reset_index(inplace=True)
-
-metadata_out = pd.merge(metadata, qcdata, on='barcode')
+metadata_out = adata.obs.copy()
+# if barcode exists, this is likely incorrect -> use index instead
+if 'barcode' in metadata_out.columns:
+    del metadata_out['barcode']
+metadata_out.index.name = 'barcode'
+metadata_out.reset_index(inplace=True)
+metadata_out.head()
 metadata_out.to_csv(os.path.join(opt["outdir"], "metadata.tsv.gz"),
                     sep="\t", index=False, compression="gzip")
 
@@ -124,23 +123,15 @@ L.info("Plot variables on UMAP")
 if ',' in opt["plot_vars"]:
     for v in opt["plot_vars"].split(','):
         L.info("Making plot for variable: " + str(v))
-        file_name = "_" + str(v)
-        if v in adata.uns['qcdata'].columns:
-            adata.obs[v] = adata.uns['qcdata'][v]
-        elif v in adata.uns['metadata'].columns:
-            adata.obs[v] = adata.uns['metadata'][v]
-        else:
+        file_name = "_" + str(v) 
+        if v not in adata.obs.columns:
             raise Exception("This variable is not in metadata")
         sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
         #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.info("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
-    if v in adata.uns['qcdata'].columns:
-        adata.obs[v] = adata.uns['qcdata'][v]
-    elif v in adata.uns['metadata'].columns:
-        adata.obs[v] = adata.uns['metadata'][v]
-    else:
+    if opt["plot_vars"] not in adata.obs.columns:
         raise Exception("This variable is not in metadata")
     sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
     #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
