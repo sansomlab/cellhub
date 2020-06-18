@@ -95,6 +95,22 @@ g_legend<-function(a.gplot){
   legend
 }
 
+gp_nolabels <- theme(axis.text.x=element_blank(),
+                     axis.ticks.x=element_blank(),
+                     axis.text.y=element_blank(),
+                     axis.ticks.y=element_blank())
+
+gp_choose_pointsize <- function(size){
+  if(size > 50000){
+    g <- geom_point(alpha=0.5, size=1, shape='.')
+  } else if (size > 5000) {
+    g <- geom_point(alpha=0.5, size=0.5, shape=20)
+  } else {
+    g <- geom_point(alpha=0.7, size=1, shape=20)
+  }
+  return(g)
+}
+
 ## ######################################################################### ##
 ## ###################### (i) Read in data ################################# ##
 ## ######################################################################### ##
@@ -124,6 +140,8 @@ if (!is.null(opt$metadata)){
   plot_coord <- merge(plot_coord, metadata, by="barcode")
 }
 
+flog.info("Number of cells in this sample: %s", nrow(input_coord))
+
 ## ######################################################################### ##
 ## ###################### (ii) Make plots ################################## ##
 ## ######################################################################### ##
@@ -139,14 +157,20 @@ for (v in variables_plot) {
   flog.info("Making plots for variable: %s", v)
   nlevels = length(unique(plot_coord[,v]))
   
-  if (nlevels > 15 & !is.numeric(plot_coord[,v])){
+  if (nlevels > 15 & !is.numeric(plot_coord[,v]) || nrow(input_coord) > 10000){
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
-    
+    gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
+    if (!is.numeric(plot_coord[,v])){
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16)))
+      gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+    }
+    if(is.numeric(plot_coord[,v])) {
+      gp <- gp + scale_color_viridis_c()
+    }
     # extract legend
     legend <- g_legend(gp)
-    gp <- gp + theme(legend.position="none")
+    gp <- gp + theme(legend.position="none") + gp_nolabels
     # save legend and plot separately
     ggsave(file.path(opt$outdir, paste0("umap.", v, ".legend.png")), 
            plot = legend, type = "cairo")
@@ -156,7 +180,11 @@ for (v in variables_plot) {
   } else {
     flog.info("Make plot including legend for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
+    gp <- gp + gp_choose_pointsize(nrow(input_coord))
+    gp <- gp + theme_bw() + gp_nolabels
+    if (!is.numeric(plot_coord[,v])){
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+    }
     
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
@@ -173,15 +201,16 @@ for (v in variables_plot) {
   flog.info(paste0("Making plots for variable: %s", v))
   nlevels = length(unique(plot_coord[,v]))
   
-  if (nlevels > 9 & !is.numeric(plot_coord[,v])){
+  if (nlevels > 9 & !is.numeric(plot_coord[,v]) || nrow(input_coord) > 50000 & !is.numeric(plot_coord[,v])){
     ncols = floor(sqrt(nlevels))
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
+    gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
+    gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
     
     # extract legend
     legend <- g_legend(gp)
-    gp <- gp + theme(legend.position="none")
+    gp <- gp + theme(legend.position="none") + gp_nolabels
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=ncols)
 
     if (nlevels > 50){
@@ -204,7 +233,11 @@ for (v in variables_plot) {
   } else {
     flog.info("Make plot including legend for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
-    gp <- gp + geom_point(alpha=0.5, size=1, shape='.') + theme_bw()
+    gp <- gp + gp_choose_pointsize(nrow(input_coord))
+    gp <- gp + theme_bw() + gp_nolabels
+    if (!is.numeric(plot_coord[,v])){
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+    }
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=3)
 
     # set height and width (2 for each panel + 2 for legend)
