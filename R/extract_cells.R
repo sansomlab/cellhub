@@ -15,7 +15,11 @@ option_list <- list(
     make_option(
         c("--matrixdir"),
         default="none",
-        help="the folder containing the input matrix"),
+        help="the folder containing the input matrices"),
+    make_option(
+        c("--matrixid"),
+        default="none",
+        help="the name of subfolder containing the input matrix"),
     make_option(
       c("--matrixtype"),
       default="mm",
@@ -35,11 +39,13 @@ print(opt)
 
 ## Read in the matrix
 
+outs = "outs/filtered_feature_bc_matrix/"
+
 if(opt$matrixtype=="mm")
 {
-    matrix_path <- file.path(opt$matrixdir, "matrix.mtx.gz")
-    matrix_barcodes <- file.path(opt$matrixdir, "barcodes.tsv.gz")
-    matrix_features <- file.path(opt$matrixdir, "features.tsv.gz")
+    matrix_path <- file.path(opt$matrixdir, opt$matrixid, outs, "matrix.mtx.gz")
+    matrix_barcodes <- file.path(opt$matrixdir, opt$matrixid, outs, "barcodes.tsv.gz")
+    matrix_features <- file.path(opt$matrixdir, opt$matrixid, outs, "features.tsv.gz")
 
     x <- readMM(matrix_path)
     colnames(x)  <- read.table(matrix_barcodes, stringsAsFactors=FALSE)$V1
@@ -66,17 +72,19 @@ print("matrix dimensions after subsetting")
 print(dim(x))
 
 
+out_folder = opt$outdir
+
 ## Save the results
-matrix_path = file.path(opt$outdir, "matrix.mtx")
-barcodes_path = file.path(opt$outdir, "barcodes.tsv")
-features_path = file.path(opt$outdir, "features.tsv.gz")
+matrix_path = file.path(out_folder, "matrix.mtx")
+barcodes_path = file.path(out_folder, "barcodes.tsv")
+features_path = file.path(out_folder, "features.tsv.gz")
 
 ## write out the matrix
 writeMM(x, matrix_path)
 
 ## write out the "cell" barcodes
-write.table(read.table(text=colnames(x),sep="-")$V1, 
-            barcodes_path,
+write.table(read.table(text=colnames(x),sep="-")$V1,
+  	    barcodes_path,
             col.names=FALSE,
             sep=",",
             row.names=FALSE,
@@ -88,4 +96,3 @@ file.copy(matrix_features, features_path)
 ## compress the outputs
 gzip(matrix_path, overwrite=TRUE)
 gzip(barcodes_path, overwrite=TRUE)
-

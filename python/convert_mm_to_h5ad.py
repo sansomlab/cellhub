@@ -4,7 +4,7 @@ import scanpy
 import pandas as pd
 import logging
 import argparse
-
+import numpy as np
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -21,12 +21,12 @@ L = logging.getLogger("convert_mtx_to_h5ad.py")
 parser = argparse.ArgumentParser()
 parser.add_argument("--mtxdir10x", default=".", type=str,
                     help="the directory containing the 10x matrix")
-parser.add_argument("--metadata", default=None, type=str,
-                    help="A file containing the metadata")
-parser.add_argument("--qcdata", default=None, type=str,
-                    help="A file containing the qc info")
+parser.add_argument("--obsdata", default=None, type=str,
+                    help="A file containing the obsdata")
 parser.add_argument("--outdir",default=".", type=str,
                     help="path to output directory")
+parser.add_argument("--obstotals",default="total_UMI", type=str,
+                    help="Column in obs containing the obs sums")
 parser.add_argument("--matrixname", default="matrix.m5ad", type=str,
                     help="a name for the output matrix")
 
@@ -40,22 +40,35 @@ L.info("Reading in the 10x market matrix")
 x = scanpy.read_10x_mtx(args.mtxdir10x,
                         cache=True)
 
-if args.metadata is not None:
+print(x)
 
-    L.info("Adding the metadata")
+if args.obsdata is not None:
 
-    x.uns["metadata"] = pd.read_csv(args.metadata, 
-                                    sep="\t",
-                                    index_col="barcode").loc[x.obs.index,:]
+    L.info("Adding the obsdata")
 
+    obs_data = pd.read_csv(args.obsdata,
+                           sep="\t",
+                           index_col="barcode_id").loc[x.obs.index,:]
 
-if args.qcdata is not None:
+    x.obs = obs_data
 
-    L.info("Adding the qc data")
+    if args.obstotals not in x.obs.columns:
+        raise ValueError("obstotals column not found in the obsdata")
 
-    x.uns["qcdata"] = pd.read_csv(args.qcdata, 
-                                    sep="\t",
-                                    index_col="barcode").loc[x.obs.index,:]
+    # check the observations have the expected sums.
+    obs_sums = np.sum(x.X, axis = 1)
+    obs_sums = np.squeeze(np.asarray(obs_sums))
+    obs_sums = obs_sums.astype(int)
+    print(sum(obs_sums))
+    print(sum(x.obs[args.obstotals].values))
+    if np.array_equal(obs_sums, x.obs[args.obstotals].values):
+        L.info("The observations have the expected numbers of counts")
+
+    else:
+        raise ValueError("Data matrix does not match given observations")
+
+else:
+    raise ValueError("Observations data matrix not supplied")
 
 
 L.info("Saving the h5ad file")

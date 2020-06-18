@@ -1,3 +1,25 @@
+# celldb location
+
+celldb: /well/combat/projects/preprocess/citeseq_initial/pipeline_celldb/061720/csvdb
+
+query: >-
+  select * from final
+  where baseID like "COMB%"
+  and pct_mitochondrial <5
+  and ngenes >500;
+
+matrix:
+  dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
+  type: mm
+
+# Number of cells to be randomly drawn
+# or "all"
+#
+sample: 5000
+
+
+
+
 # A tsv file containing the mapping of cells to
 # matrices with columns
 # "barcode" "matrix_id"
@@ -17,4 +39,3 @@ metadata_file: None
 # It must have a "barcode" column that corresponds
 # to the final barcodes of the output matrix
 qcdata_file: None
-

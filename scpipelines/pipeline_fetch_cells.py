@@ -86,7 +86,7 @@ from pathlib import Path
 import pandas as pd
 from ruffus import *
 from cgatcore import pipeline as P
-
+import cgatcore.iotools as IOTools
 
 # -------------------------- < parse parameters > --------------------------- #
 
@@ -132,52 +132,91 @@ def md5gz(fname):
 # ############## read in the cell and matrix information #################### #
 # ########################################################################### #
 
-# get the map of cells to matrix identifies
-cell_map = PARAMS["cell_to_matrix_map_file"]
-cells = pd.read_csv(cell_map, sep="\t")
+# # get the map of cells to matrix identifies
+# cell_map = PARAMS["cell_to_matrix_map_file"]
+# cells = pd.read_csv(cell_map, sep="\t")
 
-# get the table containing the matrix information
-matrix_table = PARAMS["matrix_table_file"]
-matrices = pd.read_csv(matrix_table, sep="\t")
-matrices.index = matrices["matrix_id"]
+# # get the table containing the matrix information
+# matrix_table = PARAMS["matrix_table_file"]
+# matrices = pd.read_csv(matrix_table, sep="\t")
+# matrices.index = matrices["matrix_id"]
 
 
 # ########################################################################### #
 # ############################# pipeline tasks ############################## #
 # ########################################################################### #
 
+@follows(mkdir("cell.info.dir"))
+@files(PARAMS["celldb"],
+       "cell.info.dir/cell.table.sentinel")
+def fetch_cell_table(infile, outfile):
+    '''Fetch the table of good quality cells from the database'''
+
+    cell_table = outfile.replace(".sentinel", ".tsv.gz")
+
+    if(PARAMS["sample"]=="all"):
+        sample = ""
+    else:
+        take = int(PARAMS["sample"]) + 1
+        sample = '''| body shuf | awk 'NR <= %(take)s' ''' % locals()
+
+    statement ='''body() {
+                   IFS= read -r header;
+                   printf '%%s\\n' "$header";
+                  "$@";
+                  };
+
+              sqlite3 -header %(infile)s -separator $'\\t' '%(query)s'
+                  %(sample)s
+                  | gzip -c
+                  > %(cell_table)s'''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
 def matrix_subset_jobs():
     '''Generate a list of subsets from the cell manifest'''
 
-    matrix_ids = [x for x in cells.matrix_id.unique()]
+    cell_tab = "cell.info.dir/cell.table.tsv.gz"
 
-    for matrix_id in matrix_ids:
+    if os.path.exists(cell_tab):
 
-        matrix_subset_dir = os.path.join("matrix.subsets.dir",
-                                         matrix_id)
+        global cells
 
-        matrix_subset_barcodes = os.path.join(matrix_subset_dir,
-                                              "cells_to_extract.txt.gz")
+        cells = pd.read_csv(cell_tab, sep="\t")
 
-        yield [None, matrix_subset_barcodes]
+        matrix_ids = [x for x in cells.sequencing_id.unique()]
+
+        for matrix_id in matrix_ids:
+
+            matrix_subset_dir = os.path.join("matrix.subsets.dir",
+                                             matrix_id)
+
+            matrix_subset_barcodes = os.path.join(matrix_subset_dir,
+                                                  "cells_to_extract.txt.gz")
+
+            yield [None, matrix_subset_barcodes]
 
 
-@follows(mkdir("matrix.subsets.dir"))
+@follows(fetch_cell_table, mkdir("matrix.subsets.dir"))
 @files(matrix_subset_jobs)
 def setupSubsetJobs(infile, outfile):
     '''Setup the folders for the subsetting jobs'''
+
+    # cells = pd.read_csv("cell.info.dir/cell.table.tsv.gz", sep="\t")
 
     matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
 
     os.mkdir(matrix_subset_dir)
 
-    cell_subset = cells["barcode"][cells["matrix_id"] == matrix_id]
+    cell_subset = cells["barcode"][cells["sequencing_id"] == matrix_id]
 
     cell_subset.to_csv(outfile,
                        header=False,
                        index=False,
                        compression="gzip")
+
 
 
 @transform(setupSubsetJobs,
@@ -190,18 +229,14 @@ def cellSubsets(infile, outfile):
 
     # matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
-
     outdir = os.path.dirname(infile)
 
-    matrix_dir = matrices.loc[matrix_id]["matrix_dir"]
-
-    matrix_type = matrices.loc[matrix_id]["matrix_type"]
-
     statement = '''Rscript %(cellhub_dir)s/R/extract_cells.R
-                           --cells=%(infile)s
-                           --matrixdir=%(matrix_dir)s
-                           --matrixtype=%(matrix_type)s
-                           --outdir=%(outdir)s
+                   --cells=%(infile)s
+                   --matrixdir=%(matrix_dir)s
+                   --matrixid=%(matrix_id)s
+                   --matrixtype=%(matrix_type)s
+                   --outdir=%(outdir)s
                 '''
 
     P.run(statement)
@@ -295,15 +330,15 @@ def mergeSubsets(infiles, outfile):
         # append the matrix values, offsetting the column index
         statement += '''zcat %(mtx_file)s
                        | awk 'NR>2{print $1,$2 + %(column_offset)s,$3}'
-                       >> %(mtx_outfile)s; 
+                       >> %(mtx_outfile)s;
                     ''' % locals()
 
         #P.run(statement)
 
         # append the barcodes, adding the matrix identifier
         statement += '''zcat %(barcodes_file)s
-                       | awk '{print $1"-%(matrix_id)s"}'
-                       >> %(barcodes_outfile)s; 
+                       | awk '{print $1"-1-%(matrix_id)s"}'
+                       >> %(barcodes_outfile)s;
                     ''' % locals()
 
 
@@ -338,36 +373,40 @@ def mergeSubsets(infiles, outfile):
 @follows(mkdir("anndata.dir"))
 @transform(mergeSubsets,
            regex(r"output.dir/matrix.mtx.gz"),
-           r"anndata.dir/matrix.m5ad")
-def exportAnnData(infile, outfile):
+           add_inputs(fetch_cell_table),
+           r"anndata.dir/matrix.h5ad")
+def exportAnnData(infiles, outfile):
     '''
        Export a h5ad anndata matrix for downstream analysis with
        scanpy
     '''
 
-    mtx_dir = os.path.dirname(infile)
+    mtx, obs = infiles
+    mtx_dir = os.path.dirname(mtx)
 
     #placeholders
-    if PARAMS["metadata_file"] is not None:
-        metadata = "--metadata=" + PARAMS["metadata_file"].strip()
-    else:
-        metadata = ""
+    # if PARAMS["metadata_file"] is not None:
+    #     metadata = "--metadata=" + PARAMS["metadata_file"].strip()
+    # else:
+    #     metadata = ""
 
-    if PARAMS["qcdata_file"] is not None:
-        qcdata = "--qcdata=" + PARAMS["qcdata_file"].strip()
-    else:
-        qcdata = ""
+    # if PARAMS["qcdata_file"] is not None:
+    #     qcdata = "--qcdata=" + PARAMS["qcdata_file"].strip()
+    # else:
+    #     qcdata = ""
 
     outdir = os.path.dirname(outfile)
     matrix_name = os.path.basename(outfile)
+
+    obs_file = obs.replace(".sentinel",".tsv.gz")
 
     log_file = outfile + ".log"
     job_threads = 2
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s
-                          %(metadata)s
-                          %(qcdata)s
+                          --obsdata=%(obs_file)s
+                          --obstotals=total_UMI
                           --outdir=%(outdir)s
                           --matrixname=%(matrix_name)s
                     > %(log_file)s
