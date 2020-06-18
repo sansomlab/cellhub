@@ -110,49 +110,92 @@ def preprocess_metadata_sequencing(infile, outfile):
 def load_metadata_sequencing(infile, outfile):
     '''load metadata of sequencing data into database '''
 
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Sequencing_ID"
+                          --table=metadata_sequencing
+                 > %(outfile)s
+              '''
 
-    P.load(infile, outfile,
-           tablename="metadata_sequencing",
-           options="index=Sequencing_ID")
+    P.run(statement)
+
+
+@files(PARAMS['data_sequencing_info'],
+       "pool_to_channels.tsv")
+def extract_channel_info(infile, outfile):
+    '''extract the channel info from the seq metadata'''
+
+    x = pd.read_csv(infile, sep="\t")
+
+    y = pd.DataFrame(x["Sequencing ID"].values, columns=["Sequencing_ID"])
+    y["gPlex"] = [x.split("_")[1] for x in x["Sample Name"]]
+    y["Pool"] = [x[:-1] for x in y["gPlex"]]
+    y["Channel"] = [x[-1:] for x in y["gPlex"]]
+
+    y.to_csv(outfile, sep="\t", index=False)
 
 
 @follows(load_metadata_sequencing)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_lookup_combatid'],
-           suffix(".tsv"),
-           r".load")
-def load_combatid_lookup(infile, outfile):
-    '''load lookup table of combat ids into database '''
-
-    P.load(infile, outfile,
-           tablename="combatid_lookup",
-           options="index=Pool")
-
-
-@follows(load_combatid_lookup)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_lookup_pool'],
-           suffix(".tsv"),
-           r".load")
-def load_channel_lookup(infile, outfile):
-    '''load lookup table of channel ids into database '''
-
-    P.load(infile, outfile,
-           tablename="channel_lookup",
-           options="index=Pool")
-
-
-@follows(load_channel_lookup)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(PARAMS['data_patient_metadata'],
+@transform(extract_channel_info,
            suffix(".tsv"),
            ".load")
+def load_channels(infile, outfile):
+    '''load lookup table of channel ids into database '''
+
+    statement='''cat %(infile)s
+                 | sed 's/Sequencing.ID/Sequencing_ID/g'
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Pool"
+                          --table=channels
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
+
+
+@follows(load_channels)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@files(PARAMS['data_lookup_combatid'],
+       r"combatids.load")
+def load_combatids(infile, outfile):
+    '''load lookup table of combat ids into database '''
+
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "Pool"
+                          -i "Sequencing_ID"
+                          --table=combatids
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
+
+
+@follows(load_combatids)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@files(PARAMS['data_patient_metadata'],
+       "clinical_metadata.load")
 def load_metadata_samples(infile, outfile):
     '''load metadata of patients into database '''
 
-    P.load(infile, outfile,
-           tablename="metadata_patient",
-           options="")
+
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "COMBATID"
+                          --table=clinical_metadata
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
@@ -173,7 +216,6 @@ def process_merged_scrublet(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
-
 @follows(load_metadata_samples)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_scrublet,
@@ -182,10 +224,16 @@ def process_merged_scrublet(infiles, outfile):
 def load_merged_scrublet(infile, outfile):
     '''load scrublet output data into database '''
 
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "barcode_id"
+                          --table=gex_scrublet
+                 > %(outfile)s
+              '''
 
-    P.load(infile, outfile,
-           tablename="merged_scrublet",
-           options="index=barcode_id")
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
@@ -206,7 +254,6 @@ def process_merged_qcmetrics(infiles, outfile):
     frame.to_csv(outfile, sep='\t', index=False)
 
 
-
 @follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @transform(process_merged_qcmetrics,
@@ -215,10 +262,17 @@ def process_merged_qcmetrics(infiles, outfile):
 def load_merged_qcmetrics(infile, outfile):
     '''load qcmetrics output data into database '''
 
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "barcode_id"
+                          -i "sample"
+                          --table=gex_qcmetrics
+                 > %(outfile)s
+              '''
 
-    P.load(infile, outfile,
-           tablename="merged_qcmetric",
-           options="index=barcode_id")
+    P.run(statement)
 
 
 @merge(os.path.join(PARAMS['data_demux'],"*/*_SingleCellMetadata_demultiplexing_results.tsv.gz"),
@@ -250,39 +304,21 @@ def process_merged_demux(infiles, outfile):
 def load_merged_demux(infile, outfile):
     ''' '''
 
-    P.load(infile, outfile,
-           tablename="merged_demux",
-           options="index=barcode_id")
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                           -i "barcode_id"
+                          --table=gex_demux
+                 > %(outfile)s
+              '''
 
-
-@follows(load_merged_demux, load_combatid_lookup,
-         load_channel_lookup)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("merge_lookups.load")
-def merge_lookups(outfile):
-    ''' '''
-
-    dbh = connect()
-
-    statement1 = '''DROP TABLE IF EXISTS merged_lookup;'''
-    statement2 = '''CREATE TABLE merged_lookup
-                   AS 
-                   SELECT * FROM
-                   combatid_lookup
-                   LEFT JOIN channel_lookup
-                   ON combatid_lookup.Pool = channel_lookup.Pool;'''
-
-    cc = database.executewait(dbh, statement1, retries=5)
-    cc = database.executewait(dbh, statement2, retries=5)
-
-    cc.close()
-
-    iotools.touch_file(outfile)
-
+    P.run(statement)
 
 
 @follows(load_merged_qcmetrics, load_merged_scrublet,
-         merge_lookups)
+         load_merged_demux,
+         load_channels, load_combatids)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("final.load")
 def final(outfile):
@@ -290,15 +326,30 @@ def final(outfile):
 
     dbh = connect()
 
-    statement = '''CREATE VIEW final AS SELECT * FROM merged_qcmetric
-                    LEFT JOIN merged_scrublet
-                    ON merged_qcmetric.barcode_id = merged_scrublet.barcode_id
-                    LEFT JOIN merged_demux
-                    ON merged_qcmetric.barcode_id = merged_demux.barcode_id
-                    LEFT JOIN metadata_sequencing
-                    ON metadata_sequencing.Sequencing_ID = merged_qcmetric.sample
-                    LEFT JOIN merged_lookup
-                    ON merged_lookup.Sequencing_ID = metadata_sequencing.Sequencing_ID;'''
+    statement = '''CREATE VIEW final AS
+                    SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
+                              qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
+                              qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_chrx, qc.pct_chry,
+                              qc.mitoribo_ratio, qc.barcode_id,
+                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
+                           demux.demuxletV2 baseID,
+                           channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
+                           cids.COMBATID,
+                           cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity
+                    FROM gex_qcmetrics qc
+                    LEFT JOIN gex_scrublet scrub
+                    ON qc.barcode_id = scrub.barcode_id
+                    LEFT JOIN gex_demux demux
+                    ON qc.barcode_id = demux.barcode_id
+                    LEFT JOIN metadata_sequencing seq
+                    ON qc.sample = seq.Sequencing_ID
+                    LEFT JOIN channels
+                    ON qc.sample = channels.Sequencing_ID
+                    LEFT JOIN combatids cids
+                    ON demux.DemuxletV2 = cids.baseID
+                       AND channels.Pool = cids.Pool
+                    LEFT JOIN clinical_metadata cm
+                    ON cids.COMBATID = cm.COMBATID'''
 
     cc = database.executewait(dbh, statement, retries=5)
 
