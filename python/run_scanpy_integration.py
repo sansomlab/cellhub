@@ -24,7 +24,7 @@ warnings.filterwarnings('ignore')
 # ########################################################################### #
 
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
-L = logging.getLogger("run_harmony")
+L = logging.getLogger("run_integration")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
 # comment this because of numba issues
@@ -81,6 +81,11 @@ anno_genes.columns = ["gene_name", "gene_id"]
 anno_genes.to_csv(os.path.join(opt["outdir"], "annotation_genes.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
+# drop column named 'barcode' if it exists
+if 'barcode' in adata.obs.columns:
+    L.warning("Removing column called barcode from .obs, use index")
+    del adata.obs['barcode']
+
 # ########################################################################### #
 # ################ Run normalization and scaling ############################ #
 # ########################################################################### #
@@ -89,11 +94,6 @@ anno_genes.to_csv(os.path.join(opt["outdir"], "annotation_genes.tsv.gz"),
 
 sc.pp.normalize_total(adata, target_sum=1e4)
 sc.pp.log1p(adata)
-
-# store the log-normalized layer
-adata.layers['log1p'] = adata.X.copy()
-adata.write(results_file_logn)
-adata.write(results_file)
 
 L.warning("Finished normalization and log-transform")
 
@@ -164,9 +164,12 @@ else:
 
 sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 
-# * Note that: previous highly-variable-genes detection is stored as an annotation in .var.highly_variable and auto-detected by PCA --> do not filter for hv genes here
 
-# store progress up to here in .raw slot of anndata
+# store the objects at this point (with log-normalized and hvg)
+adata.write(results_file_logn)
+adata.write(results_file)
+# make log-norm layer for later use
+adata.layers['log1p'] = adata.X.copy()
 adata.write(results_file)
 
 ## subset to hv genes for all downstream analyses
