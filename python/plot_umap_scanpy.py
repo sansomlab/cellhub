@@ -84,7 +84,7 @@ if opt["tool"] == "bbknn":
     L.warning("No need to determine neighbors again")
 else:
     L.warning("Find neighbors")
-    sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
+    sc.pp.neighbors(adata, use_rep=obsm_use, n_neighbors = 15,
                     key_added = key_add)
 # umap uses the neighbor coordinates 
 sc.tl.umap(adata, neighbors_key = key_add)
