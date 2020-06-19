@@ -125,16 +125,18 @@ if ',' in opt["plot_vars"]:
         L.warning("Making plot for variable: " + str(v))
         file_name = "_" + str(v) 
         if v not in adata.obs.columns:
-            raise Exception("This variable is not in metadata")
-        sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
-        #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
+            L.warning("Varibale is not in the metadata.")
+        else:
+            sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
+            #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.warning("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
-    if opt["plot_vars"] not in adata.obs.columns:
-        raise Exception("This variable is not in metadata")
-    sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
-    #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
+    if v not in adata.obs.columns:
+        L.warning("Varibale is not in the metadata.")
+    else:
+        sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
+        #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 
 L.warning("Done UMAP plotting")
 
