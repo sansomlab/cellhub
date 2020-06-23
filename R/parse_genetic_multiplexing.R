@@ -199,7 +199,7 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     #---------------------------------
     data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
     output_path <-  file.path(paste0(run, opt$samplename, "_demuxlet2.best.doublet.tsv"))
-    write.table(data.use,file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
+    write.table(data.temp.demuxletv2,file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
 
   }
