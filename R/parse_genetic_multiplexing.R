@@ -180,8 +180,8 @@ if(length(opt$demultiplexing)<2){ #uniform names results
       dem2temp[[idx]] <- dlist[[idx]]<-read.table(ll[idx], header=T)[,cid]
       colnames(dlist[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
       colnames(dem2temp[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
-      colnames(dem2temp[[idx]])[3] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))),"SNG.BEST.GUESS")
-      names(dem2temp[[idx]]) <- gsub(opt$samplename,"",basename(dirname(ll[idx]))) 
+      colnames(dem2temp[[idx]])[3] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))),"SNG.BEST.GUESS") 
+      
       general<-dlist[[idx]][,2]
       specific<-dlist[[idx]][,3]
       which(general=="SNG") ->nex
@@ -194,12 +194,16 @@ if(length(opt$demultiplexing)<2){ #uniform names results
       dlist[[idx]]<-dlist[[idx]][,c(1,2)]
       nex <- NEX <-DEX <- NULL
     }
+    names(dem2temp) <-basename(dirname(ll)) 
     names(dlist) <- basename(dirname(ll)) 
     data.demuxletv2<- Reduce(function(x,y) merge(x,y,by="BARCODE"), dlist)
     message("Data demultiplexed with Demuxlet v2:")
     print(dim(data.demuxletv2))
     #---------------------------------
-    #data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
+    data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
+    output_path <-  file.path(paste0(run, opt$samplename, "allmethods.demuxlet2.best.doublet.tsv"))
+    write.table(data.temp.demuxletv2,file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
+    gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
     for( NN in 1:length(dem2temp)){
       ppst<-names(dem2temp[[NN]])
       output_path <-  file.path(paste0(run, opt$samplename, "_",ppst,"_demuxlet2.best.doublet.tsv"))
@@ -207,7 +211,7 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
     
     }
-    rm( dem2temp,NN,pst)
+    rm( data.temp.demuxletv2,dem2temp,NN,pst)
   }
   
 
