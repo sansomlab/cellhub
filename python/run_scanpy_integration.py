@@ -228,6 +228,10 @@ adata.write(results_file)
 
 ## Run PCA
 sc.tl.pca(adata, n_comps = opt["nPCs"])
+sc.pl.pca_variance_ratio(adata, save = "_pca_stdev.pdf", 
+                         show=False, n_pcs = opt["nPCs"])
+sc.pl.pca_variance_ratio(adata, save = "_pca_stdev_log.pdf",log=True, 
+                         show=False, n_pcs = opt["nPCs"])
 
 ## extract for harmony
 if opt["tool"] == 'harmony' :
