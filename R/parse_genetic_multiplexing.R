@@ -179,7 +179,9 @@ if(length(opt$demultiplexing)<2){ #uniform names results
       assign(paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx])))),read.table(ll[idx], header=T))
       dem2temp[[idx]] <- dlist[[idx]]<-read.table(ll[idx], header=T)[,cid]
       colnames(dlist[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
-      colnames(dem2temp[[idx]])[2:3] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
+      colnames(dem2temp[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
+      colnames(dem2temp[[idx]])[3] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))),"SNG.BEST.GUESS")
+      names(dem2temp[[idx]]) <- gsub(opt$samplename,"",basename(dirname(ll[idx]))) 
       general<-dlist[[idx]][,2]
       specific<-dlist[[idx]][,3]
       which(general=="SNG") ->nex
@@ -198,10 +200,14 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     print(dim(data.demuxletv2))
     #---------------------------------
     data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
-    output_path <-  file.path(paste0(run, opt$samplename, "_demuxlet2.best.doublet.tsv"))
-    write.table(data.temp.demuxletv2,file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
+    for( NN in 1:length(dem2temp)){
+      ppst<-names(dem2temp[[NN]])
+      output_path <-  file.path(paste0(run, opt$samplename, "_",ppst,"_demuxlet2.best.doublet.tsv"))
+      write.table(dem2temp[[NN]],file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
-    rm(data.temp.demuxletv2, dem2temp)
+    
+    }
+    rm(data.temp.demuxletv2, dem2temp,NN,pst)
   }
   
 
