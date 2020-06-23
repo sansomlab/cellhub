@@ -173,12 +173,13 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     message("demuxletV2")
     cid<-c("BARCODE","DROPLET.TYPE","SNG.BEST.GUESS")
     ll <- system(paste0("ls ",d2string), intern=T)
-    dlist <-list()
+    dlist <-dem2temp<-list()
     for( idx in 1:length(ll)){
       if (idx %% 2 == 0) {message("file ", idx, " of ", length(ll), " ...")}
       assign(paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx])))),read.table(ll[idx], header=T))
-      dlist[[idx]]<-read.table(ll[idx], header=T)[,cid]
+      dem2temp[[idx]] <- dlist[[idx]]<-read.table(ll[idx], header=T)[,cid]
       colnames(dlist[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
+      colnames(dem2temp[[idx]])[2] <- paste0("demuxletV2",gsub(opt$samplename,"",basename(dirname(ll[idx]))) )
       general<-dlist[[idx]][,2]
       specific<-dlist[[idx]][,3]
       which(general=="SNG") ->nex
@@ -195,10 +196,16 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     data.demuxletv2<- Reduce(function(x,y) merge(x,y,by="BARCODE"), dlist)
     message("Data demultiplexed with Demuxlet v2:")
     print(dim(data.demuxletv2))
-    
+    #---------------------------------
+    data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
+    output_path <-  file.path(paste0(run, opt$samplename, "_demuxlet2.best.doublet.tsv"))
+    write.table(data.use,file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
+    gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
+
   }
   
-    
+
+
   
   if("vireo"  %in%  opt$demultiplexing){
     message("vireo")
