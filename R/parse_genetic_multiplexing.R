@@ -206,7 +206,7 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
     for( NN in 1:length(dem2temp)){
       ppst<-names(dem2temp[[NN]])
-      output_path <-  file.path(paste0(run, opt$samplename, "_",ppst,"_demuxlet2.best.doublet.tsv"))
+      output_path <-  file.path(paste0(run, ppst,"_demuxlet2.best.doublet.tsv"))
       write.table(dem2temp[[NN]],file =output_path, sep="\t", quote = F, row.names = F, col.names = T)
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
     
