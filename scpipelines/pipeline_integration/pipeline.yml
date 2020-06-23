@@ -12,7 +12,7 @@ projectname: 10x single cell analysis
 # Author
 author: Kathrin Jansen
 
-# Whether to run the python and/or R-based 
+# Whether to run the python and/or R-based
 # workflow for integration
 use_python: 1
 use_R: 1
@@ -23,12 +23,22 @@ resources:
     # number of slots to use for the other tasks.
     # This is passed via job_threads and to the R scripts.
     # One slot is assumed to have 1 CPU, 16 GB RAM
-    nslots: 1
+    nslots: 2
+
+    # job memory for tasks except integration;
+    # use this in combination with nslots if no slots
+    # with memory pre-assigned
+    job_memory_standard: none
 
     # Number of slots to use for the integration task
     # This is passed via job threads
     # One slot is assumed to have 1 CPU, 16 GB RAM
-    integration_slots: 1
+    integration_slots: 2
+
+    # job memory for normalisation + integration tasks;
+    # use this in combination with nslots if no slots
+    # with memory pre-assigned
+    job_memory_high: none
 
 # Regression parameters
 # ---------------------
@@ -72,7 +82,7 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to run normalization and findVariableGenes on merged dataset 
+    # Whether to run normalization and findVariableGenes on merged dataset
     # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
     # Supply a comma-separated list (no spaces) for this option
     merged_normalisation: 0,1

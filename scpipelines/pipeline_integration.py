@@ -191,8 +191,8 @@ def genClusterJobsSeurat():
 @follows(checkInputs)
 @files(genClusterJobsSeurat)
 def prepExpFolders(infile, outfile):
-    '''Task to prepare experiment folder - this needs to be run 
-       for python-based analyses only. For R the folders are created as 
+    '''Task to prepare experiment folder - this needs to be run
+       for python-based analyses only. For R the folders are created as
        part of createSeurat.'''
 
     # create the output directories
@@ -238,7 +238,7 @@ def createSeurat(infile, outfile):
     # scoring only
     options["latentvars"] = PARAMS["regress_latentvars"]
     options["modeluse"] = PARAMS["regress_modeluse"]
-    
+
     # add cell cycle options
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
@@ -246,6 +246,10 @@ def createSeurat(infile, outfile):
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
 
     log_file = outfile.replace("sentinel","log")
+
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     job_threads = PARAMS["resources_nslots"]
 
@@ -311,7 +315,7 @@ def genClusterJobs():
                 k_str = str(PARAMS["harmony_sigma"])
                 ks = k_str.strip().replace(" ", "").split(",")
                 for n in ngenes:
-                    for k in ks: 
+                    for k in ks:
                         for m in mergedhvg:
                             outname = "_".join([n,m,k]) + ".run.dir"
                             outfile = os.path.join(dirname, "harmony.integrated.dir",
@@ -338,7 +342,7 @@ def genClusterJobs():
 @follows(prepExpFolders, createSeurat)
 @files(genClusterJobs)
 def prepFolders(infile, outfile):
-    '''Task to prepare folders for integration - this needs to be run 
+    '''Task to prepare folders for integration - this needs to be run
        for R and python-based analyses.'''
 
     # create the output directories
@@ -391,12 +395,16 @@ def runNormalization(infile, outfile):
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-    
+
 
     # resource allocation
     nslots = PARAMS["resources_nslots"]
     job_threads = nslots
     options["numcores"] = nslots
+
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "normalization.yml"))
@@ -451,6 +459,10 @@ def plotsNormalization(infile, outfile):
     # resource allocation
     job_threads = PARAMS["resources_nslots"]
 
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_normalization.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -503,7 +515,7 @@ def runIntegration(infile, outfile):
     options["seurat_obj"] = norm_seurat
     options["split_var"] = PARAMS["integration_split_factor"]
     options["tool"] = tool
-    
+
     # specify variables to regress
     options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
     options["regress_latentvars"] = PARAMS["regress_latentvars"]
@@ -527,6 +539,10 @@ def runIntegration(infile, outfile):
     nslots = PARAMS["resources_integration_slots"]
     job_threads = nslots
     options["numcores"] = nslots
+
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_integration.yml"))
@@ -588,6 +604,10 @@ def plotsIntegration(infile, outfile):
         options["sigma"] = float(sigma)
 
     job_threads = PARAMS["resources_nslots"]
+
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_integration.yml"))
@@ -651,7 +671,7 @@ def runScanpyIntegration(infile, outfile):
     options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
         options["merge_normalisation"] = run_options.split("_")[1]
- 
+
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
 
@@ -659,7 +679,7 @@ def runScanpyIntegration(infile, outfile):
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-    
+
     # add path to the list of hv genes to use for integration
     if os.path.isfile(PARAMS["hvg_list"]):
         options["hv_genes"] = PARAMS["hvg_list"]
@@ -673,6 +693,10 @@ def runScanpyIntegration(infile, outfile):
     # resource allocation
     nslots = PARAMS["resources_integration_slots"]
     job_threads = nslots
+
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_python.yml"))
@@ -720,6 +744,10 @@ def runScanpyUMAP(infile, outfile):
     # resource allocation
     nslots = PARAMS["resources_nslots"]
     job_threads = nslots
+
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_umap_scanpy.yml"))
@@ -781,8 +809,11 @@ def plotUMAP(infile, outfile):
         yaml.dump(options, yaml_file)
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
-    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R 
+    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -842,6 +873,10 @@ def calculateSeuratMetrics(infile, outfile):
 
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_seurat_metric.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -896,6 +931,10 @@ def summariseSeuratMetrics(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
     job_threads = PARAMS["resources_nslots"]
+
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_seurat_metrics.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -960,6 +999,10 @@ def runKBET(infile, outfile):
 
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_kbet.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1013,6 +1056,9 @@ def runLISI(infile, outfile):
     options["umap_coord"] = umap_infile
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1066,6 +1112,9 @@ def summariseLISI(infile, outfile):
 
     log_file = os.path.join(outdir, "lisi_metrics_summary.log")
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1095,7 +1144,7 @@ def summariseLISI(infile, outfile):
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
 
 def runLISIpy(infile, outfile):
-    '''Assess the integration using iLISI (lisi on batch/dataset). 
+    '''Assess the integration using iLISI (lisi on batch/dataset).
        Use the python implementation as part of the harmonypy package
     '''
     outdir = os.path.dirname(outfile)
@@ -1126,6 +1175,9 @@ def runLISIpy(infile, outfile):
                                         file_name)
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_ilisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1200,6 +1252,9 @@ def compareClusteringAlluvial(infile, outfile):
     options["samples_plot"] = samples_str
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_alluvial_comparison_tools.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
