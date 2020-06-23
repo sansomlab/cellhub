@@ -199,7 +199,7 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     message("Data demultiplexed with Demuxlet v2:")
     print(dim(data.demuxletv2))
     #---------------------------------
-    data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
+    #data.temp.demuxletv2<-Reduce(function(x,y) merge(x,y,by="BARCODE"), dem2temp)
     for( NN in 1:length(dem2temp)){
       ppst<-names(dem2temp[[NN]])
       output_path <-  file.path(paste0(run, opt$samplename, "_",ppst,"_demuxlet2.best.doublet.tsv"))
@@ -207,7 +207,7 @@ if(length(opt$demultiplexing)<2){ #uniform names results
     gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
     
     }
-    rm(data.temp.demuxletv2, dem2temp,NN,pst)
+    rm( dem2temp,NN,pst)
   }
   
 
