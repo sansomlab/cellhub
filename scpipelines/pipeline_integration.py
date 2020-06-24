@@ -660,6 +660,10 @@ def runScanpyIntegration(infile, outfile):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
     
+    # add path to the list of hv genes to exclude from hv genes
+    if os.path.isfile(PARAMS["hvg_exclude"]):
+        options["hvg_exclude"] = PARAMS["hvg_exclude"]
+
     # add path to the list of hv genes to use for integration
     if os.path.isfile(PARAMS["hvg_list"]):
         options["hv_genes"] = PARAMS["hvg_list"]

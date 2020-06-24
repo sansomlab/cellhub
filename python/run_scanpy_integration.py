@@ -28,7 +28,7 @@ L = logging.getLogger("run_integration")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
 # comment this because of numba issues
-#sc.logging.print_versions()
+sc.logging.print_versions()
 
 # ########################################################################### #
 # ############################ Script arguments ############################# #
@@ -52,7 +52,7 @@ sc.settings.set_figure_params(dpi=300, dpi_save=300)
 results_file_logn = os.path.join(opt["outdir"], "lognormalized_anndata.h5ad")
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
-L.info("Running with options ---> %s", opt)
+L.warning("Running with options ---> %s", opt)
 
 L.warning("Writing output to file %s", results_file)
 
@@ -97,6 +97,9 @@ sc.pp.log1p(adata)
 
 L.warning("Finished normalization and log-transform")
 
+L.warning("The anndata object has %s rows.", adata.shape[0])
+L.warning("The anndata object has %s columns.", adata.shape[1])
+
 if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     L.warning("Making separate object for cell cycle scoring")
 
@@ -137,10 +140,8 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 ## Identify highly variable genes
 
-# If n_top_genes is used then the flavour = 'cellranger'
 if 'hv_genes' in opt.keys():
     L.warning("Use hv genes from input list")
-    gene_list = pd.read_csv(opt["hv_genes"])
     gene_list = pd.read_csv(opt["hv_genes"], header=None, sep="\t")
     gene_list.columns = ["gene_name", "gene_id"]
     L.warning("Number of hv genes used: " + len(gene_list) + " genes")
@@ -151,9 +152,16 @@ if 'hv_genes' in opt.keys():
     adata.var['highly_variable'] = hvgenes['highly_variable'] 
 else:
     L.warning("Determine hv genes using scanpy")
+    if 'hvg_exclude' in opt.keys():
+        L.warning("Remove genes from hv genes as provided here: %s.", opt["hvg_exclude"])
+        exclude_list = pd.read_csv(opt["hvg_exclude"], sep="\t")
+        L.warning("Number of genes on exclusion list %s genes", len(exclude_list))
+        adata = adata[:, ~adata.var['gene_ids'].isin(exclude_list['gene_id'])]
+        L.warning("The anndata object has %s rows after excluding genes.", adata.shape[0])
+        L.warning("The anndata object has %s columns after excluding genes.", adata.shape[1])
     sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
     # extract hv genes and store them
-    hvgenes = adata.var[["highly_variable","gene_ids"]]
+    hvgenes = adata.var[["highly_variable", "gene_ids"]]
     hvgenes = pd.DataFrame(hvgenes)
     hvgenes = hvgenes.loc[hvgenes['highly_variable'] == True] 
     hvgenes.reset_index(inplace=True)
@@ -175,6 +183,8 @@ adata.write(results_file)
 ## subset to hv genes for all downstream analyses
 L.warning("Subset object to hv genes only")
 adata = adata[:, adata.var.highly_variable]
+L.warning("The anndata object has %s rows after subsetting for hv genes.", adata.shape[0])
+L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
 
 ## Regression & scaling
 

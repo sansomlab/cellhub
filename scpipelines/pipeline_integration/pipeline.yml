@@ -91,6 +91,9 @@ hvg:
     # hvg_info list from the runNormalization task. This table requires a column
     # gene_name and all given genes need to be included in the seurat object.
     list: none
+    # Exclude genes in the following tsv file from the hv genes. The number above will not
+    # be affected by this. This table requires a named column gene_id for the exclusion. 
+    exclude: none
 
 # Integration - general
 # -------------
