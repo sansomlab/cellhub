@@ -471,7 +471,12 @@ def plotsNormalization(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''xvfb-run Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg_plots.R',
+    if PARAMS['use_xvfb']:
+        prefix = 'xvfb-run'
+    else:
+        prefix = ''
+
+    statement = '''%(prefix)s Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -617,7 +622,12 @@ def plotsIntegration(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''xvfb-run Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_harmony_plots.R',
+    if PARAMS['use_xvfb']:
+        prefix = 'xvfb-run'
+    else:
+        prefix = ''
+
+    statement = '''%(prefix)s Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_harmony_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',

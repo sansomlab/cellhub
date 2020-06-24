@@ -17,6 +17,9 @@ author: Kathrin Jansen
 use_python: 1
 use_R: 1
 
+# Use xvfb for compilation of Rscripts
+use_xvfb: 0
+
 # compute resource options
 # ------------------------
 resources:
