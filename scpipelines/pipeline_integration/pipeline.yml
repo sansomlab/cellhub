@@ -30,7 +30,7 @@ resources:
 
     # job memory for tasks except integration;
     # use this in combination with nslots if no slots
-    # with memory pre-assigned
+    # with memory pre-assigned; 'none' | e.g. 16 GB (x nslots)
     job_memory_standard: none
 
     # Number of slots to use for the integration task
@@ -40,7 +40,7 @@ resources:
 
     # job memory for normalisation + integration tasks;
     # use this in combination with nslots if no slots
-    # with memory pre-assigned
+    # with memory pre-assigned; 'none' | e.g. 48 GB (x nslots)
     job_memory_high: none
 
 # Regression parameters
