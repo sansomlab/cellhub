@@ -46,9 +46,9 @@ sc.settings.set_figure_params(dpi=300, dpi_save=300)
 # write folder                                                                                    
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
-L.info("Running with options ---> %s", opt)
+L.warning("Running with options ---> %s", opt)
 
-L.info("Writing output to file %s", results_file)
+L.warning("Writing output to file %s", results_file)
 
 # ########################################################################### #
 # ######################## Read input data ################################## #
@@ -57,7 +57,7 @@ L.info("Writing output to file %s", results_file)
 # read data from h5 file
 adata = sc.read_h5ad(results_file)
 
-L.info("Read anndata object")
+L.warning("Read anndata object")
 
 # ########################################################################### #
 # ################################# Run UMAP ################################ #
@@ -77,20 +77,20 @@ else:
     key_add = None
 
 dim_red = str(obsm_use.split("_")[1])
-L.info("UMAP is run on the following dimension reduction components: " + dim_red)
+L.warning("UMAP is run on the following dimension reduction components: " + dim_red)
 
 # 15 neighbors is default, use 30 harmony components or pcas here
 if opt["tool"] == "bbknn":
-    L.info("No need to determine neighbors again")
+    L.warning("No need to determine neighbors again")
 else:
-    L.info("Find neighbors")
-    sc.pp.neighbors(adata, use_rep=obsm_use , n_pcs = 30, n_neighbors = 15,
+    L.warning("Find neighbors")
+    sc.pp.neighbors(adata, use_rep=obsm_use, n_neighbors = 15,
                     key_added = key_add)
 # umap uses the neighbor coordinates 
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)
 
-L.info("Finished running UMAP")
+L.warning("Finished running UMAP")
 
 
 umap_coord = pd.DataFrame(adata.obsm['X_umap'])
@@ -99,7 +99,7 @@ umap_coord['barcode'] = adata.obs.index.tolist()
 umap_coord.to_csv(os.path.join(opt["outdir"], "umap.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
-L.info("Finished and writing UMAP coordinates")
+L.warning("Finished and writing UMAP coordinates")
 
 # write out metadata for plotting in R
 metadata_out = adata.obs.copy()
@@ -118,24 +118,26 @@ metadata_out.to_csv(os.path.join(opt["outdir"], "metadata.tsv.gz"),
 # ########################################################################### #
 
 # split var is part of plot_vars so at least one variable to plot
-L.info("Plot variables on UMAP")
+L.warning("Plot variables on UMAP")
 
 if ',' in opt["plot_vars"]:
     for v in opt["plot_vars"].split(','):
-        L.info("Making plot for variable: " + str(v))
+        L.warning("Making plot for variable: " + str(v))
         file_name = "_" + str(v) 
         if v not in adata.obs.columns:
-            raise Exception("This variable is not in metadata")
-        sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
-        #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
+            L.warning("Varibale is not in the metadata.")
+        else:
+            sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
+            #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
-    L.info("Making plot for variable: " + str(opt["plot_vars"]))
+    L.warning("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
-    if opt["plot_vars"] not in adata.obs.columns:
-        raise Exception("This variable is not in metadata")
-    sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
-    #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
+    if v not in adata.obs.columns:
+        L.warning("Varibale is not in the metadata.")
+    else:
+        sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
+        #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 
-L.info("Done UMAP plotting")
+L.warning("Done UMAP plotting")
 
-L.info("Completed")
+L.warning("Completed")

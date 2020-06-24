@@ -103,6 +103,9 @@ integration:
     # This has to be a column in the metadata of the input Seurat
     # object
     split_factor: sample_id
+    # Number of PCs to use. All components will be taken forward to
+    # scanpy.neighbors and umap.
+    number_pcs: 30
 
 # Integration - options per tool
 # -------------
@@ -112,8 +115,6 @@ harmony:
     # Supply a comma-separated list (no spaces) for this option
     sigma: 0.1
     # theta and lambda not included here yet.
-    # Number of PCs to use for harmony. This is set to 30 for rawdata.
-    number_pcs: 30
 
 assessment:
     # k parameter used for MixingMetric. Set to 300 in Seurat publication.

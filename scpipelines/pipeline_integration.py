@@ -516,11 +516,12 @@ def runIntegration(infile, outfile):
         options["hv_genes"] = os.path.join(outdir,
                                            "hv_genes_info.csv.gz")
 
+    options["nPCs"] = int(PARAMS["integration_number_pcs"])
+
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
         sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
-        options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
     # resource allocation
     nslots = PARAMS["resources_integration_slots"]
@@ -580,11 +581,11 @@ def plotsIntegration(infile, outfile):
         options["hv_genes"] = os.path.join(outdir,
                                            "hv_genes_info.csv.gz")
 
+    options["nPCs"] = int(PARAMS["integration_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
         sigma = run_options.split("_")[2]
         options["sigma"] = float(sigma)
-        options["nPCs"] = int(PARAMS["harmony_number_pcs"])
 
     job_threads = PARAMS["resources_nslots"]
 
@@ -663,7 +664,7 @@ def runScanpyIntegration(infile, outfile):
     if os.path.isfile(PARAMS["hvg_list"]):
         options["hv_genes"] = PARAMS["hvg_list"]
 
-    options["nPCs"] = int(PARAMS["harmony_number_pcs"])
+    options["nPCs"] = int(PARAMS["integration_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
         sigma = run_options.split("_")[2]
