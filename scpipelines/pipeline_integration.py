@@ -191,8 +191,8 @@ def genClusterJobsSeurat():
 @follows(checkInputs)
 @files(genClusterJobsSeurat)
 def prepExpFolders(infile, outfile):
-    '''Task to prepare experiment folder - this needs to be run 
-       for python-based analyses only. For R the folders are created as 
+    '''Task to prepare experiment folder - this needs to be run
+       for python-based analyses only. For R the folders are created as
        part of createSeurat.'''
 
     # create the output directories
@@ -238,7 +238,7 @@ def createSeurat(infile, outfile):
     # scoring only
     options["latentvars"] = PARAMS["regress_latentvars"]
     options["modeluse"] = PARAMS["regress_modeluse"]
-    
+
     # add cell cycle options
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
@@ -311,7 +311,7 @@ def genClusterJobs():
                 k_str = str(PARAMS["harmony_sigma"])
                 ks = k_str.strip().replace(" ", "").split(",")
                 for n in ngenes:
-                    for k in ks: 
+                    for k in ks:
                         for m in mergedhvg:
                             outname = "_".join([n,m,k]) + ".run.dir"
                             outfile = os.path.join(dirname, "harmony.integrated.dir",
@@ -338,7 +338,7 @@ def genClusterJobs():
 @follows(prepExpFolders, createSeurat)
 @files(genClusterJobs)
 def prepFolders(infile, outfile):
-    '''Task to prepare folders for integration - this needs to be run 
+    '''Task to prepare folders for integration - this needs to be run
        for R and python-based analyses.'''
 
     # create the output directories
@@ -391,7 +391,7 @@ def runNormalization(infile, outfile):
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-    
+
 
     # resource allocation
     nslots = PARAMS["resources_nslots"]
@@ -503,7 +503,7 @@ def runIntegration(infile, outfile):
     options["seurat_obj"] = norm_seurat
     options["split_var"] = PARAMS["integration_split_factor"]
     options["tool"] = tool
-    
+
     # specify variables to regress
     options["regress_cellcycle"] = PARAMS["regress_cellcycle"]
     options["regress_latentvars"] = PARAMS["regress_latentvars"]
@@ -651,7 +651,7 @@ def runScanpyIntegration(infile, outfile):
     options["ngenes"] = int(run_options.split("_")[0])
     if 'harmony' in outfile:
         options["merge_normalisation"] = run_options.split("_")[1]
- 
+
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
 
@@ -659,7 +659,7 @@ def runScanpyIntegration(infile, outfile):
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
-    
+
     # add path to the list of hv genes to exclude from hv genes
     if os.path.isfile(PARAMS["hvg_exclude"]):
         options["hvg_exclude"] = PARAMS["hvg_exclude"]
@@ -669,6 +669,7 @@ def runScanpyIntegration(infile, outfile):
         options["hv_genes"] = PARAMS["hvg_list"]
 
     options["nPCs"] = int(PARAMS["integration_number_pcs"])
+    options["totalPCs"] = int(PARAMS["integration_total_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
         sigma = run_options.split("_")[2]
@@ -786,7 +787,7 @@ def plotUMAP(infile, outfile):
 
     job_threads = PARAMS["resources_nslots"]
 
-    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R 
+    statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -1099,7 +1100,7 @@ def summariseLISI(infile, outfile):
            r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
 
 def runLISIpy(infile, outfile):
-    '''Assess the integration using iLISI (lisi on batch/dataset). 
+    '''Assess the integration using iLISI (lisi on batch/dataset).
        Use the python implementation as part of the harmonypy package
     '''
     outdir = os.path.dirname(outfile)

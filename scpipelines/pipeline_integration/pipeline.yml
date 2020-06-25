@@ -12,7 +12,7 @@ projectname: 10x single cell analysis
 # Author
 author: Kathrin Jansen
 
-# Whether to run the python and/or R-based 
+# Whether to run the python and/or R-based
 # workflow for integration
 use_python: 1
 use_R: 1
@@ -72,7 +72,7 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to run normalization and findVariableGenes on merged dataset 
+    # Whether to run normalization and findVariableGenes on merged dataset
     # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
     # Supply a comma-separated list (no spaces) for this option
     merged_normalisation: 0,1
@@ -92,7 +92,7 @@ hvg:
     # gene_name and all given genes need to be included in the seurat object.
     list: none
     # Exclude genes in the following tsv file from the hv genes. The number above will not
-    # be affected by this. This table requires a named column gene_id for the exclusion. 
+    # be affected by this. This table requires a named column gene_id for the exclusion.
     exclude: none
 
 # Integration - general
@@ -106,8 +106,9 @@ integration:
     # This has to be a column in the metadata of the input Seurat
     # object
     split_factor: sample_id
-    # Number of PCs to use. All components will be taken forward to
-    # scanpy.neighbors and umap.
+    # Number of PCs to calculate (total) and the number to use.
+    # All used components will be taken forward to scanpy.neighbors and umap.
+    total_number_pcs: 100
     number_pcs: 30
 
 # Integration - options per tool
