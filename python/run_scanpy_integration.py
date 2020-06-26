@@ -26,9 +26,9 @@ warnings.filterwarnings('ignore')
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 L = logging.getLogger("run_integration")
 
-sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
+sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)
 # comment this because of numba issues
-#sc.logging.print_versions()
+sc.logging.print_versions()
 
 # ########################################################################### #
 # ############################ Script arguments ############################# #
@@ -44,15 +44,15 @@ args = parser.parse_args()
 with open(args.task_yml, 'r') as stream:
     opt = yaml.safe_load(stream)
 
-# figures folder                                                                                  
+# figures folder
 sc.settings.figdir = os.path.join(opt["outdir"], "figures.dir")
 sc.settings.set_figure_params(dpi=300, dpi_save=300)
 
-# write two results files 
+# write two results files
 results_file_logn = os.path.join(opt["outdir"], "lognormalized_anndata.h5ad")
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
-L.info("Running with options ---> %s", opt)
+L.warning("Running with options ---> %s", opt)
 
 L.warning("Writing output to file %s", results_file)
 
@@ -97,6 +97,9 @@ sc.pp.log1p(adata)
 
 L.warning("Finished normalization and log-transform")
 
+L.warning("The anndata object has %s rows.", adata.shape[0])
+L.warning("The anndata object has %s columns.", adata.shape[1])
+
 if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     L.warning("Making separate object for cell cycle scoring")
 
@@ -106,9 +109,9 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     # see here: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
     L.warning("Running cell cycle scoring")
 
-    s_genes = pd.read_csv(opt["sgenes"], header=None)[0].tolist()             
+    s_genes = pd.read_csv(opt["sgenes"], header=None)[0].tolist()
     g2m_genes = pd.read_csv(opt["g2mgenes"], header=None)[0].tolist()
-    
+
     # check that genes are in adata
     s_genes = [x for x in s_genes if x in adata_cc_genes.var_names]
     g2m_genes = [x for x in g2m_genes if x in adata_cc_genes.var_names]
@@ -137,25 +140,30 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 ## Identify highly variable genes
 
-# If n_top_genes is used then the flavour = 'cellranger'
 if 'hv_genes' in opt.keys():
     L.warning("Use hv genes from input list")
-    gene_list = pd.read_csv(opt["hv_genes"])
     gene_list = pd.read_csv(opt["hv_genes"], header=None, sep="\t")
     gene_list.columns = ["gene_name", "gene_id"]
     L.warning("Number of hv genes used: " + len(gene_list) + " genes")
     # make pandas series from hv file
     hvgenes = pd.DataFrame(adata.var["gene_ids"])
-    # match hv genes via gene_id 
+    # match hv genes via gene_id
     hvgenes['highly_variable'] = hvgenes['gene_ids'].isin(gene_list['gene_id'])
-    adata.var['highly_variable'] = hvgenes['highly_variable'] 
+    adata.var['highly_variable'] = hvgenes['highly_variable']
 else:
     L.warning("Determine hv genes using scanpy")
+    if 'hvg_exclude' in opt.keys():
+        L.warning("Remove genes from hv genes as provided here: %s.", opt["hvg_exclude"])
+        exclude_list = pd.read_csv(opt["hvg_exclude"], sep="\t")
+        L.warning("Number of genes on exclusion list %s genes", len(exclude_list))
+        adata = adata[:, ~adata.var['gene_ids'].isin(exclude_list['gene_id'])]
+        L.warning("The anndata object has %s rows after excluding genes.", adata.shape[0])
+        L.warning("The anndata object has %s columns after excluding genes.", adata.shape[1])
     sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
     # extract hv genes and store them
-    hvgenes = adata.var[["highly_variable","gene_ids"]]
+    hvgenes = adata.var[["highly_variable", "gene_ids"]]
     hvgenes = pd.DataFrame(hvgenes)
-    hvgenes = hvgenes.loc[hvgenes['highly_variable'] == True] 
+    hvgenes = hvgenes.loc[hvgenes['highly_variable'] == True]
     hvgenes.reset_index(inplace=True)
     hvgenes.columns = ["gene_name", "highly_variable", "gene_id"]
     del hvgenes["highly_variable"]
@@ -175,6 +183,8 @@ adata.write(results_file)
 ## subset to hv genes for all downstream analyses
 L.warning("Subset object to hv genes only")
 adata = adata[:, adata.var.highly_variable]
+L.warning("The anndata object has %s rows after subsetting for hv genes.", adata.shape[0])
+L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
 
 ## Regression & scaling
 
@@ -227,16 +237,16 @@ adata.write(results_file)
 # ########################################################################### #
 
 ## Run PCA
-sc.tl.pca(adata, n_comps = opt["nPCs"])
-sc.pl.pca_variance_ratio(adata, save = "_pca_stdev.pdf", 
-                         show=False, n_pcs = opt["nPCs"])
-sc.pl.pca_variance_ratio(adata, save = "_pca_stdev_log.pdf",log=True, 
-                         show=False, n_pcs = opt["nPCs"])
+sc.tl.pca(adata, n_comps = opt["totalPCs"])
+sc.pl.pca_variance_ratio(adata, save = "_pca_stdev.pdf",
+                         show=False, n_pcs = opt["totalPCs"])
+sc.pl.pca_variance_ratio(adata, save = "_pca_stdev_log.pdf",log=True,
+                         show=False, n_pcs = opt["totalPCs"])
 
 ## extract for harmony
 if opt["tool"] == 'harmony' :
     L.warning("Running harmony")
-    data_mat = adata.obsm['X_pca']
+    data_mat = adata.obsm['X_pca'][:, 0:opt["nPCs"]].copy()
     if ',' in opt["split_var"]:
         vars_use = opt["split_var"].split(',')
     else:
@@ -254,7 +264,7 @@ if opt["tool"] == 'harmony' :
     adjusted_pcs = pd.DataFrame(ho.Z_corr).T
 
     adata.obsm['X_harmony']=adjusted_pcs.values
- 
+
     ## save harmony components
     harmony_out = pd.DataFrame(adata.obsm["X_harmony"].copy(),
                                index=adata.obs.index.copy())
@@ -266,6 +276,7 @@ if opt["tool"] == 'harmony' :
                        sep="\t", index=False, compression="gzip")
 elif opt["tool"] == "bbknn":
     L.warning("Running bbknn, no dim reduction will be stored")
+    L.warning("Using %s PCA components for bbknn", opt["nPCs"])
     bbknn.bbknn(adata, batch_key=opt["split_var"], n_pcs = opt["nPCs"])
 
 elif opt["tool"] == "scanorama":
@@ -275,7 +286,7 @@ elif opt["tool"] == "scanorama":
 
     for p in list_ids:
         all_anndata = all_anndata + [adata[adata.obs[opt["split_var"]] == p]]
-    
+
     #     batch_size: `int`, optional (default: `5000`)
     #         The batch size used in the alignment vector computation. Useful when
     #         correcting very large (>100k samples) data sets. Set to large value
@@ -285,7 +296,7 @@ elif opt["tool"] == "scanorama":
     #     correcting very large (>100k samples) data sets. Set to large value
     #     that runs within available memory.
     ## hvg= option could be used but object already subset to hvg
-    integrated = scanorama.integrate_scanpy(all_anndata, dimred=50, batch_size=5000)
+    integrated = scanorama.integrate_scanpy(all_anndata, dimred=opt["nPCs"], batch_size=5000)
 
     embedding_scanorama = np.concatenate(integrated, axis=0)
     adata.obsm["X_scanorama_embedding"] = embedding_scanorama
@@ -302,7 +313,7 @@ elif opt["tool"] == "scanorama":
     L.warning("Finished writing scanorama embeddings to file")
 else:
     L.warning("Write out PCA components")
-    pca_out = pd.DataFrame(adata.obsm['X_pca'].copy(),
+    pca_out = pd.DataFrame(adata.obsm['X_pca'][:, 0:opt["nPCs"]].copy(),
                            index = adata.obs.index.copy())
     pca_out.index.name = 'barcode'
     pca_out.columns = ["PC_" + str(i) for i in range(1,pca_out.shape[1]+1)]

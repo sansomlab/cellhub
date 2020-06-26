@@ -104,6 +104,9 @@ hvg:
     # hvg_info list from the runNormalization task. This table requires a column
     # gene_name and all given genes need to be included in the seurat object.
     list: none
+    # Exclude genes in the following tsv file from the hv genes. The number above will not
+    # be affected by this. This table requires a named column gene_id for the exclusion.
+    exclude: none
 
 # Integration - general
 # -------------
@@ -116,8 +119,9 @@ integration:
     # This has to be a column in the metadata of the input Seurat
     # object
     split_factor: sample_id
-    # Number of PCs to use. All components will be taken forward to
-    # scanpy.neighbors and umap.
+    # Number of PCs to calculate (total) and the number to use.
+    # All used components will be taken forward to scanpy.neighbors and umap.
+    total_number_pcs: 100
     number_pcs: 30
 
 # Integration - options per tool

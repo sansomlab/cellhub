@@ -241,6 +241,14 @@ infomat %>%
               names_from = variable) %>% 
   replace(is.na(.),0) ->save.sng
 
+infomat %>% 
+  pivot_wider(id_cols=value,
+              values_from = tot, 
+              names_from = variable) %>% 
+  replace(is.na(.),0) ->save.sng.cnt
+
+
+
 infomat %>% mutate(General=ifelse(!(value %in% c("UNASSIGNED","DOUBLET")), "SINGLET",value )) %>% 
   group_by(variable, General) %>% summarise(tot=sum(tot)) %>%
   group_by(variable) %>% mutate(persample=sum(tot), percent=100*tot/persample) -> infomat.general
@@ -262,6 +270,12 @@ gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=
 output_path <-  file.path(paste0(run, opt$samplename, "_Singlets_demultiplexing_results.tsv"))
 write.table(save.sng,file =output_path, sep="\t", quote = F, row.names = T, col.names = T)
 gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
+
+
+output_path <-  file.path(paste0(run, opt$samplename, "_Singlets_demultiplexing_results_cellcount.tsv"))
+write.table(save.sng.cnt,file =output_path, sep="\t", quote = F, row.names = T, col.names = T)
+gzip(output_path,destname=sprintf("%s.gz", output_path), overwrite=TRUE, remove=TRUE)
+
 
 c("#7d00b3ff","#93ff00ff","#4e79e9ff") ->scol
 
@@ -297,6 +311,20 @@ infomat %>% mutate(value=factor(value, levels = gnr)) %>%
   guides(colour = guide_legend(nrow = 3))->g1
 
 ggsave(g1, filename = file.path(paste0(run, opt$samplename, "_Singlets_demultiplexing_results.pdf")), width=10, height = 7)
+
+infomat %>% mutate(value=factor(value, levels = gnr)) %>% 
+  ggplot(aes(variable, tot, fill=value)) +
+  geom_bar(stat="identity", position="stack", color="black") +
+  scale_fill_manual(values = vcol, 
+                    breaks=gnr, 
+                    limits=gnr) +
+  theme(axis.text.x = element_text(angle=72, hjust=1 ,vjust=1),
+        legend.position="top", legend.key.size = unit(0.3, "cm")) +
+  guides(colour = guide_legend(nrow = 3)) + ylab("cell yield") ->g1
+
+ggsave(g1, filename = file.path(paste0(run, opt$samplename, "_Singlets_demultiplexing_results_cellCount.pdf")), width=10, height = 7)
+
+
 
 colnames(data.use)[!colnames(data.use)=="BARCODE"]->cols
 
