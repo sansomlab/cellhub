@@ -247,6 +247,10 @@ def createSeurat(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
 
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
     job_threads = PARAMS["resources_nslots"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "create_seurat.yml"))
@@ -398,6 +402,10 @@ def runNormalization(infile, outfile):
     job_threads = nslots
     options["numcores"] = nslots
 
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "normalization.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -451,6 +459,10 @@ def plotsNormalization(infile, outfile):
     # resource allocation
     job_threads = PARAMS["resources_nslots"]
 
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_normalization.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -459,7 +471,12 @@ def plotsNormalization(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''xvfb-run Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg_plots.R',
+    if PARAMS['use_xvfb']:
+        prefix = 'xvfb-run'
+    else:
+        prefix = ''
+
+    statement = '''%(prefix)s Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_normalise_hvg_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -528,6 +545,10 @@ def runIntegration(infile, outfile):
     job_threads = nslots
     options["numcores"] = nslots
 
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_integration.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -589,6 +610,10 @@ def plotsIntegration(infile, outfile):
 
     job_threads = PARAMS["resources_nslots"]
 
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_integration.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -597,7 +622,12 @@ def plotsIntegration(infile, outfile):
     knit_root_dir = os.getcwd()
     fig_path =  os.path.join(output_dir, "fig.dir/")
 
-    statement = '''xvfb-run Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_harmony_plots.R',
+    if PARAMS['use_xvfb']:
+        prefix = 'xvfb-run'
+    else:
+        prefix = ''
+
+    statement = '''%(prefix)s Rscript -e "rmarkdown::render('%(code_dir)s/R/integration_harmony_plots.R',
                    output_dir = '%(output_dir)s',
                    intermediates_dir = '%(output_dir)s',
                    knit_root_dir= '%(knit_root_dir)s',
@@ -660,6 +690,7 @@ def runScanpyIntegration(infile, outfile):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
         options["g2mgenes"] = PARAMS["cellcycle_g2mgenes"]
 
+
     # add path to the list of hv genes to exclude from hv genes
     if os.path.isfile(PARAMS["hvg_exclude"]):
         options["hvg_exclude"] = PARAMS["hvg_exclude"]
@@ -678,6 +709,10 @@ def runScanpyIntegration(infile, outfile):
     # resource allocation
     nslots = PARAMS["resources_integration_slots"]
     job_threads = nslots
+
+    if ("G" in PARAMS["resources_job_memory_high"] or
+    "M" in PARAMS["resources_job_memory_high"] ):
+        job_memory = PARAMS["resources_job_memory_high"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_python.yml"))
@@ -725,6 +760,10 @@ def runScanpyUMAP(infile, outfile):
     # resource allocation
     nslots = PARAMS["resources_nslots"]
     job_threads = nslots
+
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plots_umap_scanpy.yml"))
@@ -786,6 +825,9 @@ def plotUMAP(infile, outfile):
         yaml.dump(options, yaml_file)
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     statement = '''Rscript %(code_dir)s/R/integration_plot_umap.R
                    --task_yml=%(task_yaml_file)s
@@ -847,6 +889,10 @@ def calculateSeuratMetrics(infile, outfile):
 
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
     # save the parameters
     task_yaml_file = os.path.abspath(os.path.join(outdir, "integration_seurat_metric.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -901,6 +947,10 @@ def summariseSeuratMetrics(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
     job_threads = PARAMS["resources_nslots"]
+
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_seurat_metrics.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -965,6 +1015,10 @@ def runKBET(infile, outfile):
 
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_kbet.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1018,6 +1072,9 @@ def runLISI(infile, outfile):
     options["umap_coord"] = umap_infile
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1071,6 +1128,9 @@ def summariseLISI(infile, outfile):
 
     log_file = os.path.join(outdir, "lisi_metrics_summary.log")
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_lisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1131,6 +1191,9 @@ def runLISIpy(infile, outfile):
                                         file_name)
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "run_ilisi.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
@@ -1205,6 +1268,9 @@ def compareClusteringAlluvial(infile, outfile):
     options["samples_plot"] = samples_str
 
     job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_alluvial_comparison_tools.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
