@@ -88,7 +88,7 @@ regress:
     # Whether to run normalization and findVariableGenes on merged dataset
     # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
     # Supply a comma-separated list (no spaces) for this option
-    merged_normalisation: 0,1
+    merged_normalisation: 1
 
 hvg:
     # Optional: Directory with gene lists. These tsv files require a column with header gene_id.
@@ -133,17 +133,29 @@ harmony:
     sigma: 0.1
     # theta and lambda not included here yet.
 
+qc_integration:
+    # Other columns in metadata to plot or none,
+    # The grouping variable from above is automatically added.
+    plot: none
+
+report_umap:
+  run: 1
+  # Add parameters that should be used for the summary here.
+  # Only one combination of parameters is possible.
+  # Same parameter names as specified above.
+  merged_hvg: 1
+  ngenes: 3000
+  sigma: 0.1
+
+  # example summary
+  summary_qc: sex,ngenes,source,pool
+
 assessment:
     # k parameter used for MixingMetric. Set to 300 in Seurat publication.
     max_k: 300
     # Neighbors assess with LocalStruct function. Default is 100.
     # This might have to be decreased for small datasets.
     neighbors: 100
-
-qc_integration:
-    # Other columns in metadata to plot or none,
-    # The grouping variable from above is automatically added.
-    plot: none
 
 kbet:
     # Number of PCs to use for kbet (50 by default),
