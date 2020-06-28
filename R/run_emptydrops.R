@@ -139,7 +139,7 @@ emptydrops_out$barcode = colData(sce)$Barcode
 emptydrops_out$emptydrops_cell <- FALSE
 emptydrops_out$emptydrops_cell[emptydrops_out$emptyDrops_FDR <= opt$FDR] <- TRUE
 
-write.table(emptydrops_out, file = gzfile(file.path(opt$outdir, "emptyDrops.tsv.gz")), quote = FALSE, row.names = FALSE)
+write.table(emptydrops_out, file = gzfile(file.path(opt$outdir, "emptyDrops.tsv.gz")), sep="\t", quote = FALSE, row.names = FALSE)
 
 flog.info("Finished writing output...")
 
