@@ -818,6 +818,9 @@ def plotUMAP(infile, outfile):
     #options["integration_tool"] = tool
     options["metadata"] = os.path.join(indir, "metadata.tsv.gz")
 
+    if os.path.isfile(PARAMS["qc_integration_plot_clusters"]):
+        options["plot_clusters"] = str(PARAMS["qc_integration_plot_clusters"])
+
     log_file = outfile.replace("sentinel","log")
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_umap.yml"))
@@ -948,26 +951,26 @@ def summariseUMAP(infile, outfile):
                        '\\input %(vars_file)s '''
 
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/begin.tex
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/begin.tex
                      '''
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/col_rawdata.tex
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_rawdata.tex
                      '''
 
         if 'harmony' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/col_harmony.tex
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_harmony.tex
                      '''
         if 'bbknn' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/col_bbknn.tex
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_bbknn.tex
                      '''
         if 'scanorama' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/col_scanorama.tex
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_scanorama.tex
                      '''
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/col_legend.tex'
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_legend.tex'
                      '''
 
 
