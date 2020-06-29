@@ -818,6 +818,9 @@ def plotUMAP(infile, outfile):
     #options["integration_tool"] = tool
     options["metadata"] = os.path.join(indir, "metadata.tsv.gz")
 
+    if os.path.isfile(PARAMS["qc_integration_plot_clusters"]):
+        options["plot_clusters"] = str(PARAMS["qc_integration_plot_clusters"])
+
     log_file = outfile.replace("sentinel","log")
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_umap.yml"))

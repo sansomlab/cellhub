@@ -137,9 +137,13 @@ qc_integration:
     # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
     plot: none
+    # This option can be used to plot cluster_ids from downstream
+    # analyses on the UMAP. Set to 'none' or the path to a txt.gz file
+    # which has two columns named 'barcodes' and 'cluster_id'.
+    plot_clusters: none
 
 report_umap:
-  run: 1
+  run: 0
   # Add parameters that should be used for the summary here.
   # Only one combination of parameters is possible.
   # Same parameter names as specified above.
@@ -148,6 +152,7 @@ report_umap:
   sigma: 0.1
 
   # example summary
+  # use cluster_id to plot the clusters set in the qc_integration section.
   summary_qc: sex,ngenes,source,pool
 
 assessment:

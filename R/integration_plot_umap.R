@@ -66,6 +66,10 @@ default_options <- list(
   # Variables to plot on UMAP (from metadata). Grouping variable is automatically added.
   "plot_vars" = "",
 
+  # If set in pipeline.yml, then path to cluster assignments table is passed to here.
+  # Otherwise stays NULL.
+  "plot_clusters" = NULL,
+
   # Name of folders to output rds, pdf and png files.
   "outdir" = "",
 
@@ -120,15 +124,15 @@ input_coord <- read.table(file = gzfile(opt$coord_file), header=TRUE,
 tool = opt$integration_tool
 
 ## add cluster assignments if required
-if (!is.null(opt$clusterids)){
-  clusters = as.data.frame(readRDS(opt$clusterids))
-  colnames(clusters) = "cluster_postIntegration"
-  clusters$barcode = rownames(clusters)
+if (!is.null(opt$plot_clusters)){
+  clusters = read.table(gzfile(opt$plot_clusters), header=TRUE, sep="\t")
+  colnames(clusters) = c("barcode", "cluster_id")
 
-  plot_coord = dplyr::left_join(input_coord, clusters, by="barcode")
+  plot_coord = merge(input_coord, clusters, by="barcode", all.x = TRUE)
+  plot_coord$cluster_id = factor(plot_coord$cluster_id, levels = c(min(plot_coord$cluster_id, na.rm = TRUE):max(plot_coord$cluster_id, na.rm = TRUE),
+                                                                   NA))
 
-  variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_postIntegration")
-  print(variables_plot)
+  variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_id")
 } else {
   variables_plot = unlist(strsplit(opt$plot_vars,","))
   plot_coord = input_coord
@@ -162,8 +166,14 @@ for (v in variables_plot) {
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16)))
-      gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16), ncol=ncols_legend))
+        gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16)))
+        gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      }
     }
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
@@ -184,9 +194,13 @@ for (v in variables_plot) {
     gp <- gp + gp_choose_pointsize(nrow(input_coord))
     gp <- gp + theme_bw() + gp_nolabels
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      }
     }
-
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
     }
@@ -213,8 +227,13 @@ for (v in variables_plot) {
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
-    gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
-
+    # split legend into columns
+    if (nlevels > 9){
+      ncols_legend = ceiling(nlevels/9)
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+    } else {
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+    }
     # extract legend
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none") + gp_nolabels
@@ -244,7 +263,12 @@ for (v in variables_plot) {
     gp <- gp + gp_choose_pointsize(nrow(input_coord))
     gp <- gp + theme_bw() + gp_nolabels
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      }
     }
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=3)
 
