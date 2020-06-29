@@ -129,9 +129,15 @@ if (!is.null(opt$plot_clusters)){
   colnames(clusters) = c("barcode", "cluster_id")
 
   plot_coord = merge(input_coord, clusters, by="barcode", all.x = TRUE)
-  plot_coord$cluster_id = factor(plot_coord$cluster_id, levels = c(min(plot_coord$cluster_id, na.rm = TRUE):max(plot_coord$cluster_id, na.rm = TRUE),
-                                                                   NA))
-
+  flog.info("Cluster assignments are available for %s cells.", 
+            length(which(is.na(plot_coord$cluster_id) == FALSE)))
+  flog.info("Cluster assignments not available for %s cells.", 
+            length(which(is.na(plot_coord$cluster_id) == TRUE)))
+  plot_coord$cluster_id = factor(plot_coord$cluster_id, 
+                                 levels = c(min(plot_coord$cluster_id, 
+                                                na.rm = TRUE):max(plot_coord$cluster_id, 
+                                                                  na.rm = TRUE),
+                                            NA))
   variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_id")
 } else {
   variables_plot = unlist(strsplit(opt$plot_vars,","))
