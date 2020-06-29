@@ -818,6 +818,9 @@ def plotUMAP(infile, outfile):
     #options["integration_tool"] = tool
     options["metadata"] = os.path.join(indir, "metadata.tsv.gz")
 
+    if os.path.isfile(PARAMS["qc_integration_plot_clusters"]):
+        options["plot_clusters"] = str(PARAMS["qc_integration_plot_clusters"])
+
     log_file = outfile.replace("sentinel","log")
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "plot_umap.yml"))
@@ -835,6 +838,151 @@ def plotUMAP(infile, outfile):
                 '''
     P.run(statement)
     IOTools.touch_file(outfile)
+
+
+# ########################################################################### #
+# ####### Make summary pdf with methods and selected variables ############## #
+# ########################################################################### #
+
+@active_if(USE_PYTHON, PARAMS["report_umap_run"])
+@follows(plotUMAP)
+@transform("*.exp.dir/create_seurat.sentinel",
+           regex(r"(.*).exp.dir/create_seurat.sentinel"),
+           r"\1.exp.dir/summary.dir/make_summary.sentinel")
+def summariseUMAP(infile, outfile):
+    '''
+    Summarise UMAP from different methods
+    '''
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+
+    indir = os.path.dirname(infile)
+    ## make plots for different combinations of variables
+    summaries = [k.split("_")[-1] for k in PARAMS.keys()
+               if k.startswith("report_umap_summary_")]
+
+    tools_str = str(PARAMS["integration_tools_run"])
+    tools = tools_str.strip().replace(" ", "").split(",")
+    tools = tools + ['rawdata']
+
+    # read selected parameters for the summary pages
+    ngenes = PARAMS["report_umap_ngenes"]
+    sigma = PARAMS["report_umap_sigma"]
+    merged_hvg = PARAMS["report_umap_merged_hvg"]
+
+    if merged_hvg == '0':
+        mergedhvg = "perbatch"
+    else:
+        mergedhvg = "merged"
+
+    # get all required tool folders
+    rawdatadir,harmonydir,bbknndir,scanoramadir=0,0,0,0
+    for t in tools:
+        tooldir = os.path.join(indir, t + ".integrated.dir")
+        run_folders = [os.path.join(tooldir, o) for o in os.listdir(tooldir)
+                       if os.path.isdir(os.path.join(tooldir,o))]
+        if t == "harmony":
+            rundir = "".join([f for f in run_folders if mergedhvg in f
+                              if str(sigma) in f if str(ngenes) in f])
+        else:
+            rundir = "".join([f for f in run_folders if mergedhvg in f
+                              if str(ngenes) in f])
+
+        if t == 'harmony':
+            harmonydir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+        elif t == 'rawdata':
+            rawdir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+        elif t == 'bbknn':
+            bbknndir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+        elif t == 'scanorama':
+            scanoramadir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+
+    statements = []
+
+    print(tools)
+    print(rawdir)
+    print(summaries)
+    # Run once for each summary page
+    for s in summaries:
+        print(s)
+        vars_file = os.path.join(outdir, str(s)+".dir", "latexVars.sty")
+        summary_dir = os.path.join(outdir, str(s) + ".dir")
+        if not os.path.exists(summary_dir):
+            os.makedirs(summary_dir)
+        vars_use = PARAMS["report_umap_summary_" + s]
+        vars_plot = [x.strip() for x in
+                         vars_use.split(",")]
+        vars_plot = [x.replace("_", "-") if '_' in x else x for x in vars_plot]
+        print(vars_plot)
+        varone,vartwo,varthree,varfour = vars_plot
+
+        vars = {"rundir": "%(rundir)s" % locals(),
+                "integrationVar": "%(integration_split_factor)s" % PARAMS,
+                "varone": "%(varone)s" % locals(),
+                "vartwo": "%(vartwo)s" % locals(),
+                "varthree": "%(varthree)s" % locals(),
+                "varfour": "%(varfour)s" % locals(),
+                "rawdir": "%(rawdir)s" %locals()}
+
+        if 'harmony' in tools:
+            vars['harmonydir'] = harmonydir
+        if 'bbknn' in tools:
+            vars['bbknndir'] = bbknndir
+        if 'scanorama' in tools:
+            vars['scanoramadir'] = scanoramadir
+
+
+        # write file with all variable for this summary
+        with open(vars_file, "w") as ofh:
+            for command, value in vars.items():
+                ofh.write("\\newcommand{\\" + command + "}{" + value + "}\n")
+
+        # make a tex file
+        compilation_dir = os.path.join(summary_dir, ".latex_compilation.dir")
+        if not os.path.exists(compilation_dir):
+            os.makedirs(compilation_dir)
+
+        jobName = s + "_summary"
+
+        statement = '''pdflatex -output-directory=%(compilation_dir)s
+                            -jobname=%(jobName)s
+                       '\\input %(vars_file)s '''
+
+        statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/begin.tex
+                     '''
+        statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_rawdata.tex
+                     '''
+
+        if 'harmony' in tools:
+            statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_harmony.tex
+                     '''
+        if 'bbknn' in tools:
+            statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_bbknn.tex
+                     '''
+        if 'scanorama' in tools:
+            statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_scanorama.tex
+                     '''
+        statement += '''
+                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_legend.tex'
+                     '''
+
+
+        # Deliberately run twice - necessary for LaTeX compilation..
+        P.run(statement)
+        P.run(statement)
+
+        # Move the compiled pdfs to report.dir
+        shutil.move(os.path.join(compilation_dir, jobName + ".pdf"),
+                    os.path.join(summary_dir, jobName+".pdf"))
+    #IOTools.touch_file(outfile)
+
 
 
 

@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 L = logging.getLogger("run_umap")
 
-sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)            
+sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)
 # comment this because of numba issues
 #sc.logging.print_versions()
 
@@ -39,11 +39,11 @@ args = parser.parse_args()
 with open(args.task_yml, 'r') as stream:
     opt = yaml.safe_load(stream)
 
-# figures folder                                                                                  
+# figures folder
 sc.settings.figdir = os.path.join(opt["outdir"], "figures.dir")
 sc.settings.set_figure_params(dpi=300, dpi_save=300)
 
-# write folder                                                                                    
+# write folder
 results_file = os.path.join(opt["outdir"], "normalized_integrated_anndata.h5ad")
 
 L.warning("Running with options ---> %s", opt)
@@ -86,7 +86,7 @@ else:
     L.warning("Find neighbors")
     sc.pp.neighbors(adata, use_rep=obsm_use, n_neighbors = 15,
                     key_added = key_add)
-# umap uses the neighbor coordinates 
+# umap uses the neighbor coordinates
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)
 
@@ -123,17 +123,17 @@ L.warning("Plot variables on UMAP")
 if ',' in opt["plot_vars"]:
     for v in opt["plot_vars"].split(','):
         L.warning("Making plot for variable: " + str(v))
-        file_name = "_" + str(v) 
+        file_name = "_" + str(v)
         if v not in adata.obs.columns:
-            L.warning("Varibale is not in the metadata.")
+            L.warning("Variable is not in the metadata.")
         else:
             sc.pl.umap(adata, color=str(v), save = file_name + ".png", show=False)
             #sc.pl.umap(adata, color=str(v), save = file_name + ".pdf", show=False)
 else:
     L.warning("Making plot for variable: " + str(opt["plot_vars"]))
     file_name = "_" + str(opt["plot_vars"])
-    if v not in adata.obs.columns:
-        L.warning("Varibale is not in the metadata.")
+    if opt["plot_vars"] not in adata.obs.columns:
+        L.warning("Variable is not in the metadata.")
     else:
         sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".png", show=False)
         #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)

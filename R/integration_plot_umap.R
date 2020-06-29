@@ -1,6 +1,6 @@
 #' ---
 #' title: "Make UMAP plots"
-#' output: 
+#' output:
 #'  html_document:
 #'   self_contained: false
 #' params:
@@ -62,18 +62,22 @@ flog.info("Running with parameters: ", params, capture = TRUE)
 default_options <- list(
   # Path to the post integration UMAP files.
   "coord_file" = "",
-  
+
   # Variables to plot on UMAP (from metadata). Grouping variable is automatically added.
   "plot_vars" = "",
-  
+
+  # If set in pipeline.yml, then path to cluster assignments table is passed to here.
+  # Otherwise stays NULL.
+  "plot_clusters" = NULL,
+
   # Name of folders to output rds, pdf and png files.
   "outdir" = "",
-  
+
   #  Path to metadata file.
   "metadata" = NULL
 )
 
-# here the yaml can also be read in from the default location in code 
+# here the yaml can also be read in from the default location in code
 # directory
 options <- read_yaml(params$task_yml)
 
@@ -120,15 +124,21 @@ input_coord <- read.table(file = gzfile(opt$coord_file), header=TRUE,
 tool = opt$integration_tool
 
 ## add cluster assignments if required
-if (!is.null(opt$clusterids)){
-  clusters = as.data.frame(readRDS(opt$clusterids))
-  colnames(clusters) = "cluster_postIntegration"
-  clusters$barcode = rownames(clusters)
-  
-  plot_coord = dplyr::left_join(input_coord, clusters, by="barcode")
-  
-  variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_postIntegration")
-  print(variables_plot)
+if (!is.null(opt$plot_clusters)){
+  clusters = read.table(gzfile(opt$plot_clusters), header=TRUE, sep="\t")
+  colnames(clusters) = c("barcode", "cluster_id")
+
+  plot_coord = merge(input_coord, clusters, by="barcode", all.x = TRUE)
+  flog.info("Cluster assignments are available for %s cells.", 
+            length(which(is.na(plot_coord$cluster_id) == FALSE)))
+  flog.info("Cluster assignments not available for %s cells.", 
+            length(which(is.na(plot_coord$cluster_id) == TRUE)))
+  plot_coord$cluster_id = factor(plot_coord$cluster_id, 
+                                 levels = c(min(plot_coord$cluster_id, 
+                                                na.rm = TRUE):max(plot_coord$cluster_id, 
+                                                                  na.rm = TRUE),
+                                            NA))
+  variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_id")
 } else {
   variables_plot = unlist(strsplit(opt$plot_vars,","))
   plot_coord = input_coord
@@ -147,7 +157,7 @@ flog.info("Number of cells in this sample: %s", nrow(input_coord))
 ## ######################################################################### ##
 
 #' ## UMAP plots with different variables for integration tool `r opt$integration_tool`
-#'    
+#'
 
 flog.info("Start plotting ...")
 
@@ -156,14 +166,20 @@ flog.info("Start plotting ...")
 for (v in variables_plot) {
   flog.info("Making plots for variable: %s", v)
   nlevels = length(unique(plot_coord[,v]))
-  
+
   if (nlevels > 15 & !is.numeric(plot_coord[,v]) || nrow(input_coord) > 10000){
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16)))
-      gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16), ncol=ncols_legend))
+        gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10, shape=16)))
+        gp <- gp + guides(shape = guide_legend(override.aes = list(size=10, shape=16)))
+      }
     }
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
@@ -172,9 +188,10 @@ for (v in variables_plot) {
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none") + gp_nolabels
     # save legend and plot separately
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".legend.png")), 
+    v_out = gsub("_", "-", v)
+    ggsave(file.path(opt$outdir, paste0("umap.", v_out, ".legend.png")),
            plot = legend, type = "cairo")
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".png")), 
+    ggsave(file.path(opt$outdir, paste0("umap.", v_out, ".png")),
            plot = gp, type = "cairo")
     #gglist[[v]] <- gp
   } else {
@@ -183,15 +200,25 @@ for (v in variables_plot) {
     gp <- gp + gp_choose_pointsize(nrow(input_coord))
     gp <- gp + theme_bw() + gp_nolabels
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      }
     }
-    
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
     }
-    ggsave(file.path(opt$outdir, paste0("umap.", v, ".png")), 
+    # extract legend
+    legend <- g_legend(gp)
+    # save legend and plot separately
+    v_out = gsub("_", "-", v)
+    ggsave(file.path(opt$outdir, paste0("umap.", v_out, ".legend.png")),
+           plot = legend, type = "cairo")
+    ggsave(file.path(opt$outdir, paste0("umap.", v_out, ".png")),
            plot = gp, type = "cairo")
-    #gglist[[v]] <- gp    
+    #gglist[[v]] <- gp
   }
 }
 
@@ -200,14 +227,19 @@ flog.info("Make faceted plots for all variables")
 for (v in variables_plot) {
   flog.info(paste0("Making plots for variable: %s", v))
   nlevels = length(unique(plot_coord[,v]))
-  
+
   if (nlevels > 9 & !is.numeric(plot_coord[,v]) || nrow(input_coord) > 50000 & !is.numeric(plot_coord[,v])){
     ncols = floor(sqrt(nlevels))
     flog.info("Make separate legend file for: %s", v)
     gp <- ggplot(plot_coord, aes_string(x="UMAP_1", y="UMAP_2", color = v))
     gp <- gp + gp_choose_pointsize(nrow(input_coord)) + theme_bw()
-    gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
-    
+    # split legend into columns
+    if (nlevels > 9){
+      ncols_legend = ceiling(nlevels/9)
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+    } else {
+      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+    }
     # extract legend
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none") + gp_nolabels
@@ -217,15 +249,16 @@ for (v in variables_plot) {
       gp <- gp + theme(strip.background = element_blank(),
                        strip.text.x = element_blank())
     }
-    
+
     # set height and width for plot (2 for each panel + 2 for legend)
-    w <- min(3, ncols)*4 
+    w <- min(3, ncols)*4
     h <- max(1, nlevels/ncols)*4
-    
+
     # save legend and plot separately
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".legend.png")), 
+    v_out = gsub("_", "-", v)
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v_out, ".legend.png")),
            plot = legend, type = "cairo")
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".png")), 
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v_out, ".png")),
            plot = gp, type = "cairo")
     #gglist[[v]] <- gp
   } else if (is.numeric(plot_coord[,v])) {
@@ -236,17 +269,23 @@ for (v in variables_plot) {
     gp <- gp + gp_choose_pointsize(nrow(input_coord))
     gp <- gp + theme_bw() + gp_nolabels
     if (!is.numeric(plot_coord[,v])){
-      gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      if (nlevels > 9){
+        ncols_legend = ceiling(nlevels/9)
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10), ncol=ncols_legend))
+      } else {
+        gp <- gp + guides(colour = guide_legend(override.aes = list(size=10)))
+      }
     }
     gp <- gp + facet_wrap(as.formula(paste0("~", v)), ncol=3)
 
     # set height and width (2 for each panel + 2 for legend)
     w <- min(3, nlevels)*3 + 2
     h <- max(1, nlevels/3)*3
-    
-    ggsave(file.path(opt$outdir, paste0("umap.facet.", v, ".png")), 
+
+    v_out = gsub("_", "-", v)
+    ggsave(file.path(opt$outdir, paste0("umap.facet.", v_out, ".png")),
            plot = gp, type = "cairo", height = h, width = w)
-    #gglist[[v]] <- gp    
+    #gglist[[v]] <- gp
   }
 }
 
