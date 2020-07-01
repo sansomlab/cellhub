@@ -26,6 +26,8 @@ stopifnot(require(ggplot2))
 stopifnot(require(knitr))
 stopifnot(require(futile.logger))
 stopifnot(require(gridExtra))
+stopifnot(require(dplyr))
+stopifnot(require(ggrepel))
 
 # set chunk options
 # opts_chunk$set(echo=FALSE,
@@ -184,6 +186,14 @@ for (v in variables_plot) {
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
     }
+    if(v == "cluster_id"){
+      # make labels df with mean coordinates per cluster
+      labels <- plot_coord %>%
+        group_by(cluster_id) %>%
+        summarize(UMAP_1 = mean(UMAP_1), UMAP_2 = mean(UMAP_2))
+      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id, 
+                                                    color=1), color='black', show.legend = FALSE)
+    }
     # extract legend
     legend <- g_legend(gp)
     gp <- gp + theme(legend.position="none") + gp_nolabels
@@ -209,6 +219,14 @@ for (v in variables_plot) {
     }
     if(is.numeric(plot_coord[,v])) {
       gp <- gp + scale_color_viridis_c()
+    }
+    if(v == "cluster_id"){
+      # make labels df with mean coordinates per cluster
+      labels <- plot_coord %>%
+        group_by(cluster_id) %>%
+        summarize(UMAP_1 = mean(UMAP_1), UMAP_2 = mean(UMAP_2))
+      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id, 
+                                                    color=1), color='black', show.legend = FALSE)
     }
     # extract legend
     legend <- g_legend(gp)
