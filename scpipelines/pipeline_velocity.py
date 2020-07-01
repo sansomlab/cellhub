@@ -181,7 +181,8 @@ def sortBam(infile, outfile):
     if not os.path.exists(sort_outfile):
         job_threads = PARAMS["sort_threads"]
         sort_threads = int(job_threads - 1)
-        job_memory = PARAMS["sort_memory"]
+        if "M" in PARAMS["sort_memory"]:
+            job_memory = PARAMS["sort_memory"]
         mem_ind = int(job_memory[:-len("M")])
         mem = int(mem_ind - mem_ind*0.1)
         sort_memory = str(mem) + "M"
@@ -224,7 +225,9 @@ def runVelocyto(infile, outfile):
     sort_outfile = os.path.join(bam_folder, "possorted_genome_bam.bam")
     log_file = outfile.replace("sentinel", "log")
 
-    job_memory = PARAMS["velocyto_memory"]
+    if "M" in PARAMS["velocyto_memory"]:
+        job_memory = PARAMS["velocyto_memory"]
+
     job_threads = PARAMS["velocyto_threads"]
     statement = '''velocyto run --bcfile %(bcfile)s
                    --outputfolder %(outdir)s
