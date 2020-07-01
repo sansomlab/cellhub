@@ -137,7 +137,7 @@ write.table(data.frame(knee_point = knee_point, inflection_point = inflection_po
 emptydrops_out = as.data.frame(e.out)
 emptydrops_out$barcode = colData(sce)$Barcode
 emptydrops_out$emptydrops_cell <- FALSE
-emptydrops_out$emptydrops_cell[emptydrops_out$emptyDrops_FDR <= opt$FDR] <- TRUE
+emptydrops_out$emptydrops_cell[emptydrops_out$FDR <= opt$FDR] <- TRUE
 
 write.table(emptydrops_out, file = gzfile(file.path(opt$outdir, "emptyDrops.tsv.gz")), sep="\t", quote = FALSE, row.names = FALSE)
 
