@@ -242,6 +242,13 @@ sc.pl.pca_variance_ratio(adata, save = "_pca_stdev.pdf",
                          show=False, n_pcs = opt["totalPCs"])
 sc.pl.pca_variance_ratio(adata, save = "_pca_stdev_log.pdf",log=True,
                          show=False, n_pcs = opt["totalPCs"])
+sc.pl.pca_loadings(adata, show=False,save="_pca_top_loadings.pdf")
+# write out PCA loadings
+df_loadings = pd.DataFrame(adata.varm['PCs'], index=adata.var_names)
+df_loadings.index.name = 'gene_name'
+df_loadings.reset_index(inplace=True)
+df_loadings.to_csv(os.path.join(opt["outdir"], "pca_loadings.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
 
 ## extract for harmony
 if opt["tool"] == 'harmony' :
