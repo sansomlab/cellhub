@@ -211,9 +211,10 @@ def genClusterJobs():
         ngenes = ngenes_str.strip().replace(" ", "").split(",")
         # make jobs for non-integrated sample
         for n in ngenes:
-            outfile = os.path.join(dirname, "rawdata.integrated.dir",
-                                   str(n)+"_nhvg_merged.run.dir", outf)
-            yield [infile, outfile]
+            for m in mergedhvg:
+                outfile = os.path.join(dirname, "rawdata.integrated.dir",
+                                       "_".join([n, m]) +".run.dir", outf)
+                yield [infile, outfile]
 
         for tool in tools:
 
@@ -291,8 +292,7 @@ def runScanpyIntegration(infile, outfile):
     options["tool"] = tool
     options["split_var"] = PARAMS["integration_split_factor"]
     options["ngenes"] = int(run_options.split("_")[0])
-    if 'harmony' in outfile:
-        options["merge_normalisation"] = run_options.split("_")[1]
+    options["merge_hvg"] = run_options.split("_")[1]
 
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])

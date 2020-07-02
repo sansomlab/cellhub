@@ -162,7 +162,11 @@ else:
         adata = adata[:, ~adata.var['gene_ids'].isin(exclude_list['gene_id'])]
         L.warning("The anndata object has %s rows after excluding genes.", adata.shape[0])
         L.warning("The anndata object has %s columns after excluding genes.", adata.shape[1])
-    sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
+    if opt["merge_hvg"] == "merged":
+        sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
+    else:
+        sc.pp.highly_variable_genes(adata, batch_key=opt["split_var"],
+                                    n_top_genes=opt["ngenes"])
     # extract hv genes and store them
     hvgenes = adata.var[["highly_variable", "gene_ids"]]
     hvgenes = pd.DataFrame(hvgenes)
