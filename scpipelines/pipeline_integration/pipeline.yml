@@ -77,29 +77,25 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to find highly variable genes on merged dataset
-    # or per batch. Choices: '1' | '0' , where 1 is merged hvg.
-    # Supply a comma-separated list (no spaces) for this option
-    merged_normalisation: 1
 
 hvg:
-    # Optional: Directory with gene lists. These tsv files require a column with header gene_id.
-    # All tsv files in the folder will be read in and the highly variable genes will
-    # be annotated with the gene lists. If none, then no annotation is added.
-    annotation: none
+    # Exclude genes in the following tsv file before finding hv genes. The number of hvg will not
+    # be affected by this. This table requires a named column gene_id for the exclusion.
+    exclude: none
     # Number of variable features to identify. This number is only used in normalise
     # & hvg task. If a genelist is provided in list option below, this number is ignored
     # in the integration task.
     # Supply a comma-separated list (no spaces) for this option
     ngenes: 2000
+    # Whether to find highly variable genes on merged dataset
+    # or per batch. Choices: '1' | '0' , where 1 is merged hvg.
+    # Supply a comma-separated list (no spaces) for this option
+    merged: 1
     # Genelist to use as highly-variable genes for PCA prior to integration.
     # If this is set to none, it will use the hvg_info list from the scanpy function
     # will be used. If set, this table requires a column gene_name and all given
     # genes need to be included in the seurat object.
     list: none
-    # Exclude genes in the following tsv file before finding hv genes. The number above will not
-    # be affected by this. This table requires a named column gene_id for the exclusion.
-    exclude: none
 
 # Integration - general
 # -------------

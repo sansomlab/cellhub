@@ -196,8 +196,8 @@ def genClusterJobs():
         tools_str = str(PARAMS["integration_tools_run"])
         tools = tools_str.strip().replace(" ", "").split(",")
 
-        # make per-batch merge option (for harmony only)
-        mergedhvg_str = str(PARAMS["regress_merged_normalisation"])
+        # make per-batch merge option
+        mergedhvg_str = str(PARAMS["hvg_merged"])
         mergedhvg = mergedhvg_str.strip().replace(" ", "").split(",")
         for (i, item) in enumerate(mergedhvg):
             if item == '0':
@@ -205,7 +205,7 @@ def genClusterJobs():
             elif item == '1':
                 mergedhvg[i] = "merged"
             else:
-                raise ValueError("Merge setting for normalisation can only be 0 or 1.")
+                raise ValueError("Merge setting for hvg can only be 0 or 1.")
 
         ngenes_str = str(PARAMS["hvg_ngenes"])
         ngenes = ngenes_str.strip().replace(" ", "").split(",")
