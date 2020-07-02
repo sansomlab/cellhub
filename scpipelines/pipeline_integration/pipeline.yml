@@ -6,16 +6,8 @@
 # General options
 # ---------------
 
-# Project name
-projectname: 10x single cell analysis
-
 # Author
 author: Kathrin Jansen
-
-# Whether to run the python and/or R-based
-# workflow for integration
-use_python: 1
-use_R: 1
 
 # Use xvfb for compilation of Rscripts
 use_xvfb: 0
@@ -100,11 +92,12 @@ hvg:
     # in the integration task.
     # Supply a comma-separated list (no spaces) for this option
     ngenes: 2000
-    # genelist to use for PCA prior to integration. If this is set to none, it will use the
-    # hvg_info list from the runNormalization task. This table requires a column
-    # gene_name and all given genes need to be included in the seurat object.
+    # Genelist to use as highly-variable genes for PCA prior to integration.
+    # If this is set to none, it will use the hvg_info list from the scanpy function
+    # will be used. If set, this table requires a column gene_name and all given
+    # genes need to be included in the seurat object.
     list: none
-    # Exclude genes in the following tsv file from the hv genes. The number above will not
+    # Exclude genes in the following tsv file before finding hv genes. The number above will not
     # be affected by this. This table requires a named column gene_id for the exclusion.
     exclude: none
 
@@ -122,6 +115,7 @@ integration:
     # Number of PCs to calculate (total) and the number to use.
     # All used components will be taken forward to scanpy.neighbors and umap.
     total_number_pcs: 100
+    # Supply a comma-separated list (no spaces) for this option
     number_pcs: 30
 
 # Integration - options per tool
@@ -154,37 +148,3 @@ report_umap:
   # example summary
   # use cluster_id to plot the clusters set in the qc_integration section.
   summary_qc: sex,ngenes,source,pool
-
-assessment:
-    # k parameter used for MixingMetric. Set to 300 in Seurat publication.
-    max_k: 300
-    # Neighbors assess with LocalStruct function. Default is 100.
-    # This might have to be decreased for small datasets.
-    neighbors: 100
-
-kbet:
-    # Number of PCs to use for kbet (50 by default),
-    # can only be the number used above, therefore set to
-    # available PCs
-    PC: 30
-
-# Alluvial plots to compare integration methods
-# -------------
-# Whether to make alluvial plots of different integration methods and
-# which cluster resolutions to use for these.
-# For each tool, an option of the tool_name: settings_folder,PC_res is
-# required (no spaces). It is not required to add 'params.dir' to the
-# string. Please note that each tool can only be included once.
-alluvial_compare:
-    run: False
-    # seurat_rpca: 2000_notkeep,20_0.4
-    # harmony: 0.1_notkeep,20_0.4
-
-
-# Report options
-# ------------------------
-report:
-  # Name of the HUGO theme file
-  theme_file: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-2.4.0.tar.gz'
-  # Location of the theme modifications
-  theme_mod_dir: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-modifications'
