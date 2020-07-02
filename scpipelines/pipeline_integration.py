@@ -245,11 +245,9 @@ def genClusterJobs():
                         yield [infile, outfile]
 
 
-@follows(prepExpFolders)
 @files(genClusterJobs)
 def prepFolders(infile, outfile):
-    '''Task to prepare folders for integration - this needs to be run
-       for R and python-based analyses.'''
+    '''Task to prepare folders for integration'''
 
     # create the output directories
     outdir = os.path.dirname(outfile)
@@ -449,7 +447,7 @@ def plotUMAP(infile, outfile):
 # ####### Make summary pdf with methods and selected variables ############## #
 # ########################################################################### #
 
-@active_if(USE_PYTHON, PARAMS["report_umap_run"])
+@active_if(PARAMS["report_umap_run"])
 @follows(plotUMAP)
 @transform("*.exp.dir/create_seurat.sentinel",
            regex(r"(.*).exp.dir/create_seurat.sentinel"),
