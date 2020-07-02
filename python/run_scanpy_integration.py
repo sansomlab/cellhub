@@ -138,8 +138,10 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
     sc.pl.pca_scatter(adata_cc_subset, color='S_score', show=False, save = "_cc_Sscore.pdf")
 
 
-## Identify highly variable genes
+# store the object at this point (with log-normalized but all genes)
+adata.write(results_file_logn)
 
+## Identify highly variable genes
 if 'hv_genes' in opt.keys():
     L.warning("Use hv genes from input list")
     gene_list = pd.read_csv(opt["hv_genes"], header=None, sep="\t")
@@ -149,6 +151,7 @@ if 'hv_genes' in opt.keys():
     hvgenes = pd.DataFrame(adata.var["gene_ids"])
     # match hv genes via gene_id
     hvgenes['highly_variable'] = hvgenes['gene_ids'].isin(gene_list['gene_id'])
+    hvgenes.columns = ["gene_name", "gene_id", "highly_variable"]
     adata.var['highly_variable'] = hvgenes['highly_variable']
 else:
     L.warning("Determine hv genes using scanpy")
@@ -172,19 +175,22 @@ else:
 
 sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 
-
-# store the objects at this point (with log-normalized and hvg)
-adata.write(results_file_logn)
-adata.write(results_file)
 # make log-norm layer for later use
 adata.layers['log1p'] = adata.X.copy()
-adata.write(results_file)
+
+# add hvg back to full object
+full_adata = anndata.read_h5ad(results_file_logn, backed="r+")
+full_adata.var['highly_variable'] = full_adata.var['gene_ids'].isin(hvgenes['gene_id'])
+full_adata.write()
 
 ## subset to hv genes for all downstream analyses
 L.warning("Subset object to hv genes only")
 adata = adata[:, adata.var.highly_variable]
 L.warning("The anndata object has %s rows after subsetting for hv genes.", adata.shape[0])
 L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
+
+#store object
+adata.write(results_file)
 
 ## Regression & scaling
 
