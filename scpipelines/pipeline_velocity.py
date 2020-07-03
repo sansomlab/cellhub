@@ -181,11 +181,10 @@ def sortBam(infile, outfile):
     if not os.path.exists(sort_outfile):
         job_threads = PARAMS["sort_threads"]
         sort_threads = int(job_threads - 1)
-        if "M" in PARAMS["sort_memory"]:
-            job_memory = PARAMS["sort_memory"]
-            mem_ind = int(job_memory[:-len("M")])
-            mem = int(mem_ind - mem_ind*0.1)
-            sort_memory = str(mem) + "M"
+        job_memory = PARAMS["sort_memory"]
+        mem_ind = int(job_memory[:-len("M")])
+        mem = int(mem_ind - mem_ind*0.1)
+        sort_memory = str(mem) + "M"
         statement = '''samtools sort -t CB -O BAM
                        --threads %(sort_threads)s
                        -m %(sort_memory)s
