@@ -6,16 +6,11 @@
 # General options
 # ---------------
 
-# Project name
-projectname: 10x single cell analysis
-
 # Author
 author: Kathrin Jansen
 
-# Whether to run the python and/or R-based 
-# workflow for integration
-use_python: 1
-use_R: 1
+# Use xvfb for compilation of Rscripts
+use_xvfb: 0
 
 # compute resource options
 # ------------------------
@@ -23,12 +18,22 @@ resources:
     # number of slots to use for the other tasks.
     # This is passed via job_threads and to the R scripts.
     # One slot is assumed to have 1 CPU, 16 GB RAM
-    nslots: 1
+    nslots: 2
+
+    # job memory for tasks except integration;
+    # use this in combination with nslots if no slots
+    # with memory pre-assigned; 'none' | e.g. 16 GB (x nslots)
+    job_memory_standard: none
 
     # Number of slots to use for the integration task
     # This is passed via job threads
     # One slot is assumed to have 1 CPU, 16 GB RAM
-    integration_slots: 1
+    integration_slots: 2
+
+    # job memory for normalisation + integration tasks;
+    # use this in combination with nslots if no slots
+    # with memory pre-assigned; 'none' | e.g. 48 GB (x nslots)
+    job_memory_high: none
 
 # Regression parameters
 # ---------------------
@@ -72,24 +77,24 @@ regress:
     # - Use "difference" to regress out the difference between G2M and S phase scores
     # (i.e. the Alternate Workflow in the link above)
     cellcycle: none
-    # Whether to run normalization and findVariableGenes on merged dataset 
-    # or per batch. Choices: '1' | '0' , where 1 is merged normalization.
-    # Supply a comma-separated list (no spaces) for this option
-    merged_normalisation: 0,1
 
 hvg:
-    # Optional: Directory with gene lists. These tsv files require a column with header gene_id.
-    # All tsv files in the folder will be read in and the highly variable genes will
-    # be annotated with the gene lists. If none, then no annotation is added.
-    annotation: none
+    # Exclude genes in the following tsv file before finding hv genes. The number of hvg will not
+    # be affected by this. This table requires a named column gene_id for the exclusion.
+    exclude: none
     # Number of variable features to identify. This number is only used in normalise
     # & hvg task. If a genelist is provided in list option below, this number is ignored
     # in the integration task.
     # Supply a comma-separated list (no spaces) for this option
     ngenes: 2000
-    # genelist to use for PCA prior to integration. If this is set to none, it will use the
-    # hvg_info list from the runNormalization task. This table requires a column
-    # gene_name and all given genes need to be included in the seurat object.
+    # Whether to find highly variable genes on merged dataset
+    # or per batch. Choices: '1' | '0' , where 1 is merged hvg.
+    # Supply a comma-separated list (no spaces) for this option
+    merged: 1
+    # Genelist to use as highly-variable genes for PCA prior to integration.
+    # If this is set to none, it will use the hvg_info list from the scanpy function
+    # will be used. If set, this table requires a column gene_name and all given
+    # genes need to be included in the seurat object.
     list: none
 
 # Integration - general
@@ -103,6 +108,11 @@ integration:
     # This has to be a column in the metadata of the input Seurat
     # object
     split_factor: sample_id
+    # Number of PCs to calculate (total) and the number to use.
+    # All used components will be taken forward to scanpy.neighbors and umap.
+    total_number_pcs: 100
+    # Supply a comma-separated list (no spaces) for this option
+    number_pcs: 30
 
 # Integration - options per tool
 # -------------
@@ -112,44 +122,25 @@ harmony:
     # Supply a comma-separated list (no spaces) for this option
     sigma: 0.1
     # theta and lambda not included here yet.
-    # Number of PCs to use for harmony. This is set to 30 for rawdata.
-    number_pcs: 30
-
-assessment:
-    # k parameter used for MixingMetric. Set to 300 in Seurat publication.
-    max_k: 300
-    # Neighbors assess with LocalStruct function. Default is 100.
-    # This might have to be decreased for small datasets.
-    neighbors: 100
 
 qc_integration:
     # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
     plot: none
+    # This option can be used to plot cluster_ids from downstream
+    # analyses on the UMAP. Set to 'none' or the path to a txt.gz file
+    # which has two columns named 'barcodes' and 'cluster_id'.
+    plot_clusters: none
 
-kbet:
-    # Number of PCs to use for kbet (50 by default),
-    # can only be the number used above, therefore set to
-    # available PCs
-    PC: 30
+report_umap:
+  run: 0
+  # Add parameters that should be used for the summary here.
+  # Only one combination of parameters is possible.
+  # Same parameter names as specified above.
+  merged_hvg: 1
+  ngenes: 3000
+  sigma: 0.1
 
-# Alluvial plots to compare integration methods
-# -------------
-# Whether to make alluvial plots of different integration methods and
-# which cluster resolutions to use for these.
-# For each tool, an option of the tool_name: settings_folder,PC_res is
-# required (no spaces). It is not required to add 'params.dir' to the
-# string. Please note that each tool can only be included once.
-alluvial_compare:
-    run: False
-    # seurat_rpca: 2000_notkeep,20_0.4
-    # harmony: 0.1_notkeep,20_0.4
-
-
-# Report options
-# ------------------------
-report:
-  # Name of the HUGO theme file
-  theme_file: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-2.4.0.tar.gz'
-  # Location of the theme modifications
-  theme_mod_dir: '%(code_dir)s/pipelines/report_theme/hugo-theme-learn-modifications'
+  # example summary
+  # use cluster_id to plot the clusters set in the qc_integration section.
+  summary_qc: sex,ngenes,source,pool

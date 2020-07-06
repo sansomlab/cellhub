@@ -401,7 +401,7 @@ def exportAnnData(infiles, outfile):
     obs_file = obs.replace(".sentinel",".tsv.gz")
 
     log_file = outfile + ".log"
-    job_threads = 4
+    job_threads = 2
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s

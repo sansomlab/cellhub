@@ -24,7 +24,7 @@ copyright: KIR (2015-2018)
 sort:
   # Please note that both CPU and memory are set lower for the actual
   # job submission (10 % less for memory and -1 for threads).
-  # per CPU memory in M
+  # per CPU memory in M | this is passed to samtools sort and needs to be set
   memory: 2000M
   # number of threads to use for sorting
   threads: 24
@@ -36,7 +36,7 @@ velocyto:
   # e.g. for human: /gfs/mirror/genomes/10x/refdata-cellranger-GRCh38-1.2.0
   # e.g. for mouse: /gfs/mirror/genomes/10x/refdata-cellranger-mm10-1.2.0
   cellranger_anno:
-  # per CPU memory for velocyto
+  # per CPU memory for velocyto in M | 'none' if only threads should be used
   memory: 10000M
   # number of threads to use for velocyto
   threads: 2

@@ -33,7 +33,7 @@ args = parser.parse_args()
 with open(args.task_yml, 'r') as stream:
     opt = yaml.safe_load(stream)
 
-L.info("Running with options ---> %s", opt)
+L.warning("Running with options ---> %s", opt)
 
 # ########################################################################### #
 # ######################## Read input data ################################## #
@@ -49,7 +49,7 @@ metadatadir = os.path.dirname(opt['comp_file'])
 metadata = pd.read_csv(os.path.join(metadatadir, "metadata.tsv.gz"), 
                        sep = "\t")
 
-L.info("Read input components and metadata")
+L.warning("Read input components and metadata")
 
 # ########################################################################### #
 # ################################# Run LISI ################################ #
@@ -63,8 +63,8 @@ else:
 select = ['barcode'] + vars_use
 metadata_lisi = metadata.loc[:, select]
 
-L.info("Compute lisi")
-L.info("Variables used for lisi are " + ",".join(vars_use))
+L.warning("Compute lisi")
+L.warning("Variables used for lisi are " + ",".join(vars_use))
 
 lisi = hm.compute_lisi(components, metadata_lisi, vars_use)
 
@@ -76,7 +76,7 @@ lisi['barcode'] = metadata_lisi.loc[:,'barcode']
 lisi.to_csv(os.path.join(opt["outdir"], "lisi.tsv.gz"),
             sep="\t", index=False, compression="gzip")
 
-L.info("Done running and saving LISI")
+L.warning("Done running and saving LISI")
 
 figdir = os.path.join(opt["outdir"], "figures.dir")
 if not os.path.exists(figdir):
@@ -90,6 +90,6 @@ plt.ylabel('n cells')
 plt.grid(axis='y', alpha=0.75)
 plt.savefig(os.path.join(figdir, "histogram_lisi.pdf"))
 
-L.info("Done plotting a simple histogram of LISI values")
+L.warning("Done plotting a simple histogram of LISI values")
 
-L.info("Completed")
+L.warning("Completed")
