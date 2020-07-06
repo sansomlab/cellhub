@@ -487,6 +487,31 @@ for(a in cols){
     pdf(paste0(run,"comparison_selection/",opt$samplename,"_compare_",aa,"_VS_",bb,".pdf"), width = 10,height = 8.5)
     print(gmat)
     dev.off()
+    unclass(table(data.subset[,a],data.subset[,b])) ->cell.mat
+    Heatmap(cell.mat, 
+            cluster_rows = F,
+            cluster_columns = F,
+            column_title = b,
+            row_title = a,
+            column_title_side = "bottom",
+            row_title_side = "left",
+            #cluster_rows = F,
+            column_names_side = "top",
+            row_names_side = "left", 
+            rect_gp = gpar(col = "grey8", lwd = 0.6),
+            name = paste0("Percent\nover\n",b),
+            cell_fun = function(j, i, x, y, width, height, fill) {
+              grid.text(sprintf("%.0f", norm.mat[i, j]), x, y, gp = gpar(fontsize = 7))
+            }) ->gmatc
+    aa <- gsub(paste0(".",opt$samplename),"",a)
+    bb <- gsub(paste0(".",opt$samplename),"",b)
+
+    pdf(paste0(run,"comparison_selection/","Cellcount_",opt$samplename,"_compare_",aa,"_VS_",bb,".pdf"), width = 10,height = 8.5)
+    print(gmatc)
+    dev.off()
+
+
+
     }
   }
 }

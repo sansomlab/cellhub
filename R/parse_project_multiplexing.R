@@ -73,6 +73,62 @@ for (sub in opt$subset){
 }
 
 res.list<-lapply(dlist, function(x) do.call("rbind",x))
+test<-lapply(res.list, function(x) mutate(x, barcode_id=paste(BARCODE, sample, sep="-")) %>% select(-c(BARCODE,sample) )) 
+data.write <-Reduce(function(x,y) merge(x,y,by="barcode_id"), test) 
+write.table(data.write, file=file=paste0(run, "all_demultiplexing_results.tsv"), row.names = F, col.names = T, sep="\t", quote = F)
+if(!file.exists(paste0(run,"comparison_selection"))) {dir.create(paste0(run,"comparison_selection"))}
+
+for(A in opt$subset) {
+  for(B in opt$subset) {
+    if(A!=B){
+      unclass(table(x=data.write[,A], y=data.write[,B])) ->mat
+    
+      Heatmap(mat, cluster_rows = F,cluster_columns = F,
+              column_title =B,
+              row_title = A,
+              row_names_side = "left", 
+              column_title_side = "bottom",
+              row_names_gp = gpar(fontsize=9),
+              column_names_gp = gpar(fontsize=9),
+              cell_fun = function(j, i, x, y, width, height, fill) {
+              grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 8))
+            }) ->g
+    pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 8, height = 8)
+    ComplexHeatmap::draw(g)
+    dev.off()
+    }
+  }
+}
+
+data.write ->df
+as.character(unique(unlist(df[,opt$subset])))->gnr
+c("DOUBLET","UNASSIGNED",gnr[!gnr %in% c("DOUBLET","UNASSIGNED")])->gnr
+sum(!gnr %in% c("DOUBLET","UNASSIGNED")) ->vc
+colormap(colormap=colormaps$portland,vc) ->ccol
+c("#7d00b3ff","#93ff00ff", ccol) ->vcol
+
+df %>%  
+  pivot_longer( names_to="method", values_to="general", cols=opt$subset) %>% 
+  mutate(general=factor(general, levels=gnr),
+          sample=sapply(strsplit(barcode_id,"-"),'[[',3) ) %>% 
+  group_by(sample,general, method) %>% 
+  summarise(tot=n()) %>% 
+  group_by(sample,method) %>% 
+  mutate(persample=sum(tot), 
+         percent=100*tot/persample) %>% 
+  ggplot(aes(method, percent, fill=general)) +
+  geom_bar(stat="identity", position="stack", color="black") +
+  scale_fill_manual(values = vcol, 
+                    breaks=gnr, 
+                    limits=gnr) +
+  theme(axis.text.x = element_text(angle=72, hjust=1 ,vjust=1), 
+        legend.position="top", legend.key.size = unit(0.3, "cm")) +
+        guides(colour = guide_legend(nrow = 3))+
+  facet_grid(~sample, scales="free_x") ->g
+
+ggsave(g, filename = paste0(run,"methods.output.pdf"), width = 13, height = 6)
+
+
 
 
 for (sub in opt$subset){
