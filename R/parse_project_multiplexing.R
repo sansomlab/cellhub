@@ -75,7 +75,7 @@ for (sub in opt$subset){
 res.list<-lapply(dlist, function(x) do.call("rbind",x))
 test<-lapply(res.list, function(x) mutate(x, barcode_id=paste(BARCODE, sample, sep="-")) %>% select(-c(BARCODE,sample) )) 
 data.write <-Reduce(function(x,y) merge(x,y,by="barcode_id"), test) 
-write.table(data.write, file=file=paste0(run, "all_demultiplexing_results.tsv"), row.names = F, col.names = T, sep="\t", quote = F)
+write.table(data.write, file=paste0(run, "all_demultiplexing_results.tsv"), row.names = F, col.names = T, sep="\t", quote = F)
 if(!file.exists(paste0(run,"comparison_selection"))) {dir.create(paste0(run,"comparison_selection"))}
 
 for(A in opt$subset) {
