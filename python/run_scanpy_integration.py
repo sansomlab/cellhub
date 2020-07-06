@@ -71,6 +71,8 @@ if opt["tool"] == "bbknn" and ',' in opt["split_var"]:
 adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.h5ad"))
 # create a raw counts layer
 adata.layers['counts'] = adata.X.copy()
+# set raw slot to raw counts too
+adata.raw = adata
 
 L.warning("Loaded anndata object")
 
