@@ -71,8 +71,6 @@ if opt["tool"] == "bbknn" and ',' in opt["split_var"]:
 adata = anndata.read(os.path.join(opt["matrixdir"], "matrix.h5ad"))
 # create a raw counts layer
 adata.layers['counts'] = adata.X.copy()
-# set raw slot to raw counts too
-adata.raw = adata
 
 L.warning("Loaded anndata object")
 
@@ -141,8 +139,7 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 
 # store the object at this point (with log-normalized but all genes)
-#adata.write(results_file_logn)
-full_adata = adata.copy()
+adata.write(results_file_logn)
 
 ## Identify highly variable genes
 if 'hv_genes' in opt.keys():
@@ -186,9 +183,9 @@ sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 adata.layers['log1p'] = adata.X.copy()
 
 # add hvg back to full object
-#full_adata = anndata.read_h5ad(results_file_logn, backed="r+")
+full_adata = anndata.read_h5ad(results_file_logn, backed="r+")
 full_adata.var['highly_variable'] = full_adata.var['gene_ids'].isin(hvgenes['gene_id'])
-full_adata.write(results_file_logn)
+full_adata.write()
 
 ## subset to hv genes for all downstream analyses
 L.warning("Subset object to hv genes only")
