@@ -141,6 +141,9 @@ emptydrops_out$emptydrops_cell[emptydrops_out$FDR <= opt$FDR] <- TRUE
 
 write.table(emptydrops_out, file = gzfile(file.path(opt$outdir, "emptyDrops.tsv.gz")), sep="\t", quote = FALSE, row.names = FALSE)
 
+passing_emptydrops = emptydrops_out[emptydrops_out$emptydrops_cell == TRUE, "barcode"]
+write.table(passing_emptydrops, file = gzfile(file.path(opt$outdir, "emptyDrops_barcodes.tsv.gz")), sep="\t", quote = FALSE, row.names = FALSE,col.names=FALSE)
+
 flog.info("Finished writing output...")
 
 flog.info("Completed")
