@@ -101,13 +101,14 @@ flog.info("Including %s ribosomal protein genes for pct_ribosomal",
           length(genesets$pct_ribosomal))
 
 # Immunoglobin genes
-genesets$pct_immunoglobin <- grep("^IGH|^IGL|^IGK", rowData(s)$Symbol, ignore.case=TRUE)
+genesets$pct_immunoglobin <- grep("^IGH|^IGLC|^IGLJ|^IGLL|^IGLV|^IGK", 
+                                  rowData(s)$Symbol, ignore.case=TRUE)
 flog.info("Including %s immunoglobin genes for pct_immunoglobin", 
           length(genesets$pct_immunoglobin))
 
 # Hemoglobin genes
 genesets$pct_hemoglobin <- grep("^Hbb|^Hba|^Hbq", rowData(s)$Symbol, ignore.case=TRUE)
-flog.info("Including %s immunoglobin genes for pct_hemoglobin", 
+flog.info("Including %s hemoglobin genes for pct_hemoglobin", 
           length(genesets$pct_hemoglobin))
 
 # Add any other genesets provided
@@ -117,6 +118,7 @@ if (!is.null(opt$genesets_file)){
   provided_genesets <- read.csv(opt$genesets_file, sep="\t", header=FALSE)
   
   for (i in 1:nrow(provided_genesets)) {
+    
     geneset_name <- provided_genesets[i,1]
     
     # Read geneset file
@@ -128,7 +130,15 @@ if (!is.null(opt$genesets_file)){
     # Add to 'genesets' list
     genesets[[geneset_name]] <- which(rowData(s)$Symbol %in% geneset)
     flog.info("Including %s genes for %s", 
-              format(length(geneset), big.mark=","), geneset_name)
+              format(length(genesets[[geneset_name]]), big.mark=","), geneset_name)
+    
+    # Report genes not found
+    if ( sum(!geneset %in% rowData(s)$Symbol) >= 1) {
+      not_found <- geneset[-which(geneset %in% rowData(s)$Symbol)]
+      not_found <- paste0(not_found, collapse = ", ")
+      flog.info("Genes not found in count matrix: %s", 
+                not_found)
+    }
   }
 }
 
