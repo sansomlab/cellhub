@@ -67,7 +67,7 @@ regress:
     # Latent variables to regress out, which need to be column
     # names in the metadata (cell cycle phase does not need to be
     # added here). If nothing should be regressed, set this to none.
-    latentvars: pct_mitochondrial
+    latentvars: total_UMI
     # Model used to regress out latent variables
     # Choices: 'linear'|'poisson'|'negbinom'
     modeluse: linear
@@ -86,7 +86,7 @@ hvg:
     # & hvg task. If a genelist is provided in list option below, this number is ignored
     # in the integration task.
     # Supply a comma-separated list (no spaces) for this option
-    ngenes: 2000
+    ngenes: 3000
     # Whether to find highly variable genes on merged dataset
     # or per batch. Choices: '1' | '0' , where 1 is merged hvg.
     # Supply a comma-separated list (no spaces) for this option
@@ -139,6 +139,7 @@ report_umap:
   # Same parameter names as specified above.
   merged_hvg: 1
   ngenes: 3000
+  number_pcs: 30
   sigma: 0.1
 
   # example summary

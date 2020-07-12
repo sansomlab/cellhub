@@ -209,12 +209,15 @@ def genClusterJobs():
 
         ngenes_str = str(PARAMS["hvg_ngenes"])
         ngenes = ngenes_str.strip().replace(" ", "").split(",")
+        pc_str = str(PARAMS["integration_number_pcs"])
+        pcs = pc_str.strip().replace(" ", "").split(",")
         # make jobs for non-integrated sample
         for n in ngenes:
             for m in mergedhvg:
-                outfile = os.path.join(dirname, "rawdata.integrated.dir",
-                                       "_".join([n, m]) +".run.dir", outf)
-                yield [infile, outfile]
+                for p in pcs:
+                    outfile = os.path.join(dirname, "rawdata.integrated.dir",
+                                           "_".join([n,m,p]) +".run.dir", outf)
+                    yield [infile, outfile]
 
         for tool in tools:
 
@@ -222,28 +225,31 @@ def genClusterJobs():
                 k_str = str(PARAMS["harmony_sigma"])
                 ks = k_str.strip().replace(" ", "").split(",")
                 for n in ngenes:
-                    for k in ks:
-                        for m in mergedhvg:
-                            outname = "_".join([n,m,k]) + ".run.dir"
-                            outfile = os.path.join(dirname, "harmony.integrated.dir",
-                                                   outname, outf)
-                            yield [infile, outfile]
+                    for p in pcs:
+                        for k in ks:
+                            for m in mergedhvg:
+                                outname = "_".join([n,m,p,k]) + ".run.dir"
+                                outfile = os.path.join(dirname, "harmony.integrated.dir",
+                                                       outname, outf)
+                                yield [infile, outfile]
 
             if 'bbknn' in tool:
                 for n in ngenes:
-                    for m in mergedhvg:
-                        outname = "_".join([n,m]) + ".run.dir"
-                        outfile = os.path.join(dirname, "bbknn.integrated.dir",
-                                               outname, outf)
-                        yield [infile, outfile]
+                    for p in pcs:
+                        for m in mergedhvg:
+                            outname = "_".join([n,m,p]) + ".run.dir"
+                            outfile = os.path.join(dirname, "bbknn.integrated.dir",
+                                                   outname, outf)
+                            yield [infile, outfile]
 
             if 'scanorama' in tool:
                 for n in ngenes:
-                    for m in mergedhvg:
-                        outname = "_".join([n,m]) + ".run.dir"
-                        outfile = os.path.join(dirname, "scanorama.integrated.dir",
-                                               outname, outf)
-                        yield [infile, outfile]
+                    for p in pcs:
+                        for m in mergedhvg:
+                            outname = "_".join([n,m,p]) + ".run.dir"
+                            outfile = os.path.join(dirname, "scanorama.integrated.dir",
+                                                   outname, outf)
+                            yield [infile, outfile]
 
 
 @files(genClusterJobs)
@@ -311,11 +317,11 @@ def runScanpyIntegration(infile, outfile):
     if os.path.isfile(PARAMS["hvg_list"]):
         options["hv_genes"] = PARAMS["hvg_list"]
 
-    options["nPCs"] = int(PARAMS["integration_number_pcs"])
+    options["nPCs"] = int(run_options.split("_")[2])
     options["totalPCs"] = int(PARAMS["integration_total_number_pcs"])
     if tool == 'harmony':
         ## TO DO: add theta and lambda as options
-        sigma = run_options.split("_")[2]
+        sigma = run_options.split("_")[3]
         options["sigma"] = float(sigma)
 
     # resource allocation
@@ -447,11 +453,19 @@ def plotUMAP(infile, outfile):
 # ####### Make summary pdf with methods and selected variables ############## #
 # ########################################################################### #
 
+def genJobsSummary():
+    '''Job generator for summary jobs '''
+    infile = None
+    dirs = os.listdir()
+    exp_dirs = [d for d in dirs if '.exp.dir' in d]
+    for d in exp_dirs:
+        outfile = os.path.join(d, "summary.dir", "make_summary.sentinel")
+        yield(infile, outfile)
+
+
 @active_if(PARAMS["report_umap_run"])
 @follows(plotUMAP)
-@transform("*.exp.dir/create_seurat.sentinel",
-           regex(r"(.*).exp.dir/create_seurat.sentinel"),
-           r"\1.exp.dir/summary.dir/make_summary.sentinel")
+@files(genJobsSummary)
 def summariseUMAP(infile, outfile):
     '''
     Summarise UMAP from different methods
@@ -461,7 +475,7 @@ def summariseUMAP(infile, outfile):
         os.makedirs(outdir)
 
 
-    indir = os.path.dirname(infile)
+    indir = outfile.split("/")[0]
     ## make plots for different combinations of variables
     summaries = [k.split("_")[-1] for k in PARAMS.keys()
                if k.startswith("report_umap_summary_")]
@@ -471,9 +485,10 @@ def summariseUMAP(infile, outfile):
     tools = tools + ['rawdata']
 
     # read selected parameters for the summary pages
-    ngenes = PARAMS["report_umap_ngenes"]
-    sigma = PARAMS["report_umap_sigma"]
+    ngenes = str(PARAMS["report_umap_ngenes"])
+    sigma = str(PARAMS["report_umap_sigma"])
     merged_hvg = PARAMS["report_umap_merged_hvg"]
+    number_pcs = str(PARAMS["report_umap_number_pcs"])
 
     if merged_hvg == '0':
         mergedhvg = "perbatch"
@@ -483,30 +498,29 @@ def summariseUMAP(infile, outfile):
     # get all required tool folders
     rawdatadir,harmonydir,bbknndir,scanoramadir=0,0,0,0
     for t in tools:
-        tooldir = os.path.join(indir, t + ".integrated.dir")
-        run_folders = [os.path.join(tooldir, o) for o in os.listdir(tooldir)
+        tooldir = os.path.join(indir, t + ".integrated.dir") 
+        run_folders = [o for o in os.listdir(tooldir)
                        if os.path.isdir(os.path.join(tooldir,o))]
         if t == "harmony":
-            rundir = "".join([f for f in run_folders if mergedhvg in f
-                              if str(sigma) in f if str(ngenes) in f])
+            rundir = "_".join([ngenes,mergedhvg,number_pcs,sigma]) + ".run.dir"
         else:
-            rundir = "".join([f for f in run_folders if mergedhvg in f
-                              if str(ngenes) in f])
+            rundir = "_".join([ngenes,mergedhvg,number_pcs]) + ".run.dir"
+
+        if not rundir in run_folders:
+            raise ValueError("Folder with this setting is not present, "
+                             "adjust settings in yml")
 
         if t == 'harmony':
-            harmonydir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+            harmonydir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
         elif t == 'rawdata':
-            rawdir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+            rawdir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
         elif t == 'bbknn':
-            bbknndir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+            bbknndir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
         elif t == 'scanorama':
-            scanoramadir = os.path.join(rundir, "scanpy.dir", "R_plots.dir")
+            scanoramadir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
 
-    statements = []
+    #statements = []
 
-    print(tools)
-    print(rawdir)
-    print(summaries)
     # Run once for each summary page
     for s in summaries:
         print(s)
@@ -644,7 +658,7 @@ def runLISIpy(infile, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(runScanpyUMAP, plotUMAP, runLISIpy)
+@follows(runScanpyUMAP, plotUMAP, runLISIpy, summariseUMAP)
 def full():
     pass
 
