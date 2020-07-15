@@ -48,8 +48,12 @@ scrublet:
     # The expected fraction of transcriptomes that are doublets, typically 0.05-0.1.
     # Results are not particularly sensitive to this parameter.
     # https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
-    expected_doublet_rate: 0.6
+    expected_doublet_rate: 0.06
 
+    # Subset the scrublet run to a list of 'white-listed' barcodes.
+    # For each sample this list needs to be provided in the input_samples.tsv as a column
+    # named whitelist.
+    subset: 0
     # Additional parameters for scrublet's function 'scrub_doublets'
     # Default parmeters from https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
     min_counts: 2

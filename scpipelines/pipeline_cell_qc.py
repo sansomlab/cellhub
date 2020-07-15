@@ -192,6 +192,10 @@ def run_scrublet(infile, outfile):
     samples.set_index("sample_id", inplace=True)
     cellranger_dir = samples.loc[sample_name, "path"]
 
+    if PARAMS["scrublet_subset"]:
+        whitelist = samples.loc[sample_name, "whitelist"]
+        subset_option = '''--keep_barcodes_file=%(whitelist)s''' %locals()
+
     # Scrublet parameters
     expected_doublet_rate = PARAMS["scrublet_expected_doublet_rate"]
     min_counts = PARAMS["scrublet_min_counts"]
@@ -207,6 +211,7 @@ def run_scrublet(infile, outfile):
     # Formulate and run statement
     statement = '''python %(code_dir)s/python/run_scrublet.py
                    --cellranger_dir=%(cellranger_dir)s
+                   %(subset_option)s
                    --sample=%(sample_name)s
                    --expected_doublet_rate=%(expected_doublet_rate)s
                    --min_counts=%(min_counts)s
