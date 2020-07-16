@@ -501,7 +501,7 @@ for(a in cols){
             rect_gp = gpar(col = "grey8", lwd = 0.6),
             name = paste0("Percent\nover\n",b),
             cell_fun = function(j, i, x, y, width, height, fill) {
-              grid.text(sprintf("%.0f", norm.mat[i, j]), x, y, gp = gpar(fontsize = 7))
+              grid.text(sprintf("%.0f", cell.mat[i, j]), x, y, gp = gpar(fontsize = 7))
             }) ->gmatc
     aa <- gsub(paste0(".",opt$samplename),"",a)
     bb <- gsub(paste0(".",opt$samplename),"",b)
