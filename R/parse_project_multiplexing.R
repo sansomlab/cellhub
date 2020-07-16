@@ -93,7 +93,7 @@ for(A in opt$subset) {
               cell_fun = function(j, i, x, y, width, height, fill) {
               grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 8))
             }) ->g
-    pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 8, height = 8)
+    pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 14, height = 14)
     ComplexHeatmap::draw(g)
     dev.off()
     }
@@ -157,7 +157,7 @@ for (sub in opt$subset){
     guides(colour = guide_legend(nrow = 3))+
       ggtitle(sub)->g1
   
-  ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results.pdf")), width=10, height = 7)
+  ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results.pdf")), width=14, height = 7)
   
   res.list[[sub]] %>% 
     rename(general=sub) %>% 
@@ -177,7 +177,7 @@ for (sub in opt$subset){
     guides(colour = guide_legend(nrow = 3))+
     ggtitle(sub) + ylab("cell yield") ->g1
   
-  ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results_cellcount.pdf")), width=10, height = 7)
+  ggsave(g1, filename = file.path(paste0(run, sub, "_demultiplexing_results_cellcount.pdf")), width=14, height = 7)
   
   
   
