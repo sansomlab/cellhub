@@ -28,7 +28,8 @@ calculate_qc_metrics:
     # First column: name of geneset; Second column: name of the file containing the geneset. 
     # The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row).")
     # Defaults = none
-    geneset_file: genesets.tsv 
+    # Eg: genesets.tsv
+    geneset_file: none
 
     # Label cells as True/False based on whether they are part of provided lists ------------------------
     # Header-less two-column tsv file with filenames containing list of barcodes to label, one filename per row.
@@ -39,7 +40,9 @@ calculate_qc_metrics:
     # First column: barcode name in the format UMI-1, e.g AAACCTGAGAGGTACC-1.
     # Second column: sample or channel id name.
     # If a barcode is included in the file, it will be labeled as 'True', otherwise as 'False'
-    barcodes_to_label_as_True: barcode_labelling.tsv
+    # Default: none
+    # E.g: barcode_labelling.tsv
+    barcodes_to_label_as_True: none
     
 # Calculate doublet scores with scrublet
 # --------------------------------------
