@@ -23,13 +23,14 @@ resources:
 # Calculate QC metrics
 # ------------------------
 calculate_qc_metrics:
+    # Calculate the percentage of UMIs for genesets provided ------------------------
     # Header-less two-column tsv file with genesets to evaluate, one geneset per row. 
     # First column: name of geneset; Second column: name of the file containing the geneset. 
     # The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row).")
     # Defaults = none
     geneset_file: genesets.tsv 
 
-    # Label cells as True/False based on whether they are part of provided lists
+    # Label cells as True/False based on whether they are part of provided lists ------------------------
     # Header-less two-column tsv file with filenames containing list of barcodes to label, one filename per row.
     # First column: name to identify the list, this will become the column name in the output table; 
     # Second column: name of the file containing the list of barcodes to label.
