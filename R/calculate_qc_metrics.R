@@ -22,7 +22,11 @@ option_list <- list(
   make_option(c("--sample"), default=NULL,
               help="sample or channel id"),
   make_option(c("--barcodes_to_label_as_True"), default=NULL,
-              help="A header-less, two-column, gziped tsv.gz file with barcodes to label.
+              help="A header-less two-column tsv file with filenames containing list of barcodes to label, one filename per row.
+              First column: name to identify the list, this will become the column name in the output table; 
+              Second column: name of the file containing the list of barcodes to label.
+              Each file must contain a list of barcodes, and should have the following format:
+              A header-less, two-column, gziped tsv.gz file with barcodes to label.
               The name of the file will be used to set the column name in the output dataframe ('.tsv' will be removed from the final name).
               First column: barcode name in the format UMI-1, e.g AAACCTGAGAGGTACC-1.
               Second column: sample or channel id name.
@@ -209,17 +213,24 @@ cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
 # Label barcodes ------
 #######################
 if (!is.null(opt$barcodes_to_label_as_True)){
-  bc <- read.csv(gzfile(opt$barcodes_to_label_as_True), sep="\t", header=FALSE)
-  colnames(bc) <- c("barcode", "sample")
-  # Filter barcodes from current sample
-  bc <- bc[bc$sample %in% opt$sample,]
-  # Label barcodes in output dataframe
-  cell_qc$newcol <- "False"
-  cell_qc$newcol[cell_qc$barcode %in% bc$barcode] <- "True"
-  # Set column name in output
-  colname <- opt$barcodes_to_label_as_True
-  colname <- gsub(".tsv.gz", "", gsub(".*/", "", colname))
-  colnames(cell_qc)[colnames(cell_qc) == "newcol"] <- colname
+  flog.info("Adding columns of True/False labelled barcodes...")
+  input_lists <- read.table(gzfile(opt$barcodes_to_label_as_True), sep="\t")
+  colnames(input_lists) <- c("name", "file")
+  for (i in 1:nrow(input_lists)) {
+    bc <- read.csv(gzfile(input_lists$file[i]), sep="\t", header = FALSE)
+    colnames(bc) <- c("barcode", "sample")
+    
+    # Filter barcodes from current sample in list_temp
+    bc <- bc[bc$sample %in% opt$sample,]
+    
+    # Label barcodes in output dataframe
+    cell_qc$newcol <- "False"
+    cell_qc$newcol[cell_qc$barcode %in% bc$barcode] <- "True"
+    
+    # Set column name in output
+    colname <- input_lists$name[i]
+    colnames(cell_qc)[colnames(cell_qc) == "newcol"] <- colname
+  }
 }
 
 # Format ouput to match tables in other pipelines from the cellhub repository

@@ -121,7 +121,7 @@ def calculate_qc_metrics(infile, outfile):
     Ouput: creates a qcmetrics.dir folder and a sample_qcmetrics.tsv.gz table per sample/channel
     For additional input files check the calculate_qc_metrics pipeline.yml sections:
     - Calculate the percentage of UMIs for genesets provided 
-    - Label barcodes as True/False based on whether they are part or not of a list of barcodes provided
+    - Label barcodes as True/False based on whether they are part or not of a set of lists of barcodes provided
     '''
 
     # Get cellranger directory and id
@@ -137,7 +137,7 @@ def calculate_qc_metrics(infile, outfile):
       genesets_file = PARAMS["calculate_qc_metrics_geneset_file"]
       genesets_file = '''--genesets_file=%(genesets_file)s''' % locals()
       
-    # Get file with barcodes to label as 'True' in output dataframe 
+    # Get file with files having barcodes to label as 'True' in output dataframe 
     if PARAMS["calculate_qc_metrics_barcodes_to_label_as_True"] == "none" or PARAMS["calculate_qc_metrics_barcodes_to_label_as_True"] == None:
       barcodes_to_label_as_True = ""
     else:

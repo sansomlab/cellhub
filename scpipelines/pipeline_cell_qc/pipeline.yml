@@ -17,38 +17,36 @@ author: COMBATOxford
 # ------------------------
 resources:
     # number of job threads/slots
-    threads: 6
+    threads: 1
 
 
 # Calculate QC metrics
 # ------------------------
 calculate_qc_metrics:
-    # Calculate the percentage of UMIs for genesets provided ------------------------
-    # Header-less, two-column tsv file with genesets to evaluate, one geneset per row. 
+    # Header-less two-column tsv file with genesets to evaluate, one geneset per row. 
     # First column: name of geneset; Second column: name of the file containing the geneset. 
     # The file containing the geneset must be a header-less, one-column tsv file with gene names (one per row).")
-    # Default = none
-    # E.g = genesets.tsv
-    geneset_file: none 
-    
-    # Label barcodes as True/False based on whether they are part or not of a list of barcodes provided ----------
-    # Header-less, two-column, gzipped tsv.gz file containing barcodes to label as 'True', one barcode per row.
-    # The name of the file will be used to set the column name in the output dataframe ('.tsv.gz' will be removed from the final name).
+    # Defaults = none
+    geneset_file: genesets.tsv 
+
+    # Label cells as True/False based on whether they are part of provided lists
+    # Header-less two-column tsv file with filenames containing list of barcodes to label, one filename per row.
+    # First column: name to identify the list, this will become the column name in the output table; 
+    # Second column: name of the file containing the list of barcodes to label.
+    # Each file must contain a list of barcodes, and should have the following format:
+    # Header-less two-column tsv file with barcodes to label as 'TRUE', one barcode per row.
     # First column: barcode name in the format UMI-1, e.g AAACCTGAGAGGTACC-1.
     # Second column: sample or channel id name.
     # If a barcode is included in the file, it will be labeled as 'True', otherwise as 'False'
-    # Default = none
-    # E.g = cellranger_filtered.tsv.gz
-    barcodes_to_label_as_True: none
-
-
+    barcodes_to_label_as_True: barcode_labelling.tsv
+    
 # Calculate doublet scores with scrublet
 # --------------------------------------
 scrublet:
     # The expected fraction of transcriptomes that are doublets, typically 0.05-0.1.
     # Results are not particularly sensitive to this parameter.
     # https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
-    expected_doublet_rate: 0.6
+    expected_doublet_rate: 0.06
 
     # Additional parameters for scrublet's function 'scrub_doublets'
     # Default parmeters from https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
