@@ -195,6 +195,8 @@ def run_scrublet(infile, outfile):
     if PARAMS["scrublet_subset"]:
         whitelist = samples.loc[sample_name, "whitelist"]
         subset_option = '''--keep_barcodes_file=%(whitelist)s''' %locals()
+    else:
+        subset_option = ''' ''' 
 
     # Scrublet parameters
     expected_doublet_rate = PARAMS["scrublet_expected_doublet_rate"]
