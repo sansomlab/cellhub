@@ -27,7 +27,7 @@ data:
     # Lookup table with combatid to pool
     lookup_combatid: /well/combat/projects/preprocess/metadata/grid_and_COMBATID.tsv
 
-
+    adt: /well/combat/projects/preprocess/citeseq_final/adt/allcells/adtqc/ADT.qc.pipeline.DSB.dir/
 virtual:
     # Build the database using virtual tables, if 0 then it will generate a non-virtual database 
     active: 0

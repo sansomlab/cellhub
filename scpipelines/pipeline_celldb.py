@@ -285,7 +285,7 @@ def process_merged_demux(infiles, outfile):
     for fname in infiles:
         name = os.path.basename(fname).replace("_SingleCellMetadata_demultiplexing_results.tsv.gz","")
         df = pd.read_table(fname, index_col=None)
-        df.columns = ['barcode','demuxlet','demuxletV2', 'vireo', 'vireounknown']
+        df.columns = ['barcode','demuxletV2_channel', 'vireo_channel', 'vireo_unknown']
         #df['barcode_id'] = df["barcode"].str.replace("-1", "")
         df['barcode_id'] = df['barcode'] + "-" + name
         df['sample'] = name
@@ -316,9 +316,48 @@ def load_merged_demux(infile, outfile):
     P.run(statement)
 
 
+@merge(os.path.join(PARAMS['data_adt'],"*/*_qcmetrics.tsv.gz"),
+           "adtmetrics_merge.tsv")
+def process_merged_adt(infiles, outfile):
+    '''Process concatenate data together from qcmetrics'''
+
+    li = []
+
+    for fname in infiles:
+        df = pd.read_table(fname, index_col=None)
+        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
+        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
+        li.append(df)
+
+    frame = pd.concat(li, axis=0, ignore_index=True)
+
+    frame.to_csv(outfile, sep='\t', index=False)
+
+
+@follows(load_merged_demux)
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@transform(process_merged_adt,
+           suffix(".tsv"),
+           ".load")
+def load_merged_adt(infile, outfile):
+    '''load adt metrics output data into database '''
+
+    statement='''cat %(infile)s
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=sqlite:///./csvdb
+                          -i "barcode_id"
+                          -i "sample"
+                          --table=adt_metrics
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
+
+
 @follows(load_merged_qcmetrics, load_merged_scrublet,
          load_merged_demux,
-         load_channels, load_combatids)
+         load_channels, load_combatids, load_merged_adt)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("final.load")
 def final(outfile):
@@ -329,27 +368,31 @@ def final(outfile):
     statement = '''CREATE VIEW final AS
                     SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
                               qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
-                              qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_chrx, qc.pct_chry,
+                              qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_platelet, qc.pct_endothelial, qc.pct_apoptotic,
+                              qc.pct_neutrophil_shortlisted, qc.cellranger_filter, qc.emptydrops_filter,
                               qc.mitoribo_ratio, qc.barcode_id,
-                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
-                           demux.demuxletV2 baseID,
+                           demux.demuxletV2_channel baseID,
+                           adt.ctrl.isotype.pct, adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
-                           cids.COMBATID,
-                           cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity
+                           cids.COMBATID, cids.PBMCs, cids.COMBAT_ID_Time,
+                           cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity, cm.Timepoint timepoint,
+                           cm.Days_symptom_to_sample, cm.PCR_SRS, cm.Diagnosis, cm.Days_symptoms_admission,
+                           cm.Days_symptoms_discharge, cm.days_symptoms_max, cm.max_severity, cm.severity_at_sample, cm.deceased,
+                           cm.On_dexamethasone_at_time_of_sample, cm.Completed_days_on_dexamethasone, cm.white_cell_count,
+                           cm.neutrophil_count, cm.lymphocyte_count, cm.monocyte_count, cm.bloods_outside24hrs, cm.SaO2_FiO2_ratio,
+                           cm.ventilation_assistance, cm.maximum_charlson_comorbidity_2012, cm.BMI, cm.Weight
                     FROM gex_qcmetrics qc
-                    LEFT JOIN gex_scrublet scrub
-                    ON qc.barcode_id = scrub.barcode_id
                     LEFT JOIN gex_demux demux
                     ON qc.barcode_id = demux.barcode_id
-                    LEFT JOIN metadata_sequencing seq
-                    ON qc.sample = seq.Sequencing_ID
                     LEFT JOIN channels
-                    ON qc.sample = channels.Sequencing_ID
+                    ON qc.sample = channels.gPlex
                     LEFT JOIN combatids cids
-                    ON demux.DemuxletV2 = cids.baseID
+                    ON demux.demuxletV2_channel = cids.baseID
                        AND channels.Pool = cids.Pool
                     LEFT JOIN clinical_metadata cm
-                    ON cids.COMBATID = cm.COMBATID'''
+                    ON cids.PBMCs = cm.scRNASeq_sample_ID
+                    LEFT JOIN adt_metrics adt
+                    ON qc.barcode_id = adt.barcode_id'''
 
     cc = database.executewait(dbh, statement, retries=5)
 
