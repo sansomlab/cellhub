@@ -95,8 +95,8 @@ if not hasattr(scrub, 'threshold_'):
   # Calling doublets
   scrub.call_doublets(threshold=1)
   # Creating output file with results  
-  out = pd.DataFrame({'barcode': barcodes, 
-                    'id': [args.sample] * len(barcodes),
+  out = pd.DataFrame({'BARCODE': barcodes, 
+                    'sample': [args.sample] * len(barcodes),
                     'scrub_doublet_scores' : doublet_scores, 
                     'scrub_predicted_doublets' : "NA"})
 else: 
