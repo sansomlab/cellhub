@@ -91,9 +91,9 @@ for(A in opt$subset) {
               row_names_gp = gpar(fontsize=9),
               column_names_gp = gpar(fontsize=9),
               cell_fun = function(j, i, x, y, width, height, fill) {
-              grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 8))
+              grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 6))
             }) ->g
-    pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 14, height = 14)
+    pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 16, height = 16)
     ComplexHeatmap::draw(g)
     dev.off()
     }
@@ -124,9 +124,9 @@ df %>%
   theme(axis.text.x = element_text(angle=72, hjust=1 ,vjust=1), 
         legend.position="top", legend.key.size = unit(0.3, "cm")) +
         guides(colour = guide_legend(nrow = 3))+
-  facet_grid(~sample, scales="free_x") ->g
+  facet_wrap(~sample, scales="free_x") ->g
 
-ggsave(g, filename = paste0(run,"methods.output.pdf"), width = 13, height = 6)
+ggsave(g, filename = paste0(run,"methods.output.pdf"), width = 13, height = 14)
 
 
 
