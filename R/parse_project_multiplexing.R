@@ -91,7 +91,7 @@ for(A in opt$subset) {
               row_names_gp = gpar(fontsize=9),
               column_names_gp = gpar(fontsize=9),
               cell_fun = function(j, i, x, y, width, height, fill) {
-              grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 6))
+              grid.text(sprintf("%.0f", mat[i, j]), x, y, gp = gpar(fontsize = 4))
             }) ->g
     pdf(paste0(run,"comparison_selection/",A,"_VS_",B,".pdf"), width = 16, height = 16)
     ComplexHeatmap::draw(g)
