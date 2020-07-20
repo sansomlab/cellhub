@@ -126,7 +126,7 @@ df %>%
         guides(colour = guide_legend(nrow = 3))+
   facet_wrap(~sample, scales="free_x") ->g
 
-ggsave(g, filename = paste0(run,"methods.output.pdf"), width = 13, height = 14)
+ggsave(g, filename = paste0(run,"methods.output.pdf"), width = 15, height = 35)
 
 
 
