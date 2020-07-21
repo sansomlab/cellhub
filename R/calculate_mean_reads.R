@@ -1,12 +1,9 @@
 ## Title ----
 ##
-## Run emptydrops to detect empty droplets
+## Mean UMI per cell
 ##
 ## Description ----
-## Run emptyDrops to assess if droplets are empty or might contain cells
-##
-## Default parameters ----
-## example yml: /gfs/devel/kjansen/dropflow/Rmd/emptydrops.yml
+## Calculate the mean total UMI per cell for all barcodes
 
 # Libraries --------------------------------------------------------------------
 
@@ -65,7 +62,7 @@ if(!is.null(options)) {
 flog.info("Running with options: ", opt, capture = TRUE)
 flog.info("\n")
 
-sce <- read10xCounts(file.path(opt$cellrangerDir))
+sce <- read10xCounts(opt$cellrangerDir)
 flog.info("Dimensions of input object: %s", dim(sce))
 
 sce <- sce[,colSums(counts(sce))>0]
@@ -73,7 +70,8 @@ sce <- sce[rowSums(counts(sce))>0,]
 flog.info("Dimensions of filtered object: %s", dim(sce))
 
 mean_UMI_per_cell <- data.frame(BARCODE = colData(sce)$Barcode, 
-                                mean_umi = colMeans(counts(sce)), stringsAsFactors = F)
+                                mean_umi = colMeans(counts(sce)), 
+                                stringsAsFactors = F)
 
 write.table(mean_UMI_per_cell, file = gzfile(file.path(opt$outdir, "meanUmiPerCell.tsv.gz")), 
             sep="\t", quote = FALSE, row.names = FALSE)
