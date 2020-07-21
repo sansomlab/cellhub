@@ -12,7 +12,6 @@
 
 stopifnot(require(optparse))
 stopifnot(require(yaml))
-stopifnot(require(optparse))
 stopifnot(require(DropletUtils))
 stopifnot(require(futile.logger))
 stopifnot(require(knitr))
