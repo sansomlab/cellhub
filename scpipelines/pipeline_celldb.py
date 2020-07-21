@@ -361,8 +361,8 @@ def final(outfile):
                               qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_platelet, qc.pct_endothelial, qc.pct_apoptotic,
                               qc.pct_neutrophil_shortlisted, qc.cellranger_filter, qc.emptydrops_filter,
                               qc.mitoribo_ratio, qc.barcode_id,
-                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,:
-                           demux.demuxletV2_channel baseID,
+                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
+                           demux.demuxletV2_channel, demux.vireo_channel, demux.vireo_unknown,
                            adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
                            cids.COMBATID, cids.PBMCs, cids.COMBAT_ID_Time,
@@ -380,7 +380,7 @@ def final(outfile):
                     LEFT JOIN channels
                     ON qc.sample = channels.gPlex
                     LEFT JOIN combatids cids
-                    ON demux.demuxletV2_channel = cids.baseID
+                    ON demux.vireo_channel = cids.baseID
                        AND channels.Pool = cids.Pool
                     LEFT JOIN clinical_metadata cm
                     ON cids.PBMCs = cm.scRNASeq_sample_ID
