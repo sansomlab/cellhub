@@ -149,7 +149,6 @@ def genClusterJobs():
 
     for sample_name in samples.index:
         sample_dir = sample_name + ".sample.dir"
-        print(sample_dir)
         out_sentinel = os.path.join(sample_dir, "emptyDrops.sentinel")
         yield(infile, out_sentinel)
 
@@ -201,11 +200,59 @@ def runEmptyDrops(infile, outfile):
 
     IOTools.touch_file(outfile)
 
+def genClusterJobsMeans():
+    ''' Generate cluster jobs for each sample '''
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    infile = None
+    samples.set_index("sample_id", inplace=True)
+
+    for sample_name in samples.index:
+        sample_dir = sample_name + ".sample.dir"
+        out_sentinel = os.path.join(sample_dir, "meanReads.sentinel")
+        yield(infile, out_sentinel)
+
+@follows(checkInputs)
+@files(genClusterJobsMeans)
+def calculateMeanReadsPerCell(infile, outfile):
+    ''' Calculate the mean reads per cell '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    options = {}
+    sample_name = outfile.split("/")[0][:-len(".sample.dir")]
+    options["outdir"] = outdir
+
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"path"],
+                                            "raw_feature_bc_matrix")
+
+    log_file = outfile.replace("sentinel","log")
+    job_threads = PARAMS["emptydrops_slots"]
+    if ("G" in PARAMS["emptydrops_memory"] or
+    "M" in PARAMS["emptydrops_memory"] ):
+        job_memory = PARAMS["emptydrops_memory"]
+
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "calculate_mean_reads.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+    statement = '''Rscript %(code_dir)s/R/calculate_mean_reads.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                '''
+
+    P.run(statement)
+
+    IOTools.touch_file(outfile)
+
 
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(runEmptyDrops)
+@follows(runEmptyDrops, calculateMeanReadsPerCell)
 def full():
     '''
     Run the full pipeline.
