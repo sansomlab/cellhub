@@ -357,15 +357,14 @@ def final(outfile):
 
     statement = '''CREATE VIEW final AS
                     SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
-                              qc.total_UMI, qc.pct_mitochondria:l, qc.pct_ribosomal, qc.pct_immunoglobin,
+                              qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
                               qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_platelet, qc.pct_endothelial, qc.pct_apoptotic,
                               qc.pct_neutrophil_shortlisted, qc.cellranger_filter, qc.emptydrops_filter,
                               qc.mitoribo_ratio, qc.barcode_id,
                            scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
-                           demux.demuxletV2_channel, demux.vireo_channel, demux.vireo_unknown,
                            adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
-                           cids.COMBATID, cids.PBMCs, cids.COMBAT_ID_Time,
+                           cids.PBMCs, cids.COMBAT_ID_Time,
                            cm.COMBAT_ID, cm.scRNASeq_sample_ID 
                     FROM gex_qcmetrics qc
                     LEFT JOIN gex_scrublet scrub
