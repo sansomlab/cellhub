@@ -357,7 +357,7 @@ def final(outfile):
 
     statement = '''CREATE VIEW final AS
                     SELECT qc.BARCODE barcode, qc.sample sequencing_id, qc.ngenes,
-                              qc.total_UMI, qc.pct_mitochondrial, qc.pct_ribosomal, qc.pct_immunoglobin,
+                              qc.total_UMI, qc.pct_mitochondria:l, qc.pct_ribosomal, qc.pct_immunoglobin,
                               qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_platelet, qc.pct_endothelial, qc.pct_apoptotic,
                               qc.pct_neutrophil_shortlisted, qc.cellranger_filter, qc.emptydrops_filter,
                               qc.mitoribo_ratio, qc.barcode_id,
@@ -366,12 +366,7 @@ def final(outfile):
                            adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
                            cids.COMBATID, cids.PBMCs, cids.COMBAT_ID_Time,
-                           cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity, cm.Timepoint timepoint,
-                           cm.Days_symptom_to_sample, cm.PCR_SRS, cm.Diagnosis, cm.Days_symptoms_admission,
-                           cm.Days_symptoms_discharge, cm.days_symptoms_max, cm.max_severity, cm.severity_at_sample, cm.deceased,
-                           cm.On_dexamethasone_at_time_of_sample, cm.Completed_days_on_dexamethasone, cm.white_cell_count,
-                           cm.neutrophil_count, cm.lymphocyte_count, cm.monocyte_count, cm.bloods_outside24hrs, cm.SaO2_FiO2_ratio,
-                           cm.ventilation_assistance, cm.maximum_charlson_comorbidity_2012, cm.BMI, cm.Weight
+                           cm.COMBAT_ID, cm.scRNASeq_sample_ID 
                     FROM gex_qcmetrics qc
                     LEFT JOIN gex_scrublet scrub
                     ON qc.barcode_id = scrub.barcode_id
