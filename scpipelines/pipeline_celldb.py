@@ -80,16 +80,6 @@ def connect():
 
     return dbh
 
-def connect_virtual_table():
-    '''connect to database for creating virtual table.
-    Use this method to connect to additional databases.
-    Returns a database connection.
-    '''
-
-    cursor = database.apsw_connect(dbname="csvdb")
-
-    return cursor
-
 
 @transform(PARAMS['data_sequencing_info'],
            regex("\S+/(\S+).tsv"),
@@ -371,8 +361,9 @@ def final(outfile):
                               qc.pct_hemoglobin, qc.pct_neutrophil, qc.pct_platelet, qc.pct_endothelial, qc.pct_apoptotic,
                               qc.pct_neutrophil_shortlisted, qc.cellranger_filter, qc.emptydrops_filter,
                               qc.mitoribo_ratio, qc.barcode_id,
-                           demux.demuxletV2_channel baseID,
-                           adt.ctrl.isotype.pct, adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
+                           scrub.scrub_doublet_scores, scrub.scrub_predicted_doublets,
+                           demux.demuxletV2_channel, demux.vireo_channel, demux.vireo_unknown,
+                           adt.nfeatures_ADT, adt.total_UMI_ADT, adt.median_UMI_ADT, adt.log2FeaturesPerUMI,
                            channels.gPlex gplex, channels.Pool pool, channels.Channel channel,
                            cids.COMBATID, cids.PBMCs, cids.COMBAT_ID_Time,
                            cm.Source source, cm.Age age, cm.Sex sex, cm.Ethnicity ethnicity, cm.Timepoint timepoint,
@@ -382,12 +373,14 @@ def final(outfile):
                            cm.neutrophil_count, cm.lymphocyte_count, cm.monocyte_count, cm.bloods_outside24hrs, cm.SaO2_FiO2_ratio,
                            cm.ventilation_assistance, cm.maximum_charlson_comorbidity_2012, cm.BMI, cm.Weight
                     FROM gex_qcmetrics qc
+                    LEFT JOIN gex_scrublet scrub
+                    ON qc.barcode_id = scrub.barcode_id
                     LEFT JOIN gex_demux demux
                     ON qc.barcode_id = demux.barcode_id
                     LEFT JOIN channels
                     ON qc.sample = channels.gPlex
                     LEFT JOIN combatids cids
-                    ON demux.demuxletV2_channel = cids.baseID
+                    ON demux.vireo_channel = cids.baseID
                        AND channels.Pool = cids.Pool
                     LEFT JOIN clinical_metadata cm
                     ON cids.PBMCs = cm.scRNASeq_sample_ID
