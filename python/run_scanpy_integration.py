@@ -109,8 +109,8 @@ adata.obs['barcode_id'] = adata.obs.index.values
 adata = addMetadata(adata = adata,
                     metadata_infile = opt['metadata_file'],
                     id_col = opt['metadata_id'])
-L.warning("Added metadata, the following columns are now in the obs: ")
-adata.obs.columns
+L.warning("Added metadata, the following columns are now in the obs: %s",
+          str(adata.obs.columns))
 
 # ########################################################################### #
 # ################ Run normalization and scaling ############################ #
