@@ -19,6 +19,24 @@ import yaml
 import warnings
 warnings.filterwarnings('ignore')
 
+def addMetadata(adata, metadata_infile, id_col):
+    metadata_add = pd.read_csv(metadata_infile, sep = "\t",
+                                          compression="gzip")
+    metadata_add.drop_duplicates(inplace=True)
+    new_obs = pd.merge(adata.obs.copy(), metadata_add,
+                       on= id_col, how='left')
+    new_obs.set_index('barcode_id', inplace=True)
+    new_obs = new_obs.loc[adata.obs.index,:]
+    adata.obs = new_obs
+    return adata
+
+def removeMetadata(adata, metadata_infile):
+    metadata_cols = pd.read_csv(metadata_infile, sep = "\t",
+                                compression="gzip")
+    cols_remove = metadata_cols.columns
+    adata.obs.drop(cols_remove, inplace=True, axis = 1)
+    return adata
+
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
 # ########################################################################### #
@@ -86,6 +104,14 @@ if 'barcode' in adata.obs.columns:
     L.warning("Removing column called barcode from .obs, use index")
     del adata.obs['barcode']
 
+# add metadata
+adata.obs['barcode_id'] = adata.obs.index.values
+adata = addMetadata(adata = adata,
+                    metadata_infile = opt['metadata_file'],
+                    id_col = opt['metadata_id'])
+L.warning("Added metadata, the following columns are now in the obs: ")
+adata.obs.columns
+
 # ########################################################################### #
 # ################ Run normalization and scaling ############################ #
 # ########################################################################### #
@@ -139,7 +165,11 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 
 # store the object at this point (with log-normalized but all genes)
-adata.write(results_file_logn)
+adata_full = removeMetadata(adata = adata.copy(),
+                            metadata_infile = opt["metadata_file"])
+adata_full.write(results_file_logn)
+
+del adata_full
 
 ## Identify highly variable genes
 if 'hv_genes' in opt.keys():
@@ -259,6 +289,8 @@ df_loadings.index.name = 'gene_name'
 df_loadings.reset_index(inplace=True)
 df_loadings.to_csv(os.path.join(opt["outdir"], "pca_loadings.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
+
+adata
 
 ## extract for harmony
 if opt["tool"] == 'harmony' :

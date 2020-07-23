@@ -303,6 +303,10 @@ def runScanpyIntegration(infile, outfile):
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
 
+    # add metadata options
+    options["metadata_file"] = PARAMS["metadata_path"]
+    options["metadata_id"] = PARAMS["metadata_id_col"]
+
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
         options["sgenes"] = PARAMS["cellcycle_sgenes"]
@@ -372,6 +376,9 @@ def runScanpyUMAP(infile, outfile):
     options["outdir"] = outdir
     options["plot_vars"] = plot_vars
     options["tool"] = tool
+    # info to remove metadata columns
+    options["metadata_file"] = PARAMS["metadata_path"]
+
     log_file = outfile.replace(".sentinel", ".log")
 
     # resource allocation
@@ -498,7 +505,7 @@ def summariseUMAP(infile, outfile):
     # get all required tool folders
     rawdatadir,harmonydir,bbknndir,scanoramadir=0,0,0,0
     for t in tools:
-        tooldir = os.path.join(indir, t + ".integrated.dir") 
+        tooldir = os.path.join(indir, t + ".integrated.dir")
         run_folders = [o for o in os.listdir(tooldir)
                        if os.path.isdir(os.path.join(tooldir,o))]
         if t == "harmony":

@@ -14,6 +14,14 @@ import logging
 import yaml
 warnings.filterwarnings('ignore')
 
+
+def removeMetadata(adata, metadata_infile):
+    metadata_cols = pd.read_csv(metadata_infile, sep = "\t",
+                                          compression="gzip")
+    cols_remove = metadata_cols.columns
+    adata.obs.drop(cols_remove, inplace=True, axis = 1)
+    return adata
+
 # ########################################################################### #
 # ############### Set up the log and figure folder ########################## #
 # ########################################################################### #
@@ -89,7 +97,6 @@ else:
 # umap uses the neighbor coordinates
 sc.tl.umap(adata, neighbors_key = key_add)
 adata.write(results_file)
-
 L.warning("Finished running UMAP")
 
 
@@ -139,5 +146,12 @@ else:
         #sc.pl.umap(adata, color=str(opt["plot_vars"]), save = file_name + ".pdf", show=False)
 
 L.warning("Done UMAP plotting")
+
+# remove metadata from anndata before writing
+adata = removeMetadata(adata = adata,
+                       metadata_infile = opt["metadata_file"])
+
+adata.write(results_file)
+L.warning("Removed metadata columns")
 
 L.warning("Completed")
