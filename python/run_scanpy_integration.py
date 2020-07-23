@@ -290,8 +290,6 @@ df_loadings.reset_index(inplace=True)
 df_loadings.to_csv(os.path.join(opt["outdir"], "pca_loadings.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
 
-adata
-
 ## extract for harmony
 if opt["tool"] == 'harmony' :
     L.warning("Running harmony")
