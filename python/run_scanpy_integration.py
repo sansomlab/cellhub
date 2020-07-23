@@ -30,10 +30,11 @@ def addMetadata(adata, metadata_infile, id_col):
     adata.obs = new_obs
     return adata
 
-def removeMetadata(adata, metadata_infile):
+def removeMetadata(adata, metadata_infile, id_col):
     metadata_cols = pd.read_csv(metadata_infile, sep = "\t",
                                 compression="gzip")
-    cols_remove = metadata_cols.columns
+    cols_remove = metadata_cols.columns.copy()
+    cols_remove = cols_remove.drop(labels=[id_col])
     adata.obs.drop(cols_remove, inplace=True, axis = 1)
     return adata
 
@@ -166,7 +167,8 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 # store the object at this point (with log-normalized but all genes)
 adata_full = removeMetadata(adata = adata.copy(),
-                            metadata_infile = opt["metadata_file"])
+                            metadata_infile = opt["metadata_file"],
+                            id_col = opt["metadata_id"])
 adata_full.write(results_file_logn)
 
 del adata_full

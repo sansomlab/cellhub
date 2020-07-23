@@ -15,10 +15,11 @@ import yaml
 warnings.filterwarnings('ignore')
 
 
-def removeMetadata(adata, metadata_infile):
+def removeMetadata(adata, metadata_infile, id_col):
     metadata_cols = pd.read_csv(metadata_infile, sep = "\t",
                                           compression="gzip")
-    cols_remove = metadata_cols.columns
+    cols_remove = metadata_cols.columns.copy()
+    cols_remove = cols_remove.drop(labels=[id_col])
     adata.obs.drop(cols_remove, inplace=True, axis = 1)
     return adata
 
@@ -149,7 +150,8 @@ L.warning("Done UMAP plotting")
 
 # remove metadata from anndata before writing
 adata = removeMetadata(adata = adata,
-                       metadata_infile = opt["metadata_file"])
+                       metadata_infile = opt["metadata_file"],
+                       id_col = opt["metadata_id"])
 
 adata.write(results_file)
 L.warning("Removed metadata columns")

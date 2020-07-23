@@ -378,6 +378,7 @@ def runScanpyUMAP(infile, outfile):
     # add metadata options
     if os.path.isfile(PARAMS["metadata_path"]):
         options["metadata_file"] = PARAMS["metadata_path"]
+        options["metadata_id"] = PARAMS["metadata_id_col"]
 
     log_file = outfile.replace(".sentinel", ".log")
 
