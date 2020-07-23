@@ -541,9 +541,12 @@ def summariseUMAP(infile, outfile):
         vars_plot = [x.replace("_", "-") if '_' in x else x for x in vars_plot]
         print(vars_plot)
         varone,vartwo,varthree,varfour = vars_plot
+        integration_variable = PARAMS["integration_split_factor"]
+        integration_variable = integration_variable.replace("_", "-")
+
 
         vars = {"rundir": "%(rundir)s" % locals(),
-                "integrationVar": "%(integration_split_factor)s" % PARAMS,
+                "integrationVar": "%(integration_variable)s" % locals(),
                 "varone": "%(varone)s" % locals(),
                 "vartwo": "%(vartwo)s" % locals(),
                 "varthree": "%(varthree)s" % locals(),
