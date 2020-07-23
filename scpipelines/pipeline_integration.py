@@ -270,14 +270,11 @@ def prepFolders(infile, outfile):
 
 @transform(prepFolders,
            regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/integration_python.sentinel")
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/integration_python.sentinel")
 def runScanpyIntegration(infile, outfile):
     '''Run scanpy normalization, hv genes and harmonypy on the data'''
 
     outdir = os.path.dirname(outfile)
-    # make scanpy.dir for output files
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
 
     tool = outfile.split("/")[1].split(".")[0]
     run_options = outfile.split("/")[2][:-len(".run.dir")]
@@ -353,14 +350,14 @@ def runScanpyIntegration(infile, outfile):
 # ########################################################################### #
 
 @transform(runScanpyIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/plots_umap_scanpy.sentinel")
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap_scanpy.sentinel")
 def runScanpyUMAP(infile, outfile):
     '''Run scanpy UMAP and make plots'''
 
     indir = os.path.dirname(infile)
     outdir = os.path.dirname(outfile)
-    sampleDir = "/".join(indir.split("/")[:-2])
+    sampleDir = "/".join(indir.split("/")[:-1])
     tool = sampleDir.split("/")[1].split(".")[0]
 
     plot_vars_str = str(PARAMS["qc_integration_plot"])
@@ -403,8 +400,8 @@ def runScanpyUMAP(infile, outfile):
 
 
 @transform(runScanpyUMAP,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/plots_umap_scanpy.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/R_plots.dir/plots_umap.sentinel")
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/plots_umap_scanpy.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/R_plots.dir/plots_umap.sentinel")
 def plotUMAP(infile, outfile):
     '''
     Plot UMAP with different variables
@@ -518,13 +515,13 @@ def summariseUMAP(infile, outfile):
                              "adjust settings in yml")
 
         if t == 'harmony':
-            harmonydir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
+            harmonydir = os.path.join(tooldir, rundir, "R_plots.dir")
         elif t == 'rawdata':
-            rawdir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
+            rawdir = os.path.join(tooldir, rundir, "R_plots.dir")
         elif t == 'bbknn':
-            bbknndir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
+            bbknndir = os.path.join(tooldir, rundir, "R_plots.dir")
         elif t == 'scanorama':
-            scanoramadir = os.path.join(tooldir, rundir, "scanpy.dir", "R_plots.dir")
+            scanoramadir = os.path.join(tooldir, rundir, "R_plots.dir")
 
     #statements = []
 
@@ -610,8 +607,8 @@ def summariseUMAP(infile, outfile):
 
 @follows(runScanpyUMAP)
 @transform(runScanpyIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/scanpy.dir/integration_python.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/scanpy.dir/assess_integration.dir/run_ilisi.sentinel")
+           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
+           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/assess_integration.dir/run_ilisi.sentinel")
 
 def runLISIpy(infile, outfile):
     '''Assess the integration using iLISI (lisi on batch/dataset).
