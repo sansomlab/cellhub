@@ -301,8 +301,9 @@ def runScanpyIntegration(infile, outfile):
     options["regress_cellcycle"] = str(PARAMS["regress_cellcycle"])
 
     # add metadata options
-    options["metadata_file"] = PARAMS["metadata_path"]
-    options["metadata_id"] = PARAMS["metadata_id_col"]
+    if os.path.isfile(PARAMS["metadata_path"]):
+        options["metadata_file"] = PARAMS["metadata_path"]
+        options["metadata_id"] = PARAMS["metadata_id_col"]
 
     if (os.path.isfile(PARAMS["cellcycle_sgenes"]) and
         os.path.isfile(PARAMS["cellcycle_g2mgenes"]) ):
@@ -374,7 +375,9 @@ def runScanpyUMAP(infile, outfile):
     options["plot_vars"] = plot_vars
     options["tool"] = tool
     # info to remove metadata columns
-    options["metadata_file"] = PARAMS["metadata_path"]
+    # add metadata options
+    if os.path.isfile(PARAMS["metadata_path"]):
+        options["metadata_file"] = PARAMS["metadata_path"]
 
     log_file = outfile.replace(".sentinel", ".log")
 
