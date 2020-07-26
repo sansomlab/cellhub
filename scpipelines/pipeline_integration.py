@@ -374,6 +374,7 @@ def runScanpyUMAP(infile, outfile):
     options["outdir"] = outdir
     options["plot_vars"] = plot_vars
     options["tool"] = tool
+    options["umap_min_dist"] = PARAMS["integration_umap_min_dist"]
     # info to remove metadata columns
     # add metadata options
     if os.path.isfile(PARAMS["metadata_path"]):

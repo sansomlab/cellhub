@@ -96,7 +96,7 @@ else:
     sc.pp.neighbors(adata, use_rep=obsm_use, n_neighbors = 15,
                     key_added = key_add)
 # umap uses the neighbor coordinates
-sc.tl.umap(adata, neighbors_key = key_add)
+sc.tl.umap(adata, neighbors_key = key_add, min_dist=opt["umap_min_dist"] )
 adata.write(results_file)
 L.warning("Finished running UMAP")
 
