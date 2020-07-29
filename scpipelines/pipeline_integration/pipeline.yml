@@ -124,6 +124,8 @@ integration:
     total_number_pcs: 100
     # Supply a comma-separated list (no spaces) for this option
     number_pcs: 30
+    # min distance to use for UMAP; seurat default is 0.3, scanpy is 0.5
+    umap_min_dist: 0.5
 
 # Integration - options per tool
 # -------------

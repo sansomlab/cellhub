@@ -131,13 +131,13 @@ if (!is.null(opt$plot_clusters)){
   colnames(clusters) = c("barcode", "cluster_id")
 
   plot_coord = merge(input_coord, clusters, by="barcode", all.x = TRUE)
-  flog.info("Cluster assignments are available for %s cells.", 
+  flog.info("Cluster assignments are available for %s cells.",
             length(which(is.na(plot_coord$cluster_id) == FALSE)))
-  flog.info("Cluster assignments not available for %s cells.", 
+  flog.info("Cluster assignments not available for %s cells.",
             length(which(is.na(plot_coord$cluster_id) == TRUE)))
-  plot_coord$cluster_id = factor(plot_coord$cluster_id, 
-                                 levels = c(min(plot_coord$cluster_id, 
-                                                na.rm = TRUE):max(plot_coord$cluster_id, 
+  plot_coord$cluster_id = factor(plot_coord$cluster_id,
+                                 levels = c(min(plot_coord$cluster_id,
+                                                na.rm = TRUE):max(plot_coord$cluster_id,
                                                                   na.rm = TRUE),
                                             NA))
   variables_plot = c(unlist(strsplit(opt$plot_vars,",")), "cluster_id")
@@ -148,7 +148,7 @@ if (!is.null(opt$plot_clusters)){
 
 ## read in metadata
 if (!is.null(opt$metadata)){
-  metadata <- read.table(gzfile(opt$metadata), sep="\t", header=TRUE)
+  metadata <- read.table(gzfile(opt$metadata), sep="\t", header=TRUE, as.is=TRUE)
   plot_coord <- merge(plot_coord, metadata, by="barcode")
 }
 
@@ -191,7 +191,7 @@ for (v in variables_plot) {
       labels <- plot_coord %>%
         group_by(cluster_id) %>%
         summarize(UMAP_1 = mean(UMAP_1), UMAP_2 = mean(UMAP_2))
-      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id, 
+      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id,
                                                     color=1), color='black', show.legend = FALSE)
     }
     # extract legend
@@ -225,7 +225,7 @@ for (v in variables_plot) {
       labels <- plot_coord %>%
         group_by(cluster_id) %>%
         summarize(UMAP_1 = mean(UMAP_1), UMAP_2 = mean(UMAP_2))
-      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id, 
+      gp <- gp + geom_text_repel(data = labels, aes(x=UMAP_1,y=UMAP_2, label = cluster_id,
                                                     color=1), color='black', show.legend = FALSE)
     }
     # extract legend

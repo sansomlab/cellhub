@@ -374,10 +374,12 @@ def runScanpyUMAP(infile, outfile):
     options["outdir"] = outdir
     options["plot_vars"] = plot_vars
     options["tool"] = tool
+    options["umap_min_dist"] = PARAMS["integration_umap_min_dist"]
     # info to remove metadata columns
     # add metadata options
     if os.path.isfile(PARAMS["metadata_path"]):
         options["metadata_file"] = PARAMS["metadata_path"]
+        options["metadata_id"] = PARAMS["metadata_id_col"]
 
     log_file = outfile.replace(".sentinel", ".log")
 
@@ -541,9 +543,12 @@ def summariseUMAP(infile, outfile):
         vars_plot = [x.replace("_", "-") if '_' in x else x for x in vars_plot]
         print(vars_plot)
         varone,vartwo,varthree,varfour = vars_plot
+        integration_variable = PARAMS["integration_split_factor"]
+        integration_variable = integration_variable.replace("_", "-")
+
 
         vars = {"rundir": "%(rundir)s" % locals(),
-                "integrationVar": "%(integration_split_factor)s" % PARAMS,
+                "integrationVar": "%(integration_variable)s" % locals(),
                 "varone": "%(varone)s" % locals(),
                 "vartwo": "%(vartwo)s" % locals(),
                 "varthree": "%(varthree)s" % locals(),
