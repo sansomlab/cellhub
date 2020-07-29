@@ -670,7 +670,7 @@ def runLISIpy(infile, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(runScanpyUMAP, plotUMAP, runLISIpy, summariseUMAP)
+@follows(runScanpyUMAP, plotUMAP, summariseUMAP)
 def full():
     pass
 
