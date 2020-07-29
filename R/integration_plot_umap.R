@@ -107,7 +107,7 @@ gp_nolabels <- theme(axis.text.x=element_blank(),
                      axis.ticks.y=element_blank())
 
 gp_choose_pointsize <- function(size){
-  if(size > 50000){
+  if(size > 80000){
     g <- geom_point(alpha=0.5, size=1, shape='.')
   } else if (size > 5000) {
     g <- geom_point(alpha=0.5, size=0.5, shape=20)
