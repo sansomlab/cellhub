@@ -285,6 +285,13 @@ sc.pl.pca_variance_ratio(adata, save = "_pca_stdev.pdf",
 sc.pl.pca_variance_ratio(adata, save = "_pca_stdev_log.pdf",log=True,
                          show=False, n_pcs = opt["totalPCs"])
 sc.pl.pca_loadings(adata, show=False,save="_pca_top_loadings.pdf")
+
+# write out the variance ratios
+pca_var = pd.DataFrame(adata.uns['pca']['variance_ratio'])
+pca_var.columns = ['pca_variance_ratio']
+pca_var.to_csv(os.path.join(opt["outdir"], "pca_variance_ratios.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
+
 # write out PCA loadings
 df_loadings = pd.DataFrame(adata.varm['PCs'], index=adata.var_names)
 df_loadings.index.name = 'gene_name'
