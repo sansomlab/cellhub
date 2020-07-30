@@ -16,6 +16,10 @@ author: COMBATOxford
 # compute resource options
 # ------------------------
 resources:
+    # job memory for tasks except integration;
+    # use this in combination with nslots if no slots
+    # with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
     # number of job threads/slots
     threads: 6
 
@@ -29,4 +33,3 @@ ambientRNA:
     # If 'none': only exp_batch, channel_id, and seq_batch will be shown (only if they have more than one level)
     # Options: 'all' or comma-separated column names (e.g 'genotype,tissue,sex')
     plot_annotation: pool_id
-    
