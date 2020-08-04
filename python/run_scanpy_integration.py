@@ -107,11 +107,13 @@ if 'barcode' in adata.obs.columns:
 
 # add metadata
 adata.obs['barcode_id'] = adata.obs.index.values
-adata = addMetadata(adata = adata,
-                    metadata_infile = opt['metadata_file'],
-                    id_col = opt['metadata_id'])
-L.warning("Added metadata, the following columns are now in the obs: %s",
-          str(adata.obs.columns))
+
+if 'metadata_file' in opt.keys():
+    adata = addMetadata(adata = adata,
+                        metadata_infile = opt['metadata_file'],
+                        id_col = opt['metadata_id'])
+    L.warning("Added metadata, the following columns are now in the obs: %s",
+    str(adata.obs.columns))
 
 # ########################################################################### #
 # ################ Run normalization and scaling ############################ #
@@ -166,9 +168,13 @@ if 'sgenes' in opt.keys() and 'g2mgenes' in opt.keys():
 
 
 # store the object at this point (with log-normalized but all genes)
-adata_full = removeMetadata(adata = adata.copy(),
-                            metadata_infile = opt["metadata_file"],
-                            id_col = opt["metadata_id"])
+if 'metadata_file' in opt.keys():
+    adata_full = removeMetadata(adata = adata.copy(),
+                                metadata_infile = opt["metadata_file"],
+                                id_col = opt["metadata_id"])
+else:
+    adata_full = adata.copy()
+
 adata_full.write(results_file_logn)
 
 del adata_full
