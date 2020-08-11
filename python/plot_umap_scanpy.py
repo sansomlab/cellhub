@@ -149,9 +149,10 @@ else:
 L.warning("Done UMAP plotting")
 
 # remove metadata from anndata before writing
-adata = removeMetadata(adata = adata,
-                       metadata_infile = opt["metadata_file"],
-                       id_col = opt["metadata_id"])
+if 'metadata_file' in opt.keys():
+    adata = removeMetadata(adata = adata,
+                           metadata_infile = opt["metadata_file"],
+                           id_col = opt["metadata_id"])
 
 adata.write(results_file)
 L.warning("Removed metadata columns")
