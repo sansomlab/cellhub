@@ -114,7 +114,7 @@ def genClusterJobs():
     infile = None
 
     for sample in samples["sample_id"]:
-        outfolder = "profile_per_input/" + sample
+        outfolder = "profile_per_input.dir/" + sample
         outfile = os.path.join(outfolder, "prep.sentinel")
         yield(infile, outfile)
 
@@ -133,7 +133,7 @@ def prepFolders(infile, outfile):
 # Run ambient rna analysis per input (e.g channel, sample)
 
 @transform(prepFolders,
-           regex(r"profile_per_input/(.*)/prep.sentinel"),
+           regex(r"profile_per_input.dir/(.*)/prep.sentinel"),
            r"profile_per_input.dir/\1/ambient_rna.sentinel")
 def ambient_rna_per_input(infile, outfile):
     '''Explore count and gene expression profiles of ambient RNA droplets per input
