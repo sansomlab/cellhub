@@ -8,6 +8,12 @@ query: >-
   and pct_mitochondrial <5
   and ngenes >500;
 
+resources:
+  # memory to be used for tasks: cellSubsets,
+  # can be set to none | e.g. 40G
+  memory_high: none
+
+
 matrix:
   dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
   type: mm

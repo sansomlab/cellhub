@@ -231,6 +231,13 @@ def cellSubsets(infile, outfile):
     matrix_id = os.path.basename(Path(outfile).parent)
     outdir = os.path.dirname(infile)
 
+    if PARAMS['matrix_suffix'] != 'none':
+        matrix_id = matrix_id + str(PARAMS['matrix_suffix'])
+
+    if ("G" in PARAMS["resources_memory_high"] or
+        "M" in PARAMS["resources_memory_high"] ):
+        job_memory = PARAMS["resources_memory_high"]
+
     statement = '''Rscript %(cellhub_dir)s/R/extract_cells.R
                    --cells=%(infile)s
                    --matrixdir=%(matrix_dir)s
@@ -350,6 +357,10 @@ def mergeSubsets(infiles, outfile):
 
         feature_file_checksums.append(md5gz(features_file))
 
+    if ("G" in PARAMS["resources_memory_high"] or
+        "M" in PARAMS["resources_memory_high"] ):
+        job_memory = PARAMS["resources_memory_high"]
+
     # run the job.
     P.run(statement)
 
@@ -358,6 +369,10 @@ def mergeSubsets(infiles, outfile):
         raise ValueError("The matrices have different features")
     else:
         print("The matrices have the same features")
+
+    if ("G" in PARAMS["resources_memory_high"] or
+        "M" in PARAMS["resources_memory_high"] ):
+        job_memory = PARAMS["resources_memory_high"]
 
     # compress the outfiles
     statement = '''gzip %(mtx_outfile)s;
@@ -402,6 +417,10 @@ def exportAnnData(infiles, outfile):
 
     log_file = outfile + ".log"
     job_threads = 2
+
+    if ("G" in PARAMS["resources_memory_high"] or
+        "M" in PARAMS["resources_memory_high"] ):
+        job_memory = PARAMS["resources_memory_high"]
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s
