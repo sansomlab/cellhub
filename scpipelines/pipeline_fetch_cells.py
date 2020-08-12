@@ -185,7 +185,7 @@ def matrix_subset_jobs():
 
         cells = pd.read_csv(cell_tab, sep="\t")
 
-        matrix_ids = [x for x in cells.sequencing_id.unique()]
+        matrix_ids = [x for x in cells[PARAMS['matrix_name']].unique()]
 
         for matrix_id in matrix_ids:
 
@@ -210,7 +210,7 @@ def setupSubsetJobs(infile, outfile):
 
     os.mkdir(matrix_subset_dir)
 
-    cell_subset = cells["barcode"][cells["sequencing_id"] == matrix_id]
+    cell_subset = cells["barcode"][cells[PARAMS["matrix_name"]] == matrix_id]
 
     cell_subset.to_csv(outfile,
                        header=False,

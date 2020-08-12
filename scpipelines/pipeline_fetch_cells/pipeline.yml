@@ -17,6 +17,11 @@ resources:
 matrix:
   dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
   type: mm
+  # column in cell_info from db (using query above) that corresponds to the
+  # folder names in the cellranger output (=matrix_dir)
+  name: sequencing_id
+  # suffix used for the cellranger output, either none | suffix
+  suffix: none
 
 # Number of cells to be randomly drawn
 # or "all"
