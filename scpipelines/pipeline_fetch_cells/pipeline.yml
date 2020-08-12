@@ -11,7 +11,7 @@ query: >-
 resources:
   # memory to be used for tasks: cellSubsets,
   # can be set to none | e.g. 40G
-  memory_high: none
+  memory: none
 
 
 matrix:
