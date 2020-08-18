@@ -666,6 +666,67 @@ def runLISIpy(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+def genJobsLISI():
+    '''Job generator for LISI summary jobs '''
+    infile = None
+    dirs = os.listdir()
+    exp_dirs = [d for d in dirs if '.exp.dir' in d]
+    for d in exp_dirs:
+        outfile = os.path.join(d, "summary.dir", "iLISI.dir", "make_lisi_summary.sentinel")
+        yield(infile, outfile)
+
+
+@follows(runLISIpy)
+@files(genJobsLISI)
+def summariseLISI(infile, outfile):
+    '''summarise the results from iLISI analysis
+    '''
+    inpath = outfile.split("/")[0]
+
+    f = []
+    for currentpath, folders, files in os.walk(inpath):
+        for file in files:
+            if "run_ilisi.sentinel" in file:
+                f.append(os.path.join(currentpath, file))
+    metrics_files = [x.replace("run_ilisi.sentinel",
+                               "lisi.tsv.gz") for x in f]
+    metrics_files = list(set(metrics_files))
+    metrics = ",".join(metrics_files)
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    options = {}
+    options["code_dir"] = os.fspath(PARAMS["code_dir"])
+    options["outdir"] = outdir
+    options["lisi_files"] = metrics
+
+    log_file = os.path.join(outdir, "lisi_metrics_summary.log")
+    job_threads = PARAMS["resources_nslots"]
+    if ("G" in PARAMS["resources_job_memory_standard"] or
+    "M" in PARAMS["resources_job_memory_standard"] ):
+        job_memory = PARAMS["resources_job_memory_standard"]
+
+
+    task_yaml_file = os.path.abspath(os.path.join(outdir, "summarise_lisi.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+    output_dir = os.path.abspath(outdir)
+    knit_root_dir = os.getcwd()
+    fig_path =  os.path.join(output_dir, "fig.dir/")
+
+    statement = '''Rscript %(code_dir)s/R/integration_summarise_lisi.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                '''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
+
+
 # ########################################################################### #
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
