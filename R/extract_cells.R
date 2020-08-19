@@ -26,6 +26,10 @@ option_list <- list(
       help="the type of the input matrix, mm or loom"
       ),
     make_option(
+      c("--outtype"),
+      default="filtered",
+      help="use the raw or filtered 10x matrix"),
+    make_option(
       c("--outdir"),
       default=".",
       help="The name of the directory for the output"
@@ -39,7 +43,14 @@ print(opt)
 
 ## Read in the matrix
 
-outs = "outs/filtered_feature_bc_matrix/"
+if(opt$outtype=="filtered")
+{
+	outs = "outs/filtered_feature_bc_matrix/"
+} else if (opt$outtype=="raw")
+{
+	outs = "outs/raw_feature_bc_matrix/"
+} else { stop("opt$outtype must be either filtered or raw") }
+
 
 if(opt$matrixtype=="mm")
 {
