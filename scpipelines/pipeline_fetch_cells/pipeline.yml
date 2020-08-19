@@ -11,6 +11,11 @@ query: >-
 matrix:
   dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
   type: mm
+  # use the filtered|raw matrix.
+  out_type: filtered
+
+loom:
+  dir: /well/combat/projects/preprocess/citeseq_initial/velocity
 
 # Number of cells to be randomly drawn
 # or "all"
