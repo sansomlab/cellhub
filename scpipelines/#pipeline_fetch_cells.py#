@@ -185,7 +185,7 @@ def matrix_subset_jobs():
 
         cells = pd.read_csv(cell_tab, sep="\t")
 
-        matrix_ids = [x for x in cells[PARAMS['matrix_name']].unique()]
+        matrix_ids = [x for x in cells.sequencing_id.unique()]
 
         for matrix_id in matrix_ids:
 
@@ -210,7 +210,7 @@ def setupSubsetJobs(infile, outfile):
 
     os.mkdir(matrix_subset_dir)
 
-    cell_subset = cells["barcode"][cells[PARAMS["matrix_name"]] == matrix_id]
+    cell_subset = cells["barcode"][cells["sequencing_id"] == matrix_id]
 
     cell_subset.to_csv(outfile,
                        header=False,
@@ -230,13 +230,6 @@ def cellSubsets(infile, outfile):
     # matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
     outdir = os.path.dirname(infile)
-
-    if PARAMS['matrix_suffix'] != 'none':
-        matrix_id = matrix_id + str(PARAMS['matrix_suffix'])
-
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
 
     statement = '''Rscript %(cellhub_dir)s/R/extract_cells.R
                    --cells=%(infile)s
@@ -358,10 +351,6 @@ def mergeSubsets(infiles, outfile):
 
         feature_file_checksums.append(md5gz(features_file))
 
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
-
     # run the job.
     P.run(statement)
 
@@ -370,10 +359,6 @@ def mergeSubsets(infiles, outfile):
         raise ValueError("The matrices have different features")
     else:
         print("The matrices have the same features")
-
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
 
     # compress the outfiles
     statement = '''gzip %(mtx_outfile)s;
@@ -418,10 +403,6 @@ def exportAnnData(infiles, outfile):
 
     log_file = outfile + ".log"
     job_threads = 1
-
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s

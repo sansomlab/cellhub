@@ -22,6 +22,11 @@ matrix:
   name: sequencing_id
   # suffix used for the cellranger output, either none | suffix
   suffix: none
+  # use the filtered|raw matrix.
+  out_type: filtered
+
+loom:
+  dir: /well/combat/projects/preprocess/citeseq_initial/velocity
 
 # Number of cells to be randomly drawn
 # or "all"

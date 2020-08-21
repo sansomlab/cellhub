@@ -225,14 +225,18 @@ full_adata = anndata.read_h5ad(results_file_logn, backed="r+")
 full_adata.var['highly_variable'] = full_adata.var['gene_ids'].isin(hvgenes['gene_id'])
 full_adata.write()
 
-## subset to hv genes for all downstream analyses
-L.warning("Subset object to hv genes only")
-adata = adata[:, adata.var.highly_variable]
-L.warning("The anndata object has %s rows after subsetting for hv genes.", adata.shape[0])
-L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
 
-#store object
-adata.write(results_file)
+if opt["regress_cellcycle"] == 'none':
+    ## subset to hv genes for all downstream analyses
+    L.warning("Subset object to hv genes only")
+    adata = adata[:, adata.var.highly_variable]
+else:
+    L.warning("Cell cycle regression is used, therefore hv + cell cycle genes are kept. Please note that this will take longer than only using hv genes.")
+    keep_genes = list(set(adata.var.loc[adata.var.highly_variable].index.to_list() + cell_cycle_genes))
+    adata = adata[:, keep_genes]
+
+L.warning("The anndata object has %s rows after subsetting.", adata.shape[0])
+L.warning("The anndata object has %s columns after subsetting.", adata.shape[1])
 
 ## Regression & scaling
 
@@ -245,6 +249,16 @@ else:
 if opt["regress_latentvars"] == 'none':
     L.warning("No regression performed")
 else:
+    if opt["regress_cellcycle"] != 'none':
+        L.warning("Cell cycle scoring performed. It is set to " + str(opt["regress_cellcycle"]))
+        if opt["regress_cellcycle"] == "all":
+            regress_vars = regress_vars + ['S_score', 'G2M_score']
+        elif opt["regress_cellcycle"] == "difference":
+            regress_vars = regress_vars + ['CC.Difference']
+        else:
+            raise Exception('Cell cycle option not supported. Use all or difference.')
+
+    L.warning("Full list of variables for regression is: " + ",".join(regress_vars))
     L.warning("Starting regression")
     sc.pp.regress_out(adata, regress_vars)
 
@@ -252,28 +266,15 @@ else:
 sc.pp.scale(adata, max_value=10)
 
 if opt["regress_cellcycle"] != 'none':
-    L.warning("Cell cycle scoring performed. It is set to " + str(opt["regress_cellcycle"]))
-    if opt["regress_latentvars"] == 'none':
-        regress_vars = []
-    elif ',' in opt["regress_latentvars"]:
-        regress_vars = opt["regress_latentvars"].split(',')
-    else:
-        regress_vars = [opt["regress_latentvars"]]
-    if opt["regress_cellcycle"] == "all":
-        regress_vars = regress_vars + ['S_score', 'G2M_score']
-    elif opt["regress_cellcycle"] == "difference":
-        regress_vars = regress_vars + ['CC.Difference']
-    else:
-        raise Exception('Cell cycle option not supported. Use all or difference.')
-    L.warning("Full list of variables for regression is: " + ",".join(regress_vars))
-    sc.pp.regress_out(adata, regress_vars)
-    sc.pp.scale(adata, max_value=10)
-
-    adata_cc_genes = adata[:, cell_cycle_genes]
+    L.warning("Check cell cycle effects post-regression")
+    adata_cc_genes = adata[:, adata.var.index.isin(cell_cycle_genes)].copy()
     sc.tl.pca(adata_cc_genes)
     sc.pl.pca_scatter(adata_cc_genes, color='phase', show=False, save = "_cc_phase_postCorr.pdf")
     sc.pl.pca_scatter(adata_cc_genes, color='G2M_score', show=False, save = "_cc_G2Mscore_postCorr.pdf")
     sc.pl.pca_scatter(adata_cc_genes, color='S_score', show=False, save = "_cc_Sscore_postCorr.pdf")
+    L.warning("Subset object to only hv genes")
+    adata = adata[:, adata.var.index.isin(hvgenes['gene_name'])]
+    L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
 else:
     L.warning("Cell cycle scoring set to none.")
 
