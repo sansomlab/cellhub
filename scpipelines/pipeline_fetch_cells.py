@@ -442,7 +442,7 @@ def exportAnnData(infiles, outfile):
 
 #        "cell.info.dir/cell.table.sentinel")
 
-
+@active_if(PARAMS["loom_fetch"])
 @follows(mkdir("loom.dir"))
 @transform(fetch_cell_table,
            regex(r".*/.*.sentinel"),
@@ -461,13 +461,13 @@ def extractFromLoom(infile, outfile):
 
     cells = pd.read_csv(cell_table, sep="\t")
 
-    samples = cells.sequencing_id.unique()
+    samples = cells[PARAMS['matrix_name']].unique()
 
     sample_table = os.path.join(outdir, "samples.txt")
 
     with open(sample_table, "w") as st:
 
-        st.write("sequencing_id\tpath\n")
+        st.write(PARAMS['matrix_name']+"\tpath\n")
         for sample in samples:
             st.write("\t".join([sample,
                                 os.path.join(PARAMS["loom_dir"],
@@ -475,10 +475,14 @@ def extractFromLoom(infile, outfile):
                                              sample + ".loom\n")]))
 
     log_file = outfile.replace(".sentinel", ".log")
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     statement = '''python %(cellhub_dir)s/python/extract_cells_from_loom.py
                        --cells=%(cell_table)s
                        --samples=%(sample_table)s
+                       --colname=%(matrix_name)s
                        --outdir=%(outdir)s
                     > %(log_file)s
                 '''
@@ -487,6 +491,7 @@ def extractFromLoom(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(PARAMS["loom_fetch"])
 @transform(extractFromLoom,
            regex(r"(.*)/extract_from_loom.sentinel"),
            add_inputs(fetch_cell_table),
@@ -509,6 +514,9 @@ def loomStats(infiles, outfile):
     outdir = os.path.dirname(outfile)
 
     log_file = outfile.replace(".sentinel", ".log")
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     statement = '''python ~/devel/cellhub/python/loom_stats.py
                        --loom=%(loom_file)s
@@ -538,7 +546,7 @@ def loomStats(infiles, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(exportAnnData)
+@follows(exportAnnData, loomStats)
 def full():
     pass
 

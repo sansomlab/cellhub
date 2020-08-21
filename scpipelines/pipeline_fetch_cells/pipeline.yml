@@ -18,14 +18,17 @@ matrix:
   dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
   type: mm
   # column in cell_info from db (using query above) that corresponds to the
-  # folder names in the cellranger output (=matrix_dir)
+  # folder names in the cellranger output (=matrix_dir), this name is also used
+  # to extract the loom files below
   name: sequencing_id
-  # suffix used for the cellranger output, either none | suffix
+  # suffix used for the cellranger output (not used for loom extraction), either none | suffix
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
 
 loom:
+  # whether to fetch and summarise the loom files for the selected cells, either False | True
+  fetch: False
   dir: /well/combat/projects/preprocess/citeseq_initial/velocity
 
 # Number of cells to be randomly drawn

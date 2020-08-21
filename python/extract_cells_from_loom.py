@@ -30,7 +30,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--cells", default=None, type=str,
                     help='a file containing a mapping of "barcode" to "sequencing_id"')
 parser.add_argument("--samples", default=None, type=str,
-                    help='a file containing the mapping of "sequencing_id" to loom file "path"')
+                    help='a file containing the mapping of col_name to loom file "path"')
+parser.add_argument("--colname", default=None, type=str,
+                    help='column name to use for extraction from samples file')
 parser.add_argument("--outdir",default=None, type=str,
                     help="the place to write the final loom")
 
@@ -49,7 +51,7 @@ cell_table = pd.read_csv(args.cells, sep="\t")
 L.info("Reading sample.table")
 sample_table = pd.read_csv(args.samples, sep="\t")
 
-samples = dict(zip(sample_table.sequencing_id, sample_table.path))
+samples = dict(zip(sample_table[args.colname], sample_table.path))
 
 # print(samples)
 
@@ -68,7 +70,7 @@ with loompy.new(out_file) as dsout:  # Create a new, empty, loom file
 
         L.info("Working on sample " + str(j) + ": " + input_loom)
 
-        target_cells = cell_table["barcode"][cell_table["sequencing_id"] == seq_id].values
+        target_cells = cell_table["barcode"][cell_table[args.colname] == seq_id].values
 
         # add the sequencing identifier to the barcode
 
