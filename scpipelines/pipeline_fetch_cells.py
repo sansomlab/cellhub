@@ -185,7 +185,7 @@ def matrix_subset_jobs():
 
         cells = pd.read_csv(cell_tab, sep="\t")
 
-        matrix_ids = [x for x in cells.sequencing_id.unique()]
+        matrix_ids = [x for x in cells[PARAMS['matrix_name']].unique()]
 
         for matrix_id in matrix_ids:
 
@@ -210,7 +210,7 @@ def setupSubsetJobs(infile, outfile):
 
     os.mkdir(matrix_subset_dir)
 
-    cell_subset = cells["barcode"][cells["sequencing_id"] == matrix_id]
+    cell_subset = cells["barcode"][cells[PARAMS["matrix_name"]] == matrix_id]
 
     cell_subset.to_csv(outfile,
                        header=False,
@@ -230,6 +230,13 @@ def cellSubsets(infile, outfile):
     # matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
     outdir = os.path.dirname(infile)
+
+    if PARAMS['matrix_suffix'] != 'none':
+        matrix_id = matrix_id + str(PARAMS['matrix_suffix'])
+
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     statement = '''Rscript %(cellhub_dir)s/R/extract_cells.R
                    --cells=%(infile)s
@@ -351,6 +358,10 @@ def mergeSubsets(infiles, outfile):
 
         feature_file_checksums.append(md5gz(features_file))
 
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
+
     # run the job.
     P.run(statement)
 
@@ -359,6 +370,10 @@ def mergeSubsets(infiles, outfile):
         raise ValueError("The matrices have different features")
     else:
         print("The matrices have the same features")
+
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     # compress the outfiles
     statement = '''gzip %(mtx_outfile)s;
@@ -404,6 +419,10 @@ def exportAnnData(infiles, outfile):
     log_file = outfile + ".log"
     job_threads = 1
 
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
+
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s
                           --obsdata=%(obs_file)s
@@ -423,7 +442,7 @@ def exportAnnData(infiles, outfile):
 
 #        "cell.info.dir/cell.table.sentinel")
 
-
+@active_if(PARAMS["loom_fetch"])
 @follows(mkdir("loom.dir"))
 @transform(fetch_cell_table,
            regex(r".*/.*.sentinel"),
@@ -442,13 +461,13 @@ def extractFromLoom(infile, outfile):
 
     cells = pd.read_csv(cell_table, sep="\t")
 
-    samples = cells.sequencing_id.unique()
+    samples = cells[PARAMS['matrix_name']].unique()
 
     sample_table = os.path.join(outdir, "samples.txt")
 
     with open(sample_table, "w") as st:
 
-        st.write("sequencing_id\tpath\n")
+        st.write(PARAMS['matrix_name']+"\tpath\n")
         for sample in samples:
             st.write("\t".join([sample,
                                 os.path.join(PARAMS["loom_dir"],
@@ -456,10 +475,14 @@ def extractFromLoom(infile, outfile):
                                              sample + ".loom\n")]))
 
     log_file = outfile.replace(".sentinel", ".log")
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     statement = '''python %(cellhub_dir)s/python/extract_cells_from_loom.py
                        --cells=%(cell_table)s
                        --samples=%(sample_table)s
+                       --colname=%(matrix_name)s
                        --outdir=%(outdir)s
                     > %(log_file)s
                 '''
@@ -468,6 +491,7 @@ def extractFromLoom(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@active_if(PARAMS["loom_fetch"])
 @transform(extractFromLoom,
            regex(r"(.*)/extract_from_loom.sentinel"),
            add_inputs(fetch_cell_table),
@@ -490,6 +514,9 @@ def loomStats(infiles, outfile):
     outdir = os.path.dirname(outfile)
 
     log_file = outfile.replace(".sentinel", ".log")
+    if ("G" in PARAMS["resources_memory"] or
+        "M" in PARAMS["resources_memory"] ):
+        job_memory = PARAMS["resources_memory"]
 
     statement = '''python ~/devel/cellhub/python/loom_stats.py
                        --loom=%(loom_file)s
@@ -519,7 +546,7 @@ def loomStats(infiles, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(exportAnnData)
+@follows(exportAnnData, loomStats)
 def full():
     pass
 
