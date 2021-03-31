@@ -1,0 +1,53 @@
+#
+# pipeline_cellranger.py configuration file
+# =========================================
+#
+
+# General options
+# ---------------
+
+# Project name
+projectname: cellranger transcript quantification
+
+# Author
+author: Sansom lab
+
+# compute resource options
+# ------------------------
+resources:
+    # job memory for tasks; use this in combination with nslots
+    # if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+    # number of job threads/slots
+    threads: 1
+
+# Input data modality
+# ------------------------
+input: 
+    # Either <<< GEX >>> if the input FASTQ libraries are exclusively from 
+    # 10X Gene Expression read-outs,
+    # or, <<< GEXADT >>> if the input FASTQ libraries includes Gene Expression
+    # and Feature Caputure (proteins) read-outs for the same 10X chip-channels.
+    modality: GEX
+
+    # If modality == GEXADT, then a Feature Reference CSV table is expected
+    # e.g.: /gfs/archive/sansom/mrc_fibroblasts_2020/20210226_allsamples_batch3/mrc_fibroblast2020_cell_surface_antibody_metadata.txt
+    featurereference:
+
+# General Cellranger configuration options
+# ------------------------------------------
+
+cellranger:
+   # Passed to `cellranger count`
+   chemistry: SC3Pv2
+
+   # Reference transcriptome:
+   # e.g. for human: /gfs/mirror/genomes/10x/refdata-cellranger-GRCh38-1.2.0
+   # e.g. for mouse: /gfs/mirror/genomes/10x/refdata-cellranger-mm10-1.2.0
+   transcriptome:
+
+# Running parameters
+# -------------------------
+running:
+    # max jobs
+    maxjobs: 64

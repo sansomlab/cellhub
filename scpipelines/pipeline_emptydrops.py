@@ -133,7 +133,7 @@ def checkInputs(outfile):
                          'The file needs to be named "input_samples.tsv" ')
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
-    for p in samples["path"]:
+    for p in samples["outs_path"]:
         print(p)
         if not os.path.exists(p):
             raise ValueError('Input folder from cellranger run (outs/)'
@@ -174,7 +174,7 @@ def runEmptyDrops(infile, outfile):
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"path"],
+    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"outs_path"],
                                             "raw_feature_bc_matrix")
 
     # # remove blacklisted cells if required
@@ -226,7 +226,7 @@ def calculateMeanReadsPerCell(infile, outfile):
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"path"],
+    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"outs_path"],
                                             "raw_feature_bc_matrix")
 
     log_file = outfile.replace("sentinel","log")

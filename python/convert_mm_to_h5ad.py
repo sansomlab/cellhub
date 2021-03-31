@@ -65,7 +65,9 @@ if args.obsdata is not None:
         L.info("The observations have the expected numbers of counts")
 
     else:
-        raise ValueError("Data matrix does not match given observations")
+#        raise ValueError("Data matrix does not match given observations")
+        L.info("Data matrix does not match given observations, if GEXADT mode")
+        L.info("then exprected less counts, otherwise, worry about it.")
 
 else:
     raise ValueError("Observations data matrix not supplied")

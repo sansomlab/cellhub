@@ -25,7 +25,7 @@ resources:
     # job memory for tasks except integration;
     # use this in combination with nslots if no slots
     # with memory pre-assigned; 'none' | e.g. 16G (x nslots)
-    job_memory_standard: none
+    job_memory_standard: 20G
 
     # Number of slots to use for the integration task
     # This is passed via job threads
@@ -35,7 +35,7 @@ resources:
     # job memory for normalisation + integration tasks;
     # use this in combination with nslots if no slots
     # with memory pre-assigned; 'none' | e.g. 48G (x nslots)
-    job_memory_high: none
+    job_memory_high: 48G
 
 # Metadata input
 # ---------------------
@@ -43,7 +43,7 @@ metadata:
   # path to the metadata file (in tsv.gz format) | none
   path: none
   # column to use for matching between metadata file and input anndata | none
-  id_col: none
+  id_col: barcode_id
 
 
 # Regression parameters
@@ -78,7 +78,7 @@ regress:
     # Latent variables to regress out, which need to be column
     # names in the metadata (cell cycle phase does not need to be
     # added here). If nothing should be regressed, set this to none.
-    latentvars: total_UMI
+    latentvars: none
     # Model used to regress out latent variables
     # Choices: 'linear'|'poisson'|'negbinom'
     modeluse: linear
@@ -97,7 +97,7 @@ hvg:
     # & hvg task. If a genelist is provided in list option below, this number is ignored
     # in the integration task.
     # Supply a comma-separated list (no spaces) for this option
-    ngenes: 3000
+    ngenes: 1000,2000,3000
     # Whether to find highly variable genes on merged dataset
     # or per batch. Choices: '1' | '0' , where 1 is merged hvg.
     # Supply a comma-separated list (no spaces) for this option
@@ -114,7 +114,7 @@ hvg:
 integration:
     # Options are: harmony | bbknn | scanorama
     # Supply a comma-separated list (no spaces) for this option
-    tools_run: harmony
+    tools_run: harmony,bbknn
     # Factor to use for splitting of object
     # This has to be a column in the metadata of the input Seurat
     # object
@@ -123,9 +123,9 @@ integration:
     # All used components will be taken forward to scanpy.neighbors and umap.
     total_number_pcs: 100
     # Supply a comma-separated list (no spaces) for this option
-    number_pcs: 30
+    number_pcs: 50
     # min distance to use for UMAP; seurat default is 0.3, scanpy is 0.5
-    umap_min_dist: 0.5
+    umap_min_dist: 0.4
 
 # Integration - options per tool
 # -------------
@@ -139,22 +139,24 @@ harmony:
 qc_integration:
     # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
-    plot: none
+    plot: exp_batch
     # This option can be used to plot cluster_ids from downstream
     # analyses on the UMAP. Set to 'none' or the path to a txt.gz file
     # which has two columns named 'barcodes' and 'cluster_id'.
     plot_clusters: none
 
 report_umap:
-  run: 0
+  # 0 : not to run
+  # 1 : run 
+  run: 1
   # Add parameters that should be used for the summary here.
   # Only one combination of parameters is possible.
   # Same parameter names as specified above.
-  merged_hvg: 1
+  merged_hvg: 3000
   ngenes: 3000
-  number_pcs: 30
+  number_pcs: 50
   sigma: 0.1
 
   # example summary
   # use cluster_id to plot the clusters set in the qc_integration section.
-  summary_qc: sex,ngenes,source,pool
+  summary_qc: ngenes,exp_batch

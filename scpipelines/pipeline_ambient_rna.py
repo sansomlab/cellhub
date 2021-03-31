@@ -26,7 +26,7 @@ Add as many rows as iput channels/samples for analysis.
 This file must have the following columns:
 
 * sample_id - name used throughout. This could be the channel_pool id eg. A1
-* path - path to the raw_matrix folder from cellranger count
+* raw_path - path to the raw_matrix folder from cellranger count
 * exp_batch - might or might not be useful. If not used, fill with "1"
 * channel_id - might or might not be useful. If not used, fill with "1"
 * seq_batch - might or might not be useful. If not used, fill with "1"
@@ -94,7 +94,7 @@ def checkInputs(outfile):
                          'The file needs to be named "input_samples.tsv" ')
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
-    for p in samples["path"]:
+    for p in samples["raw_path"]:
         if not os.path.exists(p):
           raise ValueError('Input folder from cellranger run (outs/)'
                              ' does not exist.')
@@ -153,7 +153,7 @@ def ambient_rna_per_input(infile, outfile):
     sample_name = infile.split("/")[1].replace(".sample.dir", "")
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    options["cellranger_dir"] = samples.loc[sample_name ,"path"]
+    options["cellranger_dir"] = samples.loc[sample_name ,"raw_path"]
     options["outdir"] = outdir
     options["sample_name"] = sample_name
 

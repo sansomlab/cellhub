@@ -6,7 +6,8 @@ stopifnot(require(optparse),
           require(tibble),
           require(scater),
           require(Matrix),
-          require(cellqc)
+	  require(BiocParallel)
+#	  require(cellqc)
 )
 
 # Global options ------
@@ -115,32 +116,34 @@ genesets$pct_hemoglobin <- grep("^Hbb|^Hba|^Hbq", rowData(s)$Symbol, ignore.case
 flog.info("Including %s hemoglobin genes for pct_hemoglobin",
           length(genesets$pct_hemoglobin))
 
-# Add genesets from cellqc package
-gs <- c("geneset.neutrophil", "geneset.platelet", "geneset.endothelial", "geneset.apoptotic")
-gs.names <- c("pct_neutrophil", "pct_platelet", "pct_endothelial", "pct_apoptotic")
-for (g in 1:length(gs)){
-  # Load geneset
-  geneset_name <- gs.names[g]
-  data(list=gs[g])
-  geneset <- get(gs[g])
 
-  flog.info("Geneset %s contains %s genes",
-            geneset_name, format(length(geneset), big.mark=","))
-
-  # Add to 'genesets' list
-  genesets[[geneset_name]] <- which(rowData(s)$Symbol %in% geneset)
-  flog.info("Including %s genes for %s",
-            format(length(genesets[[geneset_name]]), big.mark=","), geneset_name)
-
-  # Report genes not found
-  if ( sum(!geneset %in% rowData(s)$Symbol) >= 1) {
-    not_found <- geneset[-which(geneset %in% rowData(s)$Symbol)]
-    not_found <- paste0(not_found, collapse = ", ")
-    flog.info("Genes not found in count matrix: %s",
-              not_found)
-  }
+if(FALSE) {
+	# Add genesets from cellqc package
+	gs <- c("geneset.neutrophil", "geneset.platelet", "geneset.endothelial", "geneset.apoptotic")
+	gs.names <- c("pct_neutrophil", "pct_platelet", "pct_endothelial", "pct_apoptotic")
+	for (g in 1:length(gs)){
+	  # Load geneset
+	  geneset_name <- gs.names[g]
+	  data(list=gs[g])
+	  geneset <- get(gs[g])
+	
+	  flog.info("Geneset %s contains %s genes",
+	            geneset_name, format(length(geneset), big.mark=","))
+	
+	  # Add to 'genesets' list
+	  genesets[[geneset_name]] <- which(rowData(s)$Symbol %in% geneset)
+	  flog.info("Including %s genes for %s",
+	            format(length(genesets[[geneset_name]]), big.mark=","), geneset_name)
+	
+	  # Report genes not found
+	  if ( sum(!geneset %in% rowData(s)$Symbol) >= 1) {
+	    not_found <- geneset[-which(geneset %in% rowData(s)$Symbol)]
+	    not_found <- paste0(not_found, collapse = ", ")
+	    flog.info("Genes not found in count matrix: %s",
+	              not_found)
+	  }
+	}
 }
-
 
 # Add any other genesets provided
 if (!is.null(opt$genesets_file)){
@@ -201,14 +204,15 @@ if (length(rownames(m)) != nrow(rnames)) {
 }
 rownames(m) <- rnames$Symbol
 
-# Calculate mitoribo ratio
-flog.info("Calculating mitoribo ratio...")
-mitoribo_ratio <- GetMitRibRatio(m)
-mitoribo_ratio$barcode <- colData(s)$Barcode
+if(FALSE) {
+	# Calculate mitoribo ratio
+	flog.info("Calculating mitoribo ratio...")
+	mitoribo_ratio <- GetMitRibRatio(m)
+	mitoribo_ratio$barcode <- colData(s)$Barcode
 
-# Append to QC table
-cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
-
+	# Append to QC table
+	cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
+}
 
 # Label barcodes ------
 #######################
