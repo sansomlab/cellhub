@@ -128,7 +128,7 @@ def calculate_qc_metrics(infile, outfile):
     sample_name = outfile.split("/")[-1].replace("_qcmetrics.tsv.gz", "")
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    cellranger_dir = samples.loc[sample_name, "path"]
+    cellranger_dir = samples.loc[sample_name, "filt_path"]
 
     # Get genesets file
     if PARAMS["calculate_qc_metrics_geneset_file"] == "none" or PARAMS["calculate_qc_metrics_geneset_file"] == None:
@@ -149,6 +149,7 @@ def calculate_qc_metrics(infile, outfile):
     if ("G" in PARAMS["resources_job_memory"] or
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
+
     log_file = outfile.replace(".tsv.gz", ".log")
 
     # Formulate and run statement
@@ -162,6 +163,105 @@ def calculate_qc_metrics(infile, outfile):
                  %(barcodes_to_label_as_True)s
               '''
     P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+@follows(checkInputs)
+def raw_qc_reports_jobs():
+    ''' Generate cluster jobs for each sample 
+        raw (unfiltered) mapping results
+    '''
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+
+    for sample_name in samples.index:
+      out_sample = "_".join([sample_name, "raw_qcmetrics_report.pdf"])
+      out_sentinel = "/".join(["qcmetrics.dir/reports", out_sample])
+      infile = None
+      yield(infile, out_sentinel)
+
+@follows(mkdir("qcmetrics.dir/reports"))
+@files(raw_qc_reports_jobs)
+def build_raw_qc_reports(infile, outfile):
+    '''This task will run R/build_qc_mapping_report.R,
+    It expects three files in the input directory barcodes.tsv.gz, 
+    features.tsv.gz, and matrix.mtx.gz
+    Ouput: creates a sample_qcmetrics_report.pdf table per input folder
+    '''
+    # Get cellranger directory and id
+    sample_name = outfile.split("/")[-1].replace("_qcmetrics.dir/reports", "")
+    sample_name = sample_name.replace("_raw_qcmetrics_report.pdf", "")
+
+    # cellranger filtered output
+    cellranger_dir = "-".join([sample_name, "count/outs/raw_feature_bc_matrix"])
+    sample_name = "_".join([sample_name, "raw"])
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    job_memory = "30G"
+
+    log_file = outfile.replace(".pdf", ".log")
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/build_qc_mapping_reports.R 
+                --tenxfolder=%(cellranger_dir)s 
+                --sample_id=%(sample_name)s
+                --specie="hg"
+                --outfolder="qcmetrics.dir/reports"
+                &> %(log_file)s
+              '''
+    P.run(statement)
+
+
+@follows(checkInputs)
+def qc_reports_jobs():
+    ''' Generate cluster jobs for each sample '''
+    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples.set_index("sample_id", inplace=True)
+
+    for sample_name in samples.index:
+      out_sample = "_".join([sample_name, "qcmetrics_report.pdf"])
+      out_sentinel = "/".join(["qcmetrics.dir/reports", out_sample])
+      infile = None
+      yield(infile, out_sentinel)
+
+@follows(mkdir("qcmetrics.dir/reports"))
+@files(qc_reports_jobs)
+def build_qc_reports(infile, outfile):
+    '''This task will run R/build_qc_mapping_report.R,
+    It expects three files in the input directory barcodes.tsv.gz, 
+    features.tsv.gz, and matrix.mtx.gz
+    Ouput: creates a sample_qcmetrics_report.pdf table per input folder
+    '''
+    # Get cellranger directory and id
+    sample_name = outfile.split("/")[-1].replace("_qcmetrics.dir/reports", "")
+    sample_name = sample_name.replace("_qcmetrics_report.pdf", "")
+
+    # cellranger filtered output
+    cellranger_dir = "-".join([sample_name, "count/outs/filtered_feature_bc_matrix"])
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    log_file = outfile.replace(".pdf", ".log")
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/build_qc_mapping_reports.R 
+                --tenxfolder=%(cellranger_dir)s 
+                --sample_id=%(sample_name)s
+                --specie="hg"
+                --outfolder="qcmetrics.dir/reports"
+                &> %(log_file)s
+              '''
+    P.run(statement)
+
+
+
+
 
 # ############################################# #
 # ######## Calculate doublet scores ########### #
@@ -193,7 +293,7 @@ def run_scrublet(infile, outfile):
     sample_name = outfile.split("/")[-1].replace("_scrublet.sentinel", "")
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    cellranger_dir = samples.loc[sample_name, "path"]
+    cellranger_dir = samples.loc[sample_name, "filt_path"]
 
     if PARAMS["scrublet_subset"]:
         whitelist = samples.loc[sample_name, "whitelist"]
@@ -213,6 +313,9 @@ def run_scrublet(infile, outfile):
     if ("G" in PARAMS["resources_job_memory"] or
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
+    
+    job_threads=3
+    job_memory="50G"
     log_file = outfile.replace(".sentinel", ".log")
     outdir = Path(outfile).parent
 
@@ -239,7 +342,7 @@ def run_scrublet(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(calculate_qc_metrics, run_scrublet)
+@follows(calculate_qc_metrics, build_raw_qc_reports, build_qc_reports, run_scrublet)
 def full():
     '''
     Run the full pipeline.

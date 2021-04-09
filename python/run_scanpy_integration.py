@@ -47,7 +47,7 @@ L = logging.getLogger("run_integration")
 
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)
 # comment this because of numba issues
-sc.logging.print_versions()
+#sc.logging.print_versions()
 
 # ########################################################################### #
 # ############################ Script arguments ############################# #
@@ -350,15 +350,10 @@ elif opt["tool"] == "scanorama":
     for p in list_ids:
         all_anndata = all_anndata + [adata[adata.obs[opt["split_var"]] == p]]
 
-    #     batch_size: `int`, optional (default: `5000`)
-    #         The batch size used in the alignment vector computation. Useful when
-    #         correcting very large (>100k samples) data sets. Set to large value
-    #         that runs within available memory.
-    # batch_size: `int`, optional (default: `5000`)
-    #     The batch size used in the alignment vector computation. Useful when
-    #     correcting very large (>100k samples) data sets. Set to large value
-    #     that runs within available memory.
-    ## hvg= option could be used but object already subset to hvg
+    # The batch size used in the alignment vector computation. Useful when
+    # correcting very large (>100k samples) data sets. Set to large value
+    # that runs within available memory.
+    # hvg= option could be used but object already subset to hvg
     integrated = scanorama.integrate_scanpy(all_anndata, dimred=opt["nPCs"], batch_size=5000)
 
     embedding_scanorama = np.concatenate(integrated, axis=0)

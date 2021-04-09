@@ -1,11 +1,10 @@
 # celldb location
 
-celldb: /well/combat/projects/preprocess/citeseq_initial/pipeline_celldb/061720/csvdb
+celldb: csvdb
 
 query: >-
   select * from final
-  where baseID like "COMB%"
-  and pct_mitochondrial <5
+  where pct_mitochondrial <5
   and ngenes >500;
 
 resources:
@@ -15,12 +14,12 @@ resources:
 
 
 matrix:
-  dir: /well/combat/projects/preprocess/citeseq_initial/cellranger/10X-gex.dehop/
+  dir: /gfs/work/cesarmp/cellhub_test/gex_and_feat
   type: mm
   # column in cell_info from db (using query above) that corresponds to the
   # folder names in the cellranger output (=matrix_dir), this name is also used
   # to extract the loom files below
-  name: sequencing_id
+  name: sample_id
   # suffix used for the cellranger output (not used for loom extraction), either none | suffix
   suffix: none
   # use the filtered|raw matrix.
@@ -34,10 +33,7 @@ loom:
 # Number of cells to be randomly drawn
 # or "all"
 #
-sample: 5000
-
-
-
+sample: all
 
 # A tsv file containing the mapping of cells to
 # matrices with columns

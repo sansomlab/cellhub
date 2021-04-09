@@ -38,6 +38,10 @@ option_list <- list(
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
+if(TRUE) {
+	opt$matrixid <- paste0(opt$matrixid, "-count")
+}
+
 cat("Running with options:\n")
 print(opt)
 
@@ -46,10 +50,14 @@ print(opt)
 if(opt$outtype=="filtered")
 {
 	outs = "outs/filtered_feature_bc_matrix/"
+
 } else if (opt$outtype=="raw")
 {
 	outs = "outs/raw_feature_bc_matrix/"
-} else { stop("opt$outtype must be either filtered or raw") }
+} else 
+{ 
+	stop("opt$outtype must be either filtered or raw") 
+}
 
 
 if(opt$matrixtype=="mm")
@@ -60,9 +68,11 @@ if(opt$matrixtype=="mm")
 
     x <- readMM(matrix_path)
     colnames(x)  <- read.table(matrix_barcodes, stringsAsFactors=FALSE)$V1
+
 } else if (opt$matrixtype=="loom") {
 
     stop("loom support not yet implemented")
+
 } else {
 
     stop("matrix type not recognised")
@@ -94,6 +104,7 @@ features_path = file.path(out_folder, "features.tsv.gz")
 writeMM(x, matrix_path)
 
 ## write out the "cell" barcodes
+## including sample_id into barcode_id
 write.table(read.table(text=colnames(x),sep="-")$V1,
   	    barcodes_path,
             col.names=FALSE,

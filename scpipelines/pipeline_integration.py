@@ -149,21 +149,20 @@ if len(sys.argv) > 1:
 @originate("input.check.sentinel")
 def checkInputs(outfile):
     '''Check that input_samples.tsv exists and the path given in the file
-       exists. Then make one folder for each sample/experiments called
+       exists. Then make one folder for each experiments called
        *.exp.dir '''
 
-    if not os.path.exists("input_samples.tsv"):
+    if not os.path.exists("aggr_input_samples.tsv"):
         raise ValueError('File specifying the input samples is not present.'
                          'The file needs to be named "input_samples.tsv" ')
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    for p in samples["path"]:
+    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
+    for p in samples["integr_path"]:
         if not os.path.exists(p):
             raise ValueError('Aggregated, filtered matrix input folder'
                              ' does not exist.')
 
     IOTools.touch_file(outfile)
-
 
 
 # ########################################################################### #
@@ -178,7 +177,7 @@ def genClusterJobs():
     Generate cluster jobs with all paramter combinations.
     '''
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
 
     for sample in samples["sample_id"]:
         outdir = sample + ".exp.dir"
@@ -257,7 +256,7 @@ def prepFolders(infile, outfile):
     '''Task to prepare folders for integration'''
 
     # create the output directories
-    outdir = os.path.dirname(outfile)
+    outdir = os.path.dirname(outfile)   
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -287,9 +286,9 @@ def runScanpyIntegration(infile, outfile):
 
     # extract path from input_samples.tsv
     sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    infolder = samples.loc[sample_name, "path"]
+    infolder = samples.loc[sample_name, "integr_path"]
 
     options["matrixdir"] = infolder
     options["tool"] = tool
@@ -482,8 +481,7 @@ def summariseUMAP(infile, outfile):
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-
-
+        
     indir = outfile.split("/")[0]
     ## make plots for different combinations of variables
     summaries = [k.split("_")[-1] for k in PARAMS.keys()
@@ -542,7 +540,8 @@ def summariseUMAP(infile, outfile):
                          vars_use.split(",")]
         vars_plot = [x.replace("_", "-") if '_' in x else x for x in vars_plot]
         print(vars_plot)
-        varone,vartwo,varthree,varfour = vars_plot
+        #varone,vartwo,varthree,varfour = vars_plot
+        varone,vartwo = vars_plot
         integration_variable = PARAMS["integration_split_factor"]
         integration_variable = integration_variable.replace("_", "-")
 
@@ -551,8 +550,8 @@ def summariseUMAP(infile, outfile):
                 "integrationVar": "%(integration_variable)s" % locals(),
                 "varone": "%(varone)s" % locals(),
                 "vartwo": "%(vartwo)s" % locals(),
-                "varthree": "%(varthree)s" % locals(),
-                "varfour": "%(varfour)s" % locals(),
+#                "varthree": "%(varthree)s" % locals(),
+#                "varfour": "%(varfour)s" % locals(),
                 "rawdir": "%(rawdir)s" %locals()}
 
         if 'harmony' in tools:
@@ -604,12 +603,12 @@ def summariseUMAP(infile, outfile):
 
 
         # Deliberately run twice - necessary for LaTeX compilation..
-        P.run(statement)
-        P.run(statement)
+#        P.run(statement)
+#        P.run(statement)
 
         # Move the compiled pdfs to report.dir
-        shutil.move(os.path.join(compilation_dir, jobName + ".pdf"),
-                    os.path.join(summary_dir, jobName+".pdf"))
+ #       shutil.move(os.path.join(compilation_dir, jobName + ".pdf"),
+ #                   os.path.join(summary_dir, jobName+".pdf"))
     IOTools.touch_file(outfile)
 
 
@@ -731,7 +730,7 @@ def summariseLISI(infile, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows(runScanpyUMAP, plotUMAP, summariseUMAP)
+@follows(runScanpyUMAP, plotUMAP, summariseUMAP, summariseLISI)
 def full():
     pass
 
