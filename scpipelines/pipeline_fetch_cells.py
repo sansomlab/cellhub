@@ -381,7 +381,7 @@ def mergeSubsets(infiles, outfile):
 @follows(mergeSubsets)
 @transform(mergeSubsets,
         regex(r"output.dir/(.*).mtx.gz"),
-        r"output.dir/\1_merged_qcmetrics_report.pdf")
+        r"output.dir/\1_merged_qcmetrics_report.sentinel")
 def build_qc_reports(infile, outfile):
     '''This task will run R/build_qc_mapping_report.R,
     It expects three files in the input directory barcodes.tsv.gz,
@@ -452,7 +452,7 @@ def transcriptDownsample(infile, outfile):
 @follows(transcriptDownsample)
 @transform(transcriptDownsample,
         regex(r"output.subsampled.dir/(.*).sentinel"),
-        r"output.subsampled.dir/\1_subsampled_qcmetrics_report.pdf")
+        r"output.subsampled.dir/\1_subsampled_qcmetrics_report.sentinel")
 def build_subsampled_qc_reports(infile, outfile):
     '''This task will run R/build_qc_mapping_report.R,
     It expects three files in the input directory barcodes.tsv.gz,
