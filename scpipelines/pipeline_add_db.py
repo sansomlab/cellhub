@@ -35,11 +35,10 @@ Dependencies
 Pipeline output
 ===============
 
-The pipeline returns an SQLite populated database of metadata and
-quality features that aid the selection of 'good' cells from 'bad' cells.
+The pipeline returns the central SQLite database populated with the local
+database. Create unique identifier for the local database.
 
 Currently the following tables are generated:
-* metadata
 
 
 Code
@@ -69,13 +68,14 @@ PARAMS = P.get_parameters(
      "pipeline.yml"])
 
 
+if PARAMS["database_centraldb"]a 
 def connect():
     '''connect to database.
     Use this method to connect to additional databases.
     Returns a database connection.
     '''
 
-    dbh = database.connect(url=PARAMS["database_url"])
+    dbh = database.connect(url=central_cell_db)
 
     return dbh
 

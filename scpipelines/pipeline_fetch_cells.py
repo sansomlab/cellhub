@@ -394,7 +394,7 @@ def build_qc_reports(infile, outfile):
     input_dir = os.path.dirname(infile)
 
     job_threads = 1
-    job_memory = "30G"
+    job_memory = "40G"
 
     log_file = outfile.replace(".pdf", ".log")
 

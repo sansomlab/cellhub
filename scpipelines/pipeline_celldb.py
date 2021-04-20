@@ -318,7 +318,7 @@ def final(outfile):
                     LEFT JOIN gex_qcmetrics qc \
                     ON mm.sample_id = qc.sample_id \
                     LEFT JOIN gex_scrublet scrub \
-                    ON qc.barcode = scrub.barcode_id"
+                    ON qc.barcode_id = scrub.barcode_id"
 
     cc = database.executewait(dbh, statement, retries=5)
 
