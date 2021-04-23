@@ -178,66 +178,6 @@ def taskSummary(infile, outfile):
     tab.to_latex(buf=outfile, index=False)
 
 
-# ########################################################################### #
-# ##################### Explore environment parameters ###################### #
-# ########################################################################### #
-
-@originate("env.sentinel")
-def envParams(outfile):
-
-    '''
-    Run shell script with commands git log, git branch, which R, which python3 - all from pipeline code_dir.
-    We should select -  pip list or pip freeze or listing modules with pkg_resources.
-    '''
-
-    # read parameters for code directory
-    code_dir = str(PARAMS["code_dir"])
-
-    # path to gitshow script
-    gitshow_dir = code_dir + '/scpipelines/pipeline_env/gitshow.sh'
-
-    # path to coge_dir/.git - to pass to subprocess.call to run bash script from python
-    git_dir = code_dir + '/.git'
-
-    subprocess.call(['bash', gitshow_dir, git_dir])
-    IOTools.touch_file(outfile)
-
-
-    # alternatively to git list (or git freeze) we can list python packages using pkg_resources module
-    installed_packages = pkg_resources.working_set
-    installed_packages_list = sorted(["%s==%s" % (i.key, i.version)
-            for i in installed_packages])
-
-    # append list of packages to output file
-    outfile = 'env.out'
-    f = open(outfile, "a")
-    f.write("\n---List of python packages with pkg_resources module---\n")
-
-    with open(outfile, 'a') as f:
-        for item in installed_packages_list:
-            f.write("%s\n" % item)
-
-    f.close()
-
-
-@follows(envParams)
-@transform(envParams,
-           regex(r"(.*).sentinel"),
-           r"\1.txt")
-
-def rParams(infile, outfile):
-
-    '''
-    Run sessioninfo as small r script.
-    '''
-
-    outfile = 'env.out'
-    statement = '''Rscript %(code_dir)s/pipelines/pipeline_env/list_rpackages.r'''
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-
 
 # ########################################################################### #
 # ######## Read parameters and create config file ############### #
@@ -451,7 +391,7 @@ def cellrangerMulti(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(envParams,rParams,makeConfig,cellrangerMulti)
+@follows(makeConfig,cellrangerMulti)
 def full():
     '''
     Run the full pipeline.
