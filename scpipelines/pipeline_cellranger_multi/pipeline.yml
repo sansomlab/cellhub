@@ -101,25 +101,25 @@ vdj:
 # Parameters (will be converted to table) describing the input sequencing libraries. Must contain the header and 1 or more rows. Required.
 libraries:
 
-    sample01:
-        gene-expression:
-            fastq_id: 838863_TY24
-            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY24
-            feature_types: Gene Expression
-            subsample_rate:
-            lanes: 
-        feature:
-            fastq_id: 838863_TN01
-            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TN01
-            feature_types: Antibody Capture
-            subsample_rate:
-            lanes:
-        vdj:
-            fastq_id: 838863_TY45
-            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY45
-            feature_types: VDJ-B
-            subsample_rate:
-            lanes:
+#    sample01:
+#        gene-expression:
+#            fastq_id: 838863_TY24
+#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY24
+#            feature_types: Gene Expression
+#            subsample_rate:
+#            lanes: 
+#        feature:
+#            fastq_id: 838863_TN01
+#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TN01
+#            feature_types: Antibody Capture
+#            subsample_rate:
+#            lanes:
+#        vdj:
+#            fastq_id: 838863_TY45
+#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY45
+#            feature_types: VDJ-B
+#            subsample_rate:
+#            lanes:
 
 #    sample02:
 #        gene-expression:
