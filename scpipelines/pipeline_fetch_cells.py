@@ -163,7 +163,7 @@ def fetch_cell_table(infile, outfile):
     IOTools.touch_file(outfile)
 
 def matrix_subset_jobs():
-    '''Generate a list of subsets from the cell manifest'''
+    '''Generate a list of subsets from the cell metadata'''
 
     cell_tab = "cell.info.dir/cell.table.tsv.gz"
 
@@ -208,11 +208,12 @@ def setupSubsetJobs(infile, outfile):
            regex(r"matrix.subsets.dir/(.*)/cells_to_extract.txt.gz"),
            r"matrix.subsets.dir/\1/matrix.mtx.gz")
 def cellSubsets(infile, outfile):
-    '''Extract a given subset of cells from a matrix'''
+    '''Extract a given subset of cells from a matrix
+    if more than a feature modadility, the extrac_cells.R
+    function will generate modality specific datasets'''
 
     to_cluster = True
 
-    # matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
     outdir = os.path.dirname(infile)
 
@@ -244,139 +245,169 @@ def cellSubsets(infile, outfile):
 def mergeSubsets(infiles, outfile):
     '''merge the market matrix files into a single matrix'''
 
-    ncells = 0
-
-    # get the dimensions of all the market matrix files
-    mtx_specs = {}
-
-    mtx_encoding = "us-ascii"
-
-    for subset in infiles:
-
-        matrix_id = os.path.basename(Path(subset).parent)
-
-        with gzip.open(subset, "r") as mtx:
-            for i, line in enumerate(mtx, 1):
-                if i == 1:
-                    mtx_header = line  # .decode("us-ascii").strip()
-                if i == 2:
-                    line_str = line.decode(mtx_encoding)
-                    nrow, ncol, nnonzero = line_str.strip().split(" ")
-                    mtx_specs[matrix_id] = {"nrow": int(nrow),
-                                            "ncol": int(ncol),
-                                            "nnonzero": int(nnonzero),
-                                            "mtx_file": subset}
+    infiles_mods = []
+    # Check if more than one feature modality
+    for infile in infiles:
+        sampledir = Path(infile).parent
+        dirs = [sd[0] for sd in os.walk(sampledir)]
+        if len(dirs) > 1:
+            dirs = dirs[1:len(dirs)]
+            for moddir in dirs:
+                inputmat = os.path.join(moddir, "matrix.mtx.gz")
+                if os.path.exists(inputmat):
+                    infiles_mods.append(inputmat)
                     break
+    
+    modality = {}
+    
+    if len(infiles) == len(infiles_mods):
+        modality["adt"] = infiles_mods
 
-    matrices_to_merge = tuple(mtx_specs.keys())
+    modality["gex"] = infiles
 
-    mtx_outfile = outfile[:-len(".gz")]
-    barcodes_outfile = os.path.join(os.path.dirname(outfile),
-                                    "barcodes.tsv")
+    for k in modality.keys():
+        print(k)
 
-    features_outfile = os.path.join(os.path.dirname(outfile),
-                                    "features.tsv.gz")
+        # get the dimensions of all the market matrix files
+        ncells = 0
+        mtx_specs = {}
+        mtx_encoding = "us-ascii"
+        
+        infiles_mod = modality[k]
 
-    if os.path.exists(mtx_outfile) or \
-       os.path.exists(mtx_outfile + ".gz"):
-        raise ValueError("mtx outfile already exists")
+        for subset in infiles_mod:
 
-    if os.path.exists(barcodes_outfile) or \
-       os.path.exists(barcodes_outfile + ".gz"):
-        raise ValueError("barcodes outfile already exists")
+            outmainfile = outfile
+            matrix_id = os.path.basename(Path(subset).parent)
 
-    if os.path.exists(features_outfile):
-        raise ValueError("features outfile already exists")
+            if k != "gex":
+                matrix_id = os.path.basename(Path(Path(subset).parent).parent)
+                outdir = os.path.join(os.path.dirname(outfile), k)
+                if not os.path.exists(outdir):
+                    os.mkdir(outdir)
+                outmainfile = os.path.join(outdir, os.path.basename(outfile))
 
-    # construct the header of the market matrix file.
-    nrows = []
-    total_ncol = 0
-    total_nnonzero = 0
+            with gzip.open(subset, "r") as mtx:
+                for i, line in enumerate(mtx, 1):
+                    if i == 1:
+                        mtx_header = line  # .decode("us-ascii").strip()
+                    if i == 2:
+                        line_str = line.decode(mtx_encoding)
+                        nrow, ncol, nnonzero = line_str.strip().split(" ")
+                        mtx_specs[matrix_id] = {"nrow": int(nrow),
+                                                "ncol": int(ncol),
+                                                "nnonzero": int(nnonzero),
+                                                "mtx_file": subset}
+                        break
 
-    for matrix_id in matrices_to_merge:
-        nrows.append(mtx_specs[matrix_id]["nrow"])
-        total_ncol += mtx_specs[matrix_id]["ncol"]
-        total_nnonzero += mtx_specs[matrix_id]["nnonzero"]
+        matrices_to_merge = tuple(mtx_specs.keys())
 
-    if len(set(nrows)) > 1:
-        raise ValueError("the input matrices have different numbers of rows!")
+        mtx_outfile = outmainfile[:-len(".gz")]
+        barcodes_outfile = os.path.join(os.path.dirname(outmainfile),
+                                        "barcodes.tsv")
 
-    out_spec = " ".join([str(nrows[0]),
-                         str(total_ncol),
-                         str(total_nnonzero)]) + "\n"
+        features_outfile = os.path.join(os.path.dirname(outmainfile),
+                                        "features.tsv.gz")
 
-    # write the header of the market matrix file
-    with open(mtx_outfile, "wb") as out:
-        out.write(mtx_header)
-        out.write(out_spec.encode(mtx_encoding))
+        if os.path.exists(mtx_outfile) or \
+           os.path.exists(mtx_outfile + ".gz"):
+            raise ValueError("mtx outfile already exists")
 
-    column_offset = 0
+        if os.path.exists(barcodes_outfile) or \
+           os.path.exists(barcodes_outfile + ".gz"):
+            raise ValueError("barcodes outfile already exists")
 
-    feature_file_checksums = []
+        if os.path.exists(features_outfile):
+            raise ValueError("features outfile already exists")
 
-    statement = ""
+        # construct the header of the market matrix file.
+        nrows = []
+        total_ncol = 0
+        total_nnonzero = 0
 
-    for matrix_id in matrices_to_merge:
+        for matrix_id in matrices_to_merge:
+            nrows.append(mtx_specs[matrix_id]["nrow"])
+            total_ncol += mtx_specs[matrix_id]["ncol"]
+            total_nnonzero += mtx_specs[matrix_id]["nnonzero"]
 
-        mtx_file = mtx_specs[matrix_id]["mtx_file"]
+        if len(set(nrows)) > 1:
+            raise ValueError("the input matrices have different numbers of rows!")
 
-        barcodes_file = os.path.join(os.path.dirname(mtx_file),
-                                     "barcodes.tsv.gz")
+        out_spec = " ".join([str(nrows[0]),
+                             str(total_ncol),
+                             str(total_nnonzero)]) + "\n"
 
-        # append the matrix values, offsetting the column index
-        statement += '''zcat %(mtx_file)s
-                       | awk 'NR>2{print $1,$2 + %(column_offset)s,$3}'
-                       >> %(mtx_outfile)s;
-                    ''' % locals()
+        # write the header of the market matrix file
+        with open(mtx_outfile, "wb") as out:
+            out.write(mtx_header)
+            out.write(out_spec.encode(mtx_encoding))
 
-        #P.run(statement)
+        column_offset = 0
 
-        # append the barcodes, adding the matrix identifier
-        statement += '''zcat %(barcodes_file)s
-                       | awk '{print $1"-1-%(matrix_id)s"}'
-                       >> %(barcodes_outfile)s;
-                    ''' % locals()
+        feature_file_checksums = []
+
+        statement = ""
+
+        for matrix_id in matrices_to_merge:
+
+            mtx_file = mtx_specs[matrix_id]["mtx_file"]
+
+            barcodes_file = os.path.join(os.path.dirname(mtx_file),
+                                         "barcodes.tsv.gz")
+
+            # append the matrix values, offsetting the column index
+            statement += '''zcat %(mtx_file)s
+                            | awk 'NR>2{print $1,$2 + %(column_offset)s,$3}'
+                            >> %(mtx_outfile)s;
+                        ''' % locals()
+
+            # append the barcodes, adding the matrix identifier
+            statement += '''zcat %(barcodes_file)s
+                            | awk '{print $1"-1-%(matrix_id)s"}'
+                            >> %(barcodes_outfile)s;
+                        ''' % locals()
 
 
-        # increase the column offset by the number of appended columns
-        column_offset += mtx_specs[matrix_id]["ncol"]
+            # increase the column offset by the number of appended columns
+            column_offset += mtx_specs[matrix_id]["ncol"]
 
-        features_file = os.path.join(os.path.dirname(mtx_file),
-                                     "features.tsv.gz")
+            features_file = os.path.join(os.path.dirname(mtx_file),
+                                         "features.tsv.gz")
 
-        feature_file_checksums.append(md5gz(features_file))
+            feature_file_checksums.append(md5gz(features_file))
 
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
+        if ("G" in PARAMS["resources_memory"] or
+            "M" in PARAMS["resources_memory"] ):
+            job_memory = PARAMS["resources_memory"]
 
-    # run the job.
-    P.run(statement)
+        # run the job.
+        P.run(statement)
 
-    # check that all of the subsets have identical features.
-    if len(set(feature_file_checksums)) != 1:
-        raise ValueError("The matrices have different features")
-    else:
-        print("The matrices have the same features")
+        # check that all of the subsets have identical features.
+        if len(set(feature_file_checksums)) != 1:
+            raise ValueError("The matrices have different features")
+        else:
+            print("The matrices have the same features")
 
-    if ("G" in PARAMS["resources_memory"] or
-        "M" in PARAMS["resources_memory"] ):
-        job_memory = PARAMS["resources_memory"]
+        if ("G" in PARAMS["resources_memory"] or
+            "M" in PARAMS["resources_memory"] ):
+            job_memory = PARAMS["resources_memory"]
 
-    # compress the outfiles
-    statement = '''gzip %(mtx_outfile)s;
-                   gzip %(barcodes_outfile)s
-                '''
+        # compress the outfiles
+        statement = '''gzip %(mtx_outfile)s;
+                       gzip %(barcodes_outfile)s
+                    '''
 
-    P.run(statement)
+        P.run(statement)
 
-    # copy over the features to the output directory
-    copyfile(features_file, features_outfile)
+        # copy over the features to the output directory
+        copyfile(features_file, features_outfile)
 
-    outfile_sent = outfile.replace(".mtx.gz",
-                                   ".sentinel")
+        outfile_sent = outmainfile.replace(".mtx.gz",
+                                       ".sentinel")
 
-    IOTools.touch_file(outfile_sent)
+        if k == "gex":
+            IOTools.touch_file(outfile_sent)
 
 @follows(mergeSubsets)
 @transform(mergeSubsets,
@@ -397,6 +428,25 @@ def build_qc_reports(infile, outfile):
     job_memory = "40G"
 
     log_file = outfile.replace(".pdf", ".log")
+
+    sampledir = Path(infile).parent
+    dirs = [sd[0] for sd in os.walk(sampledir)]
+    if len(dirs) > 1:
+        dirs = dirs[1:len(dirs)]
+        for moddir in dirs:
+            inputmat = Path(moddir)
+            mod = os.path.basename(inputmat)
+            logfile = "qc_mapping_report_" + mod + ".log"
+            log_mod_file = os.path.join(moddir, logfile)
+            # Formulate and run statement
+            statement = '''Rscript %(cellhub_dir)s/R/build_qc_mapping_reports.R
+                        --tenxfolder=%(inputmat)s
+                        --sample_id=%(mod)s
+                        --specie="hg"
+                        --outfolder=%(inputmat)s
+                        &> %(log_mod_file)s
+                        '''
+            P.run(statement)
 
     # Formulate and run statement
     statement = '''Rscript %(cellhub_dir)s/R/build_qc_mapping_reports.R
@@ -546,6 +596,29 @@ def exportAnnData(infiles, outfile):
     if ("G" in PARAMS["resources_memory"] or
         "M" in PARAMS["resources_memory"] ):
         job_memory = PARAMS["resources_memory"]
+
+    dirs = [sd[0] for sd in os.walk(mtx_dir)]
+    if len(dirs) > 1:
+        dirs = dirs[1:len(dirs)]
+        for moddir in dirs:
+            inputmat = Path(moddir)
+            mod = os.path.basename(inputmat)
+            out_mod_dir = os.path.join("anndata.dir", mod)
+            if not os.path.exists(out_mod_dir):
+                os.mkdir(out_mod_dir)
+            logfile = os.path.basename(outfile) + "_" + mod + ".log"
+            log_mod_file = os.path.join(out_mod_dir, logfile)
+            # Formulate and run statement
+            statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
+                                --mtxdir10x=%(inputmat)s
+                                --obsdata=%(obs_file)s
+                                --obstotals=adt_UMI
+                                --outdir=%(out_mod_dir)s
+                                --matrixname=%(matrix_name)s
+                            > %(log_mod_file)s
+                        '''
+            P.run(statement)
+
 
     statement = '''python %(cellhub_dir)s/python/convert_mm_to_h5ad.py
                           --mtxdir10x=%(mtx_dir)s

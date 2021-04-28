@@ -80,12 +80,24 @@ ngenes <- colSums(counts(s) > 0)
 # Total UMI counts
 total_UMI <- colSums(counts(s))
 
+
+
 # Create dataframe
 cell_qc <- tibble(barcode = colData(s)$Barcode,
                   sample=opt$sample,
                   ngenes = ngenes,
                   total_UMI= total_UMI)
 
+if(length(unique(rowData(s)[["Type"]])) > 1) {
+  if("Antibody Capture" %in% unique(rowData(s)[["Type"]])) {
+    adt_feats <- rowData(s)[["ID"]][rowData(s)[["Type"]] == "Antibody Capture"]
+    adt_UMI <- colSums(counts(s)[adt_feats, ])
+    cell_qc[["adt_UMI"]] <- adt_UMI
+  } 
+  gex_feats <- rowData(s)[["ID"]][rowData(s)[["Type"]] == "Gene Expression"]
+  gex_UMI <- colSums(counts(s)[gex_feats, ])
+  cell_qc[["gex_UMI"]] <- gex_UMI
+}
 
 # Compute percentage of genesets ------
 #######################################

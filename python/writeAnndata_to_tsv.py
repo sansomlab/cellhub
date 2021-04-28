@@ -5,6 +5,7 @@ import yaml
 import argparse
 import h5py
 import anndata
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--task-yml", default="", type=str,
@@ -46,11 +47,17 @@ if 'metadata_file' in opt.keys():
                         metadata_infile = opt['metadata_file'],
                         id_col = opt['metadata_id'])
 print(adata.obs.columns)
+print(adata.obs.index)
 
 #### get necessary data from regressed+integrated object
 scaled_data = pd.DataFrame(adata.X[:,adata.var["highly_variable"]].copy())
+print(scaled_data.head)
 barcodes = adata.obs.index
+print("barcodes object:")
+print(barcodes)
 genes = adata.var.index[adata.var["highly_variable"]].copy()
+print("genes object:")
+print(genes)
 
 ## save harmony components
 dim = "X_" + opt["dim_name"]
@@ -58,6 +65,8 @@ comp_out = adata.obsm[dim].copy()
 #harmony_out.columns = ["harmony_" + str(i) for i in range(1,harmony_out.shape[1]+1)]
 
 metadata_out = adata.obs.copy()
+print("Metadata out columns:")
+print(metadata_out.columns)
 # if barcode exists, this is likely incorrect -> use index instead
 if 'barcode' in metadata_out.columns:
     del metadata_out['barcode']
@@ -71,9 +80,12 @@ hf = h5py.File(os.path.join(opt["outdir"], "scaled.h5"), 'w')
 if not "seurat_data_only" in opt.keys() :
     print("add scaled data to h5file")
     hf.create_dataset('scaled_data', data=scaled_data)
-hf.create_dataset('barcodes', data=barcodes)
-hf.create_dataset('genes', data=genes)
+print("add dim red components:")
 hf.create_dataset('comp', data=comp_out)
+print("add barcodes object:")
+hf.create_dataset('barcodes', data=barcodes, dtype = h5py.string_dtype(encoding='utf-8'))
+print("add genes object:")
+hf.create_dataset('genes', data=genes, dtype = h5py.string_dtype(encoding='utf-8'))
 
 hf.close()
 

@@ -276,7 +276,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
     # ---
 
     if(length(mt_genes) == 0) {
-	    mtc <- setNames(rep(0, ncol(cds)), colnames(cds))
+	    mtc <- setNames(rep(0, ncol(cds[["exprs"]])), colnames(cds[["exprs"]]))
     } else {
 	    mtc <- colSums(cds[["exprs"]][mt_genes, ])
     }
@@ -293,7 +293,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
     # ---
 
     if(length(rb_genes) == 0) {
-	    rbc <- setNames(rep(0, ncol(cds)), colnames(cds))
+	    rbc <- setNames(rep(0, ncol(cds[["exprs"]])), colnames(cds[["exprs"]]))
     } else {
 	    rbc <- colSums(cds[["exprs"]][rb_genes, ])
     }
@@ -536,6 +536,7 @@ load_cellranger_data <- function(pipestance_path=NULL, genome=NULL,
   v3d = dir.exists(v3p)
   
   matrix_dir = ifelse(v3d, v3p, v2p)
+  print(matrix_dir)
 
   if(!dir.exists(matrix_dir))
     stop("Could not find directory: ", matrix_dir)
@@ -572,7 +573,8 @@ load_cellranger_data <- function(pipestance_path=NULL, genome=NULL,
   if(v3d) {
     # We will only load GEX data for the relevant genome
     data_types = factor(feature.names$V3)
-    allowed = data_types == "Gene Expression"
+    print(data_types)
+    allowed = data_types %in% c("Gene Expression", "Antibody Capture")
     if(!is.null(genome)) {
       # If not multigenome, no prefix will be added and we won't filter out
       # the one genome
@@ -626,7 +628,7 @@ jobname <- arguments$sample_id
 print("Parameters loaded")
 
 # Read single_cell_object
-cds <- load_cellranger_data(inputfolder)
+cds <- load_cellranger_data(inputfolder, umi_cutoff = 0)
 
 if(class(cds) != "list") {
 

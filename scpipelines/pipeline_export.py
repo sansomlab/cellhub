@@ -155,7 +155,7 @@ def genClusterJobs():
 
 
 # ########################################################################### #
-# ########################## Run EmptyDrops ################################# #
+# ################################## Run #################################### #
 # ########################################################################### #
 
 @follows(checkInputs)
@@ -164,6 +164,7 @@ def exportFromAnndata(infile, outfile):
     ''' Run python script to extract data from anndata object '''
 
     outdir = os.path.dirname(outfile)
+
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -176,6 +177,7 @@ def exportFromAnndata(infile, outfile):
     options["infile_h5"] = infile_h5
     options["outdir"] = outdir
     options["dim_name"] = PARAMS["dim_name"]
+    
     if PARAMS["use_full_anndata"]:
         options["infile_full"] = samples.loc[sample_name, "anndata"]
     if PARAMS["seurat_data_only"]:
@@ -219,7 +221,7 @@ def createSeuratObject(infile, outfile):
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
     # set matrixdir if required
-    if not PARAMS["use_full_anndata"]:
+    if PARAMS["full_feat_space"]:
         matrixdir = samples.loc[sample_name, "matrixdir"]
         options["matrixdir"] = matrixdir
     if PARAMS["write_rds"]:
