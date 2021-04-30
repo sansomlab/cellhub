@@ -4,7 +4,7 @@ Tools for the alignment, quantification, database ingest, and retrieval of multi
 
 # General schema
 
-![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/docs/blob/cellranger/cellhub-devel-schema.png?raw=true)
+![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/blob/cellranger/docs/cellhub-devel-schema.png?raw=true)
 
 ## Documentation
 
