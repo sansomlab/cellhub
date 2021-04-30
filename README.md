@@ -1,7 +1,10 @@
 # cellhub
 
-Tools for the ingest, tracking and retrieval of single-cell data for downstream analysis
+Tools for the alignment, quantification, database ingest, and retrieval of multimodal single-cell sequencing data for downstream analysis.
 
+# General schema
+
+![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/docs/blob/cellranger/cellhub-devel-schema.png?raw=true)
 
 ## Documentation
 

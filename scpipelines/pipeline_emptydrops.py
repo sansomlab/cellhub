@@ -61,8 +61,7 @@ The pipeline is run from the cellranger count output (raw_feature_bc_matrix fold
 The pipeline expects a tsv file containing a column named path and a column named
 sample_id.
 
-'path' should contain the path to each cellranger outs folder and the pipeline
-will automatically add the path to raw_feature_bc_matrix.
+'raw path' should contain the path to each cellranger path to raw_feature_bc_matrix.
 'sample_id' is the desired name for each sample (output folder will be named like this).
 
 
@@ -133,10 +132,10 @@ def checkInputs(outfile):
                          'The file needs to be named "input_samples.tsv" ')
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
-    for p in samples["outs_path"]:
+    for p in samples["raw_path"]:
         print(p)
         if not os.path.exists(p):
-            raise ValueError('Input folder from cellranger run (outs/)'
+            raise ValueError('Input folder from cellranger run raw mtx matrices'
                              ' does not exist.')
     IOTools.touch_file(outfile)
 
@@ -174,8 +173,7 @@ def runEmptyDrops(infile, outfile):
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"outs_path"],
-                                            "raw_feature_bc_matrix")
+    options["cellrangerDir"] = samples.loc[sample_name ,"raw_path"]
 
     # # remove blacklisted cells if required
     # if 'blacklist' in samples.columns:
@@ -226,8 +224,7 @@ def calculateMeanReadsPerCell(infile, outfile):
 
     samples = pd.read_csv("input_samples.tsv", sep='\t')
     samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = os.path.join(samples.loc[sample_name ,"outs_path"],
-                                            "raw_feature_bc_matrix")
+    options["cellrangerDir"] = samples.loc[sample_name ,"raw_path"]
 
     log_file = outfile.replace("sentinel","log")
     job_threads = PARAMS["emptydrops_slots"]

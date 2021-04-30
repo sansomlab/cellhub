@@ -38,10 +38,6 @@ option_list <- list(
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
-if(TRUE) {
-	opt$matrixid <- paste0(opt$matrixid, "-count")
-}
-
 cat("Running with options:\n")
 print(opt)
 
@@ -49,10 +45,11 @@ print(opt)
 
 if(opt$outtype=="filtered")
 {
-	outs = "outs/filtered_feature_bc_matrix/"
+	outs = paste0("outs/per_sample_outs/", opt$matrixid, "/count/sample_feature_bc_matrix")
+
 } else if (opt$outtype=="raw")
 {
-	outs = "outs/raw_feature_bc_matrix/"
+	outs = paste0("outs/multi/count/raw_feature_bc_matrix/")
 } else 
 { 
 	stop("opt$outtype must be either filtered or raw") 

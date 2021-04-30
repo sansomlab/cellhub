@@ -94,7 +94,7 @@ def preprocess_metadata_sequencing(infile, outfile):
     [[ it contains the column sample_id ]]'''
 
     df = pd.read_table(infile)
-    df.columns = df.columns.str.replace(' ','_')
+    df.columns = df.columns.str.replace(' |\\-','_')
 
     global sm
     sm = ", sm.".join(df.columns)
@@ -135,11 +135,13 @@ def preprocess_metadata_mapping(infile, outfile):
     ss = []
 
     for sample_name in samples.index:
-        cellranger_summary = "-".join([sample_name, "count/outs/metrics_summary.csv"])
+        cellranger_summary = "/".join([sample_name, "outs/per_sample_outs", sample_name, "metrics_summary.csv"])
         map_sum = pd.read_csv(cellranger_summary, sep=',')
-        map_sum.columns = map_sum.columns.str.replace(' |\\(|\\)|\\:','_')
-        map_sum['sample_id'] = sample_name
-        ss.append(map_sum)
+        sub_map_sum = pd.DataFrame(map_sum["Metric Value"]).transpose()
+        sub_map_sum.columns = map_sum["Library or Sample"] + "_" +map_sum["Library Type"] + "_" + map_sum["Metric Name"]
+        sub_map_sum.columns = sub_map_sum.columns.str.replace(' |\\(|\\)|\\:','_')
+        sub_map_sum['sample_id'] = sample_name
+        ss.append(sub_map_sum)
     
     summary = pd.concat(ss)
     

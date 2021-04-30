@@ -176,7 +176,7 @@ def qc_reports_jobs():
     for sample_name in samples.index:
       out_sample = "_".join([sample_name, "qcmetrics_report.pdf"])
       out_sentinel = "/".join(["qcmetrics.dir/reports", out_sample])
-      infile = None
+      infile = samples.loc[sample_name]["filt_path"]
       yield(infile, out_sentinel)
 
 @follows(mkdir("qcmetrics.dir/reports"))
@@ -192,7 +192,7 @@ def build_qc_reports(infile, outfile):
     sample_name = sample_name.replace("_qcmetrics_report.pdf", "")
 
     # cellranger filtered output
-    cellranger_dir = "-".join([sample_name, "count/outs/filtered_feature_bc_matrix"])
+    # cellranger_dir = "-".join([sample_name, "count/outs/filtered_feature_bc_matrix"])
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -203,17 +203,13 @@ def build_qc_reports(infile, outfile):
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/build_qc_mapping_reports.R 
-                --tenxfolder=%(cellranger_dir)s 
+                --tenxfolder=%(infile)s 
                 --sample_id=%(sample_name)s
                 --specie="hg"
                 --outfolder="qcmetrics.dir/reports"
                 &> %(log_file)s
               '''
     P.run(statement)
-
-
-
-
 
 # ############################################# #
 # ######## Calculate doublet scores ########### #

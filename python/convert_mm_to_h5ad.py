@@ -38,7 +38,7 @@ args = parser.parse_args()
 
 L.info("Reading in the 10x market matrix")
 x = scanpy.read_10x_mtx(args.mtxdir10x,
-                        gex_only=False,
+                        gex_only=True,
                         cache=False)
 
 print(x)

@@ -16,7 +16,6 @@ copyright: KIR (2015-2021)
 # (A) cellranger mkfastq samples: "mkfastq"
 input: mkfastq
 
-
 # General Cellranger configuration options
 # ----------------------------------------
 
@@ -31,7 +30,7 @@ cellranger:
 # True | False
 run:
         gene-expression: true
-        feature: true
+        feature: false
         vdj: false 
 
 # Parameters for Cellranger multi config file
@@ -40,7 +39,8 @@ run:
 # Section describing configuration of Gene Expression libraries only, unless otherwise specified.
 gene-expression:
         # Path of folder containing 10x-compatible reference. Required for gene expression and Feature Barcode libraries.
-        reference: /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A
+        # e.g. mouse /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        reference: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
 
         # Path to a target panel CSV file or name of a 10x Genomics fixed gene panel (pathway, pan-cancer, immunology, neuroscience). Optional.
         target-panel:
@@ -48,7 +48,7 @@ gene-expression:
         # Disable targeted UMI filtering stage. Optional. Default: false.
         no-target-umi-filter: false
 
-         # Hard trim the input Read_1/Read_2 of gene expression libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
+        # Hard trim the input Read_1/Read_2 of gene expression libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
         r1-length:
         r2-length:
 
@@ -56,7 +56,7 @@ gene-expression:
         # You usually will not need to specify a chemistry. 
         # Options are: 'auto' for autodetection, 'threeprime' for Single Cell 3', 'fiveprime' for  Single Cell 5', 'SC3Pv1' or 'SC3Pv2' or 'SC3Pv3' for Single Cell 3' v1/v2/v3, 'SC5P-PE' or 'SC5P-R2' for Single Cell 5', paired-end/R2-only, 'SC-FB' for Single Cell Antibody-only 3' v2 or 5'. 
         # Default: auto.
-        chemistry: SC5P-PE
+        chemistry: auto
 
         # Expected number of recovered cells. Optional. 
         # Default: 3000.
@@ -79,8 +79,9 @@ gene-expression:
 
 # Section describing configuration of Feature Barcode libraries only, unless otherwise specified.        
 feature:
-        # Feature reference CSV file, declaring Feature Barcode constructs and associated barcodes. Required for Feature Barcode libraries, otherwise optional.       
-        reference: /gfs/work/lkoneva/01_test/analysis/pipeline_cellranger_6/test_pipeline_multi/features.TSC.csv
+        # Feature reference CSV file, declaring Feature Barcode constructs and associated barcodes. Required for Feature Barcode libraries, otherwise optional.
+        # e.g. /analysis/pipeline_cellranger_6/test_pipeline_multi/features.TSC.csv
+        reference:
 
         # Hard trim the input Read_1/Read_2 of Feature Barcode libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2.
         r1-length: 
@@ -89,7 +90,8 @@ feature:
 # Section describing configuration of VDJ Immune Profiling libraries only, unless otherwise specified.        
 vdj:   
         # Path of folder containing 10x-compatible VDJ reference. Required for Immune Profiling libraries.
-        reference: /gfs/mirror/genomes/10x/refdata-cellranger-vdj-GRCm38-alts-ensembl-5.0.0
+        # /genomes/10x/refdata-cellranger-vdj-GRCm38-alts-ensembl-5.0.0
+        reference:
 
         # If inner enrichment primers other than those provided in the 10x kits are used, they need to be specified here as a text file with one primer per line. Optional.
         inner-enrichment-primers:
@@ -99,64 +101,46 @@ vdj:
         r2-length:
 
 # Parameters (will be converted to table) describing the input sequencing libraries. Must contain the header and 1 or more rows. Required.
+# # if more than one seq run per sample/channel, included them in fasq_id and fastqs separated by comma.
 libraries:
 
-#    sample01:
-#        gene-expression:
-#            fastq_id: 838863_TY24
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY24
-#            feature_types: Gene Expression
-#            subsample_rate:
-#            lanes: 
-#        feature:
-#            fastq_id: 838863_TN01
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TN01
-#            feature_types: Antibody Capture
-#            subsample_rate:
-#            lanes:
-#        vdj:
-#            fastq_id: 838863_TY45
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY45
-#            feature_types: VDJ-B
-#            subsample_rate:
-#            lanes:
-
-#    sample02:
-#        gene-expression:
-#            fastq_id: 838863_TY33
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY33
-#            feature_types: Gene Expression
-#            subsample_rate:
-#            lanes:
-#        feature:
-#            fastq_id: 838863_TN02
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TN02
-#            feature_types: Antibody Capture
-#            subsample_rate:
-#            lanes:
-#        vdj:
-#            fastq_id: 838863_TY46
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY46
-#            feature_types: VDJ-B
-#            subsample_rate:
-#            lanes:
-#
-#    sample03:
-#        gene-expression:
-#            fastq_id: 838863_TY34
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY34
-#            feature_types: Gene Expression
-#            subsample_rate:
-#            lanes:
-#        feature:
-#            fastq_id: 838863_TN03
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TN03
-#            feature_types: Antibody Capture
-#            subsample_rate:
-#            lanes:
-#        vdj:
-#            fastq_id: 838863_TY47
-#            fastqs: /gfs/archive/sansom/kir_projects/arnon/FASTQ/838863_TY47
-#            feature_types: VDJ-B
-#            subsample_rate:
-#            lanes:
+    sample01:
+        name: GSM2560248
+        gene-expression:
+            fastq_id: bamtofastq
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.1/
+            feature_types: Gene Expression
+            subsample_rate:
+            lanes: 
+        feature:
+            fastq_id: 
+            fastqs: 
+            feature_types: Antibody Capture
+            subsample_rate:
+            lanes:
+        vdj:
+            fastq_id:
+            fastqs:
+            feature_types: VDJ-B
+            subsample_rate:
+            lanes:
+    sample02:
+        name: GSM2560249
+        gene-expression:
+            fastq_id: bamtofastq
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.1/
+            feature_types: Gene Expression
+            subsample_rate:
+            lanes: 
+        feature:
+            fastq_id: 
+            fastqs: 
+            feature_types: Antibody Capture
+            subsample_rate:
+            lanes:
+        vdj:
+            fastq_id:
+            fastqs:
+            feature_types: VDJ-B
+            subsample_rate:
+            lanes:
