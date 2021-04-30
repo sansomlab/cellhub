@@ -12,9 +12,12 @@
 #'
 #' This script can be compiled from the command line or run interactively in
 #' Rstudio.
+#' 
+#' This script will get the output of pipeline_cellranger_multi.py in the 
+#' folder ./data.dir to assembly a input_samples.tsv file containing the
+#' available sample sequencing metadata provided in the configuration *.yml
+#' file of the pipeline_cellranger_multi.py
 #' ---
-
-#+ setup, include=FALSE, echo=FALSE
 
 timestamp()
 message("Started")
@@ -46,22 +49,53 @@ print(params)
 
 samples <- unlist(strsplit(params$samplenames, "///"))
 
-outtab <- data.frame(
-		     do.call(rbind, lapply(samples, function(s) {
-					unlist(strsplit(s, "\\."))[1:3]
-				     })
-		             )
-		     )
+samples_df <- lapply(samples, function(s) {
+  
+  sample_id <- gsub(".csv", "", basename(s))
+  smeta <- readLines(paste0("data.dir/", s))
+  smeta <- smeta[sapply(smeta, function(x) x != "")]
+  sample_dat <- lapply(seq_along(smeta), function(i) {
+    
+    sample_meta <- smeta[i]
+    if(!grepl("\\[", sample_meta)) {
+      
+      infos <- unlist(strsplit(sample_meta, ","))
+      
+      if(length(infos) == 2) {
+        
+        df <- data.frame('i' = infos[2])
+        colnames(df) <- infos[1]
+        df
+        
+      } else if(length(infos) > 2 & i < length(smeta)) {
+        
+        cols <- infos
+        cont <- unlist(strsplit(smeta[i + 1], ','))
+        cont <- t(data.frame(cont))
+        colnames(cont) <- cols[1:ncol(cont)]
+        cont
+        
+      }
+    }
+  })
+  
+  sample_dat <- Filter(Negate(is.null), sample_dat)
+  sample_df <- do.call(cbind, sample_dat)
+  sample_df[["sample_id"]] <- sample_id
+  sample_df[["filt_path"]] <- paste0(getwd(), '/',
+                                     sample_id,
+                                     "/outs/per_sample_outs/",
+                                     sample_id,
+                                     "/count/sample_feature_bc_matrix")
+  sample_df[["raw_path"]] <- paste0(getwd(), '/',
+                                    sample_id,
+                                    "/outs//multi/count/raw_feature_bc_matrix")
+  sample_df
+  
+})
 
-colnames(outtab) <- c("sample_id", "ncells", "exp_batch")
+input_sample_meta <- do.call(rbind, samples_df)
 
-outtab[["filt_path"]] <- paste0(outtab[["sample_id"]], "-count/outs/filtered_feature_bc_matrix")
-outtab[["raw_path"]] <- paste0(outtab[["sample_id"]], "-count/outs/raw_feature_bc_matrix")
-outtab[["outs_path"]] <- paste0(outtab[["sample_id"]], "-count/outs")
-outtab[["channel_id"]] <- 1:nrow(outtab)
-outtab[["seq_batch"]] <- 1
-
-write.table(outtab, params$outfile, sep = "\t", quote = FALSE, row.names = FALSE)
+write.table(input_sample_meta, params$outfile, sep = "\t", quote = FALSE, row.names = FALSE)
 
 cat(paste0("Sample metadata ", params$outfile), "has been created.")
-

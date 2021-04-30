@@ -277,10 +277,13 @@ def makeConfig(outfile):
 
     for i in samples:
         
-        # Save subsections of parameters in config files specific for each sample (data.dir/sample01.csv data.dir/sample02.csv etc)     
-        filename = "data.dir/" + i + ".csv"
+        # Save subsections of parameters in config files specific for each sample 
+        # (data.dir/sample01.csv data.dir/sample02.csv etc)
         libsample_params = PARAMS["libraries_" + i]
+        sample_name = libsample_params["name"]
+        filename = "data.dir/" + i + "_"+ sample_name + ".csv"
         lib_df = pd.DataFrame(libsample_params)
+        lib_df.drop('name', axis=1, inplace=True)
 
         lib_columns = list(lib_df)
 
@@ -343,14 +346,10 @@ def makeConfig(outfile):
 # ############################ run cellranger multi ######################### #
 # ########################################################################### #
 
-@active_if(PARAMS["input"] == "mkfastq")
 @follows(makeConfig)
 @transform("data.dir/*.csv",
            regex(r".*/([^.]*).*.csv"),
-           r"\1-check/cellranger.multi.sentinel")
-
-#@files(None,
-#       "input.check.sentinel")
+           r"\1-cellranger.multi.sentinel")
 
 def cellrangerMulti(infile, outfile):
     '''
@@ -387,11 +386,38 @@ def cellrangerMulti(infile, outfile):
 
     IOTools.touch_file(outfile)
 
+@follows(makeConfig)
+@merge("data.dir/*.csv",
+        "input_samples.tsv")
+def makeSampleTable(sample_files, outfile):
+    # Build the path to the log file
+    log_file = outfile.replace(".tsv", ".log")
 
+    sample_names = []
+
+    for s in sample_files:
+        sample_name = os.path.basename(s)
+        sample_names.append(sample_name)
+
+    samples = '///'.join(sample_names)
+
+    job_threads = 2
+    job_memory = "2000M"
+
+    statement = '''Rscript %(code_dir)s/R/sampleName2metadatatable.R
+                    --outfile=%(outfile)s
+                    --samplefiles=%(samples)s
+                    &> %(log_file)s
+                '''
+    P.run(statement)
+
+    IOTools.touch_file(outfile + ".sentinel")
+
+#
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(makeConfig,cellrangerMulti)
+@follows(makeConfig,cellrangerMulti,makeSampleTable)
 def full():
     '''
     Run the full pipeline.
