@@ -17,7 +17,7 @@ IS_OSX = sys.platform == 'darwin'
 ########################################################################
 ########################################################################
 # collect version
-print(sys.path.insert(0, "scpipelines"))
+print(sys.path.insert(0, "pipelines"))
 import version
 
 version = version.__version__
@@ -32,7 +32,7 @@ if major < 3:
     raise SystemExit("""Requires Python 3 or later.""")
 
 cellhub_packages = find_packages()
-cellhub_package_dirs = {'scpipelines': 'scpipelines'}
+cellhub_package_dirs = {'pipelines': 'pipelines'}
 
 ##########################################################
 ##########################################################
@@ -69,7 +69,7 @@ setup(
     package_dir=cellhub_package_dirs,
     include_package_data=True,
     entry_points={
-        "console_scripts": ["cellhub = scpipelines.entry:main"]
+        "console_scripts": ["cellhub = pipelines.entry:main"]
     },
     # other options
     zip_safe=False,
