@@ -1,0 +1,197 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IFNb PBMC example &#8212; cellhub 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Pipeline ambient rna" href="pipelines/pipeline_ambient_rna.html" />
+    <link rel="prev" title="Workflow Overview" href="WorkflowOverview.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="ifnb-pbmc-example">
+<h1>IFNb PBMC example<a class="headerlink" href="#ifnb-pbmc-example" title="Permalink to this headline">¶</a></h1>
+<p>To get started create a suitable directory and cd into it.</p>
+<p>Copy the sample_metadata.tsv file from the examples/ifnb_pbmc/sample_metadata.tsv [TODO!]</p>
+</div>
+<div class="section" id="running-cellranger">
+<h1>1. Running cellranger<a class="headerlink" href="#running-cellranger" title="Permalink to this headline">¶</a></h1>
+<p>The first step is to configure and run pipeline_cellranger_multi:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_cellranger_multi</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_cellranger_multi</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-the-cell-qc-pipeline">
+<h1>2. Running the cell qc pipeline<a class="headerlink" href="#running-the-cell-qc-pipeline" title="Permalink to this headline">¶</a></h1>
+<p>Next we run the cell qc pipeline:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_cell_qc</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_cell_qc</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-emptydrops-optional">
+<h1>3. Running emptydrops (optional)<a class="headerlink" href="#running-emptydrops-optional" title="Permalink to this headline">¶</a></h1>
+<p>If desired we can run emptydrops:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_emptydrops</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_emptydrops</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="loading-the-cell-statistics-into-the-celldb">
+<h1>4. Loading the cell statistics into the celldb<a class="headerlink" href="#loading-the-cell-statistics-into-the-celldb" title="Permalink to this headline">¶</a></h1>
+<p>The cell QC statistics and metadata are next loaded into a local sqlite database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_celldb</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_celldb</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="fetching-cells-for-downstream-analysis">
+<h1>5. Fetching cells for downstream analysis<a class="headerlink" href="#fetching-cells-for-downstream-analysis" title="Permalink to this headline">¶</a></h1>
+<p>We use pipeline_fetch_cells.py to retrieve the cells we want for downstream analysis. (QC thresholds and e.g. desired samples are specified in the pipeline_fetch_cells.yml) file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_fetch_cells</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_fetch_cells</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="integration">
+<h1>6. Integration<a class="headerlink" href="#integration" title="Permalink to this headline">¶</a></h1>
+<p>pipeline_integration.py supports integration of the data with harmony, bbknn and scanorama:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_integration</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_integration</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="export-for-downstream-analysis">
+<h1>7. Export for downstream analysis<a class="headerlink" href="#export-for-downstream-analysis" title="Permalink to this headline">¶</a></h1>
+<p>Finally we can export the integrated anndata object to e.g. a Seurat object for downstream analysis:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_export</span><span class="o">.</span><span class="n">py</span> <span class="n">config</span>
+
+<span class="n">python</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">cellhub</span><span class="o">-</span><span class="n">devel</span><span class="o">/</span><span class="n">pipelines</span><span class="o">/</span><span class="n">pipeline_export</span><span class="o">.</span><span class="n">py</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">cellhub</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="CodingGuidelines.html">CodingGuidelines</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="WorkflowOverview.html">Workflow Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">IFNb PBMC example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#running-cellranger">1. Running cellranger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#running-the-cell-qc-pipeline">2. Running the cell qc pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#running-emptydrops-optional">3. Running emptydrops (optional)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#loading-the-cell-statistics-into-the-celldb">4. Loading the cell statistics into the celldb</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#fetching-cells-for-downstream-analysis">5. Fetching cells for downstream analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#integration">6. Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#export-for-downstream-analysis">7. Export for downstream analysis</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_velocity.html">Pipeline Velocity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_celldb.html">Pipeline celldb</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_integration.html">Pipeline Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_export.html">Pipeline Export</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="WorkflowOverview.html" title="previous chapter">Workflow Overview</a></li>
+      <li>Next: <a href="pipelines/pipeline_ambient_rna.html" title="next chapter">Pipeline ambient rna</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Sansom lab.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/IFNbExample.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -45,3 +45,7 @@ _test_commandline.yaml
 
 # Translations
 *.mo
+
+
+# Documentation build files
+docsrc/_*
