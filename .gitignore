@@ -67,3 +67,6 @@ docs/latex*
 docs/*.ist
 docs/*.cls
 docs/*.out
+docs/._index.html
+docs/.buildinfo
+docs/*.png
