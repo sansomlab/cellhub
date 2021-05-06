@@ -15,9 +15,9 @@ Writing pipelines
 
 The pipelines live in the "pipelines" folder/module.
 
-Auxillary task functions live in the pipelines/task folder/module.
+Auxillary task functions live in the "pipelines/task" folder/module.
 
-If you need to read or write files outside of ruffus tasks, for example in generator functions it is essential to test that the sscript has not been imported e.g.::
+If you need to read or write files outside of ruffus tasks, for example in generator functions it is essential to test that the script has not been imported e.g.::
 
   if __name__ == "__main__":
      # read file
@@ -60,4 +60,10 @@ To build the documentation cd to the docsrc folder and run::
 
   make github
 
-This will build the documentation and copy the html output to the "docs" folder which is presented at the github pages site.
+This will build the documentation and copy the latex output to the "docs" folder. You then need to cd to the "docs" folder and run::
+
+  make
+
+To compile the pdf.
+
+When the repo is made public we will switch to using html documentation on readthedocs. Unfortunately there is no straightforward solution for private html hosting.

@@ -49,3 +49,24 @@ _test_commandline.yaml
 
 # Documentation build files
 docsrc/_*
+
+docs/*.sty
+docs/*.bat
+docs/Makefile
+docs/*.tex
+docs/*.idx
+docs/*.ilg
+docs/*.aux
+docs/*latexmk
+docs/*.fls
+docs/*.ind
+docs/*.log
+docs/*.toc
+docs/*.xdy
+docs/latex*
+docs/*.ist
+docs/*.cls
+docs/*.out
+docs/._index.html
+docs/.buildinfo
+docs/*.png
