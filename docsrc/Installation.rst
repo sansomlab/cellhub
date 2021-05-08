@@ -1,4 +1,35 @@
 Installation
 ============
 
-TBD.
+
+Dependencies
+------------
+
+Core dependencies include:
+
+- Cellranger (from 10X Genomics) >= 6.0
+- Python3
+- R >= 4.0
+- (Latex)
+
+
+Installation
+------------
+
+1. Install the cgat-core pipeline system following the instructions here `https://github.com/cgat-developers/cgat-core/ <https://github.com/cgat-developers/cgat-core/>`_.
+
+2. Clone and install the cellhub-devel repository e.g.::
+
+     git clone https://github.com/COMBATOxford/cellhub-devel.git
+     cd cellhub-devel
+     python setup.py develop
+
+.. note:: Running "python setup.py develop" is necessary to allow pipelines to be launched via the "cellhub" command.
+
+3. In the same virtual or conda environment as cgat-core install the required python packages::
+
+     pip install -r cellhub-devel/python/requirements.txt
+
+4. To install the required R packages (the "BiocManager" and "devtools" libraries must be pre-installed)::
+
+     Rscript cellhub-devel/R/install.packages.R

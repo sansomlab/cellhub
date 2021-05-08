@@ -20,7 +20,7 @@ to what is suggested in the conos alignment method.
 Usage
 =====
 
-See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` on general
 information how to use CGAT pipelines.
 
 Configuration
@@ -66,12 +66,10 @@ For each sample and each combination of parameters the following is
 generated within a folder for each tool+parameter:
 
 * UMAP colored by the metadata column used for integration
-* output of kbet, Seurats integration methods and harmony's iLISI in
-folder assess.integration.dir
+* output of kbet, Seurats integration methods and harmony's iLISI in folder assess.integration.dir
 * folder summary.plots.dir with summaries of each metric above
 * folder summary.plots.dir also contains a csv file with the metrics
-* (optional) within each folder with different cluster resolutions, a folder with
-entropy plots and UMAP with cluster assignments
+* (optional) within each folder with different cluster resolutions, a folder with entropy plots and UMAP with cluster assignments
 
 
 """
@@ -92,7 +90,7 @@ import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import tasks.control as C
+import cellhub.tasks.control as C
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -125,7 +123,7 @@ if len(sys.argv) > 1:
 def checkInputs(outfile):
     '''Check that input_samples.tsv exists and the path given in the file
        exists. Then make one folder for each experiments called
-       *.exp.dir '''
+       \*.exp.dir '''
 
     if not os.path.exists(PARAMS["input_samples"]):
         raise ValueError('File specifying the input samples is not present.'
@@ -151,10 +149,6 @@ def genClusterJobs():
     '''
     Generate cluster jobs with all paramter combinations.
     '''
-
-    if __name__ != "__main__":
-        yield(None, None)
-        return
 
     samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
 
@@ -736,6 +730,13 @@ def full():
 
 
 # ------------------- < ***** end of pipeline **** > ------------------------ #
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    P.main(argv)
+
 
 if __name__ == "__main__":
     sys.exit(P.main(sys.argv))

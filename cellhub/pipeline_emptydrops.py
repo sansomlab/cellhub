@@ -13,7 +13,7 @@ This pipeline performs the following task:
 Usage
 =====
 
-See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` on general
 information how to use CGAT pipelines.
 
 Configuration
@@ -67,7 +67,7 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 import pandas as pd
 
-import tasks.control as C
+import cellhub.tasks.control as C
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -232,6 +232,12 @@ def full():
     Run the full pipeline.
     '''
     pass
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    P.main(argv)
 
 
 if __name__ == "__main__":

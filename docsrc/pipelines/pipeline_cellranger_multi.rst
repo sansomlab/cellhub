@@ -1,3 +1,3 @@
-.. automodule:: pipelines.pipeline_cellranger_multi
+.. automodule:: cellhub.pipeline_cellranger_multi
    :members:
    :show-inheritance:

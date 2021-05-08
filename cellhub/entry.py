@@ -22,7 +22,7 @@ import sys
 import re
 import glob
 import imp
-import pipelines
+# import pipelines
 
 
 def printListInColumns(l, ncolumns):
@@ -60,8 +60,9 @@ def main(argv=None):
     argv = sys.argv
 
     # paths to look for pipelines:
-    #print(pipelines.__file__)
-    path = os.path.abspath(os.path.dirname(pipelines.__file__))
+    # print(pipelines.__file__)
+    path = os.path.abspath(os.path.dirname(__file__))
+    #path = os.path.abspath(os.path.dirname(pipelines.__file__))
     relpath = os.path.abspath("../src")
 
     paths = [path, relpath]
@@ -84,6 +85,9 @@ def main(argv=None):
 
     # remove 'cellhub' from sys.argv
     del sys.argv[0]
+
+    # specify a named logfile
+    sys.argv.append("--pipeline-logfile=" + pipeline + ".log")
 
     (file, pathname, description) = imp.find_module(pipeline, paths)
 

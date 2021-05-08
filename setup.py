@@ -17,7 +17,7 @@ IS_OSX = sys.platform == 'darwin'
 ########################################################################
 ########################################################################
 # collect version
-print(sys.path.insert(0, "pipelines"))
+print(sys.path.insert(0, "cellhub"))
 import version
 
 version = version.__version__
@@ -32,7 +32,7 @@ if major < 3:
     raise SystemExit("""Requires Python 3 or later.""")
 
 cellhub_packages = find_packages()
-cellhub_package_dirs = {'pipelines': 'pipelines'}
+cellhub_package_dirs = {'cellhub': 'cellhub'}
 
 ##########################################################
 ##########################################################
@@ -54,14 +54,13 @@ setup(
     # package information
     name='cellhub',
     version=version,
-    description='cellhub : COMBATOxford single-cell pipelines',
-    author='COMBATOxford',
-    author_email='adam.cribbs@ndorms.ox.ac.uk',
+    description='cellhub: pipelines for warehousing single-cell data',
+    author='Sansom lab',
+    author_email='stephen.sansom@kennedy.ox.ac.uk',
     license="MIT",
     platforms=["any"],
     keywords="computational genomics",
-    long_description='''cellhub : single cell pipelines for processing
-    COMBAT single-cell data''',
+    long_description='''cellhub : pipelines for warehouse single-cell data''',
     classifiers=[_f for _f in classifiers.split("\n") if _f],
     url="",
     # package contents
@@ -69,7 +68,7 @@ setup(
     package_dir=cellhub_package_dirs,
     include_package_data=True,
     entry_points={
-        "console_scripts": ["cellhub = pipelines.entry:main"]
+        "console_scripts": ["cellhub = cellhub.entry:main"]
     },
     # other options
     zip_safe=False,

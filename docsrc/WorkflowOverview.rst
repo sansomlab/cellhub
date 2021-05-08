@@ -30,7 +30,7 @@ Per-cell statistics are computed in parallel for each channel library using :doc
 
 .. note:: all per-channel matrices containing computed cell statistics are required to contain "library_id" and "barcode_id" columns. The "barcode_id" column must have the structure "umi_code-1-library_id" (e.g. AAAAAAAAAA-1-GSM0001).
 
-.. note:: file names of the per-channel matrices are specificed as "library_id.tsv.gz" (matrices for different analyses such as e.g. qcmetrics and scrublet scores are written to separate folders).
+.. note:: file names of the per-channel matrices are specified as "library_id.tsv.gz" (matrices for different analyses such as e.g. qcmetrics and scrublet scores are written to separate folders).
 
 
 3. Cell demultiplexing [optional]
@@ -50,11 +50,11 @@ The library and sample metadata, per cell statistics (and demultiplex assignment
 5. Fetching of cells for downstream analysis
 --------------------------------------------
 
-Cells are fetched using :doc:`pipeline_fetch_cells.py<pipelines/pipeline_fetch_cells>`. The user specifies the cells that they wish to retrieve from the "final" table (see step 4) via an sql statement in the pipipeline_fetch_cells.yml configuration file. The pipeline will extract the cells and metadata from the original matrices and combine them into market matrices and anndata objects for downstream analyses.
+Cells are fetched using :doc:`pipeline_fetch_cells.py<pipelines/pipeline_fetch_cells>`. The user specifies the cells that they wish to retrieve from the "final" table (see step 4) via an sql statement in the pipeline_fetch_cells.yml configuration file. The pipeline will extract the cells and metadata from the original matrices and combine them into market matrices and anndata objects for downstream analyses.
 
 The pipeline supports fetching of velocity information.
 
-.. note:: The retrieved metadata will include a "sample_id" column. From this point onwards it is natural to think of the "sample_id" as the unit of interest. The "library_ids" remain in the metadata along with all the qc statistics to facilatate downstream investigation of batch effects and cell quality.
+.. note:: The retrieved metadata will include a "sample_id" column. From this point onwards it is natural to think of the "sample_id" as the unit of interest. The "library_ids" remain in the metadata along with all the qc statistics to facilitate downstream investigation of batch effects and cell quality.
 
 
 6. Integration
@@ -74,6 +74,6 @@ The integration pipeline outputs an anndata object suitable for analysis with sc
 Workflow Diagram
 ================
 
-The diagram is now a little out of date with respect to configuration of the pipeline inputs but provides a useful depication of the overall workflow.
+The diagram is now a little out of date with respect to configuration of the pipeline inputs but provides a useful depiction of the overall workflow.
 
 .. image:: images/cellhub-devel-schema.png

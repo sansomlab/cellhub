@@ -1,3 +1,3 @@
-.. automodule:: pipelines.pipeline_export
+.. automodule:: cellhub.pipeline_export
    :members:
    :show-inheritance:

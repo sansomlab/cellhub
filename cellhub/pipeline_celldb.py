@@ -13,7 +13,7 @@ steps into a SQLite database.
 Usage
 =====
 
-See :ref:`` and :ref:`` for general information on how to use cgat
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` for general information on how to use cgat
 pipelines.
 
 Configuration
@@ -67,9 +67,9 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
 import cgatcore.database as database
 
-import tasks.control as C
-import tasks.db as DB
-import tasks.celldb as celldb
+import cellhub.tasks.control as C
+import cellhub.tasks.db as DB
+import cellhub.tasks.celldb as celldb
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files

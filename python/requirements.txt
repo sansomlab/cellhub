@@ -1,0 +1,15 @@
+anndata
+argparse
+bbknn
+h5py
+harmonypy
+loompy
+matplotlib
+numpy
+pandas
+ruffus
+scanorama
+scanpy
+scipy
+scrublet
+pyyaml

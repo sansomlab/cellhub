@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# map the reads with cellranger
+cellhub cellranger_multi make full -v5 -p 200
+
+# compute the qc statistics
+cellhub cell_qc make full -v5 -p 200
+
+# run empty drops
+cellhub emptydrops make full -v5 -p 200
+
+# investigate ambient RNA
+cellhub ambient_rna make full -v5 -p 200
+
+# instantiate the celldb
+cellhub celldb make full -v5 -p 200
+
+# fetch cells for downstream analysis
+cellhub fetch_cells make full -v5 -p 200
+
+# integrate across condition
+cellhub integration make full -v5 -p 200
+
+# export for pipeline_scxl
+cellhub export make full -v5 -p 200

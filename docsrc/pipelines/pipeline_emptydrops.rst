@@ -1,3 +1,3 @@
-.. automodule:: pipelines.pipeline_emptydrops
+.. automodule:: cellhub.pipeline_emptydrops
    :members:
    :show-inheritance:
