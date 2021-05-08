@@ -3,11 +3,6 @@
 Pipeline Velocity
 =================
 
-:Author: Kathrin Jansen
-:Release: $Id$
-:Date: |today|
-:Tags: Python
-
 Overview
 ========
 
@@ -109,11 +104,11 @@ def checkInputs(outfile):
     '''Check that input_samples.tsv exists and the path given in the file
        is a valid directorys. '''
 
-    if not os.path.exists("input_samples.tsv"):
+    if not os.path.exists(PARAMS["input_samples"]):
         raise ValueError('File specifying the input samples is not present.'
                          'The file needs to be named "input_samples.txt" ')
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     for p in samples["path"]:
         print(p)
         if not os.path.exists(p):
@@ -124,7 +119,7 @@ def checkInputs(outfile):
 
 def genClusterJobs():
     ''' Generate cluster jobs for each sample '''
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     infile = None
     samples.set_index("sample_id", inplace=True)
 
@@ -146,7 +141,7 @@ def sortBam(infile, outfile):
     sample_name = outfile.split("/")[0][:-len(".sample.dir")]
 
     # get path from input_samples.tsv
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
     outfolder = samples.loc[sample_name, "path"]
 
@@ -198,7 +193,7 @@ def runVelocyto(infile, outfile):
                              "genes", "genes.gtf")
     outdir = os.path.dirname(outfile)
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
     bcfile = samples.loc[sample_name, 'barcodes']
     bam_folder = samples.loc[sample_name, 'path']

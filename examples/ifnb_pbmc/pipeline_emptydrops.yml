@@ -17,7 +17,7 @@ copyright: KIR (2015-2018)
 ## outs/ directory.
 
 input:
-  samples: cellranger.multi.dir/input_samples.tsv
+  libraries: cellranger.multi.dir/libraries.tsv
 
 
 # General options for emptydrops

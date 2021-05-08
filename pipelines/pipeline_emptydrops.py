@@ -3,11 +3,6 @@
 Pipeline Emptydrops
 ===================
 
-:Author: Kathrin Jansen
-:Release: $Id$
-:Date: |today|
-:Tags: Python
-
 Overview
 ========
 
@@ -80,11 +75,9 @@ P.control.write_config_files = C.write_config_files
 
 # -------------------------- < parse parameters > --------------------------- #
 
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_emptydrops.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_emptydrops.yml",
-     "pipeline_emptydrops.yml"])
+# load options from the yml file
+parameter_file = C.get_parameter_file(__file__, __name__)
+PARAMS = P.get_parameters(parameter_file)
 
 # set the location of the tenx code directory
 PARAMS["code_dir"] = Path(__file__).parents[1]
@@ -99,21 +92,21 @@ if len(sys.argv) > 1:
 
 
 # ########################################################################### #
-# ######## Check input samples file and that the input exists ############### #
+# ######## Check input libraries file and that the input exists ############### #
 # ########################################################################### #
 
-
-@originate("input.check.sentinel")
+@follows(mkdir("emptydrops.dir"))
+@originate("emptydrops.dir/input.check.sentinel")
 def checkInputs(outfile):
-    '''Check that input_samples.tsv exists and the path given in the file
+    '''Check that input_libraries.tsv exists and the path given in the file
        is a valid directorys. '''
 
-    if not os.path.exists("input_samples.tsv"):
-        raise ValueError('File specifying the input samples is not present.'
-                         'The file needs to be named "input_samples.tsv" ')
+    if not os.path.exists(PARAMS["input_libraries"]):
+        raise ValueError('File specifying the input libraries is not present.'
+                         'The file needs to be named PARAMS["input_libraries"] ')
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    for p in samples["raw_path"]:
+    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
+    for p in libraries["raw_path"]:
         print(p)
         if not os.path.exists(p):
             raise ValueError('Input folder from cellranger run raw mtx matrices'
@@ -122,14 +115,14 @@ def checkInputs(outfile):
 
 
 def genClusterJobs():
-    ''' Generate cluster jobs for each sample '''
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    ''' Generate cluster jobs for each library '''
+    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
     infile = None
-    samples.set_index("sample_id", inplace=True)
+    libraries.set_index("library_id", inplace=True)
 
-    for sample_name in samples.index:
-        sample_dir = sample_name + ".sample.dir"
-        out_sentinel = os.path.join(sample_dir, "emptyDrops.sentinel")
+    for library_name in libraries.index:
+        library_dir = library_name + ".library.dir"
+        out_sentinel = os.path.join("emptydrops.dir", library_dir, "emptyDrops.sentinel")
         yield(infile, out_sentinel)
 
 
@@ -140,7 +133,7 @@ def genClusterJobs():
 @follows(checkInputs)
 @files(genClusterJobs)
 def runEmptyDrops(infile, outfile):
-    ''' Run Rscript to run EmptyDrops on each sample '''
+    ''' Run Rscript to run EmptyDrops on each library '''
 
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
@@ -149,16 +142,17 @@ def runEmptyDrops(infile, outfile):
     options = {}
     options["FDR"] = float(PARAMS["emptydrops_FDR"])
 
-    sample_name = outfile.split("/")[0][:-len(".sample.dir")]
+    library_name = outfile.split("/")[1][:-len(".library.dir")]
     options["outdir"] = outdir
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = samples.loc[sample_name ,"raw_path"]
+    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
+    libraries.set_index("library_id", inplace=True)
+
+    options["cellrangerDir"] = libraries.loc[library_name ,"raw_path"]
 
     # # remove blacklisted cells if required
-    # if 'blacklist' in samples.columns:
-    #     options["blacklist"] = samples.loc[sample_name, "blacklist"]
+    # if 'blacklist' in libraries.columns:
+    #     options["blacklist"] = libraries.loc[library_name, "blacklist"]
 
     log_file = outfile.replace("sentinel","log")
     job_threads = PARAMS["emptydrops_slots"]
@@ -179,16 +173,18 @@ def runEmptyDrops(infile, outfile):
 
     IOTools.touch_file(outfile)
 
-def genClusterJobsMeans():
-    ''' Generate cluster jobs for each sample '''
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    infile = None
-    samples.set_index("sample_id", inplace=True)
 
-    for sample_name in samples.index:
-        sample_dir = sample_name + ".sample.dir"
-        out_sentinel = os.path.join(sample_dir, "meanReads.sentinel")
+def genClusterJobsMeans():
+    ''' Generate cluster jobs for each library '''
+    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
+    infile = None
+    libraries.set_index("library_id", inplace=True)
+
+    for library_name in libraries.index:
+        library_dir = library_name + ".library.dir"
+        out_sentinel = os.path.join("emptydrops.dir", library_dir, "meanReads.sentinel")
         yield(infile, out_sentinel)
+
 
 @follows(checkInputs)
 @files(genClusterJobsMeans)
@@ -200,12 +196,12 @@ def calculateMeanReadsPerCell(infile, outfile):
         os.makedirs(outdir)
 
     options = {}
-    sample_name = outfile.split("/")[0][:-len(".sample.dir")]
+    library_name = outfile.split("/")[1][:-len(".library.dir")]
     options["outdir"] = outdir
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
-    samples.set_index("sample_id", inplace=True)
-    options["cellrangerDir"] = samples.loc[sample_name ,"raw_path"]
+    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
+    libraries.set_index("library_id", inplace=True)
+    options["cellrangerDir"] = libraries.loc[library_name ,"raw_path"]
 
     log_file = outfile.replace("sentinel","log")
     job_threads = PARAMS["emptydrops_slots"]

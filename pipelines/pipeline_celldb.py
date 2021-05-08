@@ -59,25 +59,24 @@ import os
 import re
 import sqlite3
 import pandas as pd
+import numpy as np
+import glob
 
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
 import cgatcore.database as database
 
-
 import tasks.control as C
+import tasks.db as DB
+import tasks.celldb as celldb
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-# Load options from the config file
-
-PARAMS = P.get_parameters(
-    ["%s/pipeline_celldb.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_celldb.yml",
-     "pipeline_celldb.yml"])
-
+# load options from the yml file
+parameter_file = C.get_parameter_file(__file__,__name__)
+PARAMS = P.get_parameters(parameter_file)
 
 def connect():
     '''connect to database.
@@ -89,242 +88,114 @@ def connect():
 
     return dbh
 
+@follows(mkdir("celldb.dir"))
+@originate("celldb.dir/sample.load")
+def load_samples(outfile):
+    ''' load the sample metadata table '''
 
-@transform(PARAMS['data_sample_info'],
-           suffix(".tsv"),
-           r"\1_csvdb.tsv")
-def preprocess_metadata_sequencing(infile, outfile):
-    '''Process metadata from the pipeline_cellranger.py output
-    [[ it contains the column sample_id ]]'''
+    x = PARAMS["table_sample"]
 
-    df = pd.read_table(infile)
-    df.columns = df.columns.str.replace(' |\\-','_')
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            index = x["index"],
+            outfile=outfile)
 
-    global sm
-    sm = ", sm.".join(df.columns)
-    sm = "sm."+sm
 
-    df.to_csv(outfile, sep='\t', index=False)
+@follows(mkdir("celldb.dir"))
+@originate("celldb.dir/libraries.load")
+def load_libraries(outfile):
+    ''' load the library metadata table '''
 
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(preprocess_metadata_sequencing,
-           suffix(".tsv"),
-           r"\1.load")
+    x = PARAMS["table_library"]
 
-def load_metadata_sequencing(infile, outfile):
-    '''load metadata of sequencing data into database '''
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            index = x["index"],
+            outfile=outfile)
 
-    statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db
-                          --retry
-                          --database-url=sqlite:///./csvdb
-                          -i "sample_id"
-                          --table=metadata_sequencing
-                 > %(outfile)s
-              '''
-
-    P.run(statement)
-
-@transform(PARAMS['data_sample_info'],
-           suffix(".tsv"),
-           r"\1_cellranger_qc.tsv")
-
-def preprocess_metadata_mapping(infile, outfile):
-    '''Process metadata from the pipeline_cellranger.py output
-    [[ it contains the column sample_id ]]'''
-
-    samples = pd.read_csv(infile, sep='\t')
-    samples.set_index("sample_id", inplace=True)
-
-    ss = []
-
-    for sample_name in samples.index:
-        cellranger_summary = "/".join([sample_name, "outs/per_sample_outs", sample_name, "metrics_summary.csv"])
-        map_sum = pd.read_csv(cellranger_summary, sep=',')
-        sub_map_sum = pd.DataFrame(map_sum["Metric Value"]).transpose()
-        sub_map_sum.columns = map_sum["Library or Sample"] + "_" +map_sum["Library Type"] + "_" + map_sum["Metric Name"]
-        sub_map_sum.columns = sub_map_sum.columns.str.replace(' |\\(|\\)|\\:','_')
-        sub_map_sum['sample_id'] = sample_name
-        ss.append(sub_map_sum)
-
-    summary = pd.concat(ss)
-
-    global mm
-    mm = ", mm.".join(summary.columns)
-    mm = "mm."+mm
-
-    summary.to_csv(outfile, sep = '\t', index=False)
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(preprocess_metadata_mapping,
-           suffix(".tsv"),
-           r"\1.load")
-
-def load_metadata_mapping(infile, outfile):
+@originate("celldb.dir/cellranger_stats.load")
+def load_cellranger_stats(outfile):
     '''load metadata of mapping data into database '''
 
-    statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db
-                          --retry
-                          --database-url=sqlite:///./csvdb
-                          -i "sample_id"
-                          --table=metadata_mapping
-                 > %(outfile)s
-              '''
+    table_file = outfile.replace(".load", ".tsv")
 
-    P.run(statement)
+    celldb.preprocess_cellranger_stats(
+        PARAMS["table_library"]["path"],
+        table_file)
 
-
-@follows(load_metadata_sequencing)
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@merge(os.path.join(PARAMS['data_scrublet'],"*_scrublet.tsv.gz"),
-           "scrublet_merge.tsv")
-def process_merged_scrublet(infiles, outfile):
-    '''Process concatenate data together from scrublet'''
-
-    li = []
-
-    for fname in infiles:
-        df = pd.read_table(fname, index_col=None)
-        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
-        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
-        li.append(df)
-
-    frame = pd.concat(li, axis=0, ignore_index=True)
-
-    global scrub
-    scrub = ", scrub.".join(frame.columns)
-    scrub="scrub."+scrub
-
-    frame.to_csv(outfile, sep='\t', index=False)
+    DB.load("cellranger_stats",
+            table_file,
+            db_url=PARAMS["database_url"],
+            index = "library_id",
+            outfile=outfile)
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(process_merged_scrublet,
-           suffix(".tsv"),
-           ".load")
-def load_merged_scrublet(infile, outfile):
-    '''load scrublet output data into database '''
+@originate("celldb.dir/gex_qcmetrics.load")
+def load_gex_qcmetrics(outfile):
+    '''load the gex qcmetrics into the database '''
 
-    statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db
-                          --retry
-                          --database-url=sqlite:///./csvdb
-                           -i "barcode_id"
-                          --table=gex_scrublet
-                 > %(outfile)s
-              '''
+    x = PARAMS["table_gex_qcmetrics"]
 
-    P.run(statement)
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
 
 
-@merge(os.path.join(PARAMS['data_qcmetrics'],"*_qcmetrics.tsv.gz"),
-           "qcmetrics_merge.tsv")
-def process_merged_qcmetrics(infiles, outfile):
-    '''Process concatenate data together from qcmetrics'''
-
-    li = []
-
-    for fname in infiles:
-        df = pd.read_table(fname, index_col=None)
-        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
-        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
-        df.rename(columns={'sample':'sample_id'}, inplace = True)
-        li.append(df)
-
-    frame = pd.concat(li, axis=0, ignore_index=True)
-
-    global qc
-    qc = ", qc.".join(frame.columns)
-    qc="qc."+qc
-
-    frame.to_csv(outfile, sep='\t', index=False)
-
-
-@follows(load_merged_scrublet)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@transform(process_merged_qcmetrics,
-           suffix(".tsv"),
-           ".load")
+@originate("celldb.dir/scrublet.load")
+def load_gex_scrublet(outfile):
+    '''load the scrublet scores into database '''
 
-def load_merged_qcmetrics(infile, outfile):
-    '''load qcmetrics output data into database '''
+    x = PARAMS["table_gex_scrublet"]
 
-    statement='''cat %(infile)s
-                 | python -m cgatcore.csv2db
-                          --retry
-                          --database-url=sqlite:///./csvdb
-                          -i "barcode_id"
-                          -i "sample_id"
-                          --table=gex_qcmetrics
-                 > %(outfile)s
-              '''
-
-    P.run(statement)
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
 
 
-#@merge(os.path.join(PARAMS['data_adt'],"*/*_qcmetrics.tsv.gz"),
-#           "adtmetrics_merge.tsv")
-#def process_merged_adt(infiles, outfile):
-#    '''Process concatenate data together from qcmetrics'''
-#
-#    li = []
-#
-#    for fname in infiles:
-#        df = pd.read_table(fname, index_col=None)
-#        #df['barcode_id'] = df["BARCODE"].str.replace("-1", "")
-#        df['barcode_id'] = df['BARCODE'] + "-" + df['sample']
-#        li.append(df)
-#
-#    frame = pd.concat(li, axis=0, ignore_index=True)
-#
-#    frame.to_csv(outfile, sep='\t', index=False)
-
-
-#@follows(load_merged_demux)
-#@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-#@transform(process_merged_adt,
-#           suffix(".tsv"),
-#           ".load")
-#def load_merged_adt(infile, outfile):
-#    '''load adt metrics output data into database '''
-#
-#    statement='''cat %(infile)s
-#                 | python -m cgatcore.csv2db
-#                          --retry
-#                          --database-url=sqlite:///./csvdb
-#                          -i "barcode_id"
-#                          -i "sample"
-#                          --table=adt_metrics
-#                 > %(outfile)s
-#              '''
-
-#    P.run(statement)
-
-
-@follows(load_merged_qcmetrics, load_merged_scrublet, load_metadata_sequencing, load_metadata_mapping)
+@follows(load_samples,
+         load_libraries,
+         load_gex_qcmetrics,
+         load_gex_scrublet,
+         load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("final.load")
+@originate("celldb.dir/final.sentinel")
 def final(outfile):
     ''' '''
 
     dbh = connect()
 
-    print(sm)
+    # the mapping metadata isn't needed here.
+    # LEFT JOIN cellranger_statistics mm \
+
+    s = PARAMS["table_sample"]["name"]
+    l = PARAMS["table_library"]["name"]
+    gex_qc = PARAMS["table_gex_qcmetrics"]["name"]
+    gex_scrub = PARAMS["table_gex_scrublet"]["name"]
+    lib = PARAMS["table_library"]["name"]
 
     statement = "CREATE VIEW final AS \
-                    SELECT " + \
-                    sm + "," + \
-                    qc + "," + \
-                    scrub + "," + \
-                    mm + \
-                    " FROM metadata_sequencing sm \
-                    LEFT JOIN metadata_mapping mm \
-                    ON sm.sample_id = mm.sample_id \
-                    LEFT JOIN gex_qcmetrics qc \
-                    ON mm.sample_id = qc.sample_id \
-                    LEFT JOIN gex_scrublet scrub \
-                    ON qc.barcode_id = scrub.barcode_id"
+                 SELECT s.*, l.*, qc.*, scrub.* \
+                 FROM %(l)s l \
+                 LEFT JOIN %(gex_qc)s qc \
+                 ON qc.library_id = l.library_id \
+                 LEFT JOIN %(s)s s \
+                 on qc.library_id = s.library_id \
+                 LEFT JOIN %(gex_scrub)s scrub \
+                 ON qc.barcode_id = scrub.barcode_id" % locals()
 
     cc = database.executewait(dbh, statement, retries=5)
 

@@ -24,8 +24,8 @@ parser.add_argument("--cellranger_dir", default="", type=str,
                     help="Matrix of counts")
 parser.add_argument("--keep_barcodes_file", default=None, type=str,
                     help="")
-parser.add_argument("--sample", default="sample", type=str,
-                    help="sample or channel id")
+parser.add_argument("--library_id", default="library_id", type=str,
+                    help="library or channel id")
 parser.add_argument("--expected_doublet_rate", default=0.06, type=float,
                     help="the expected fraction of transcriptomes that are doublets, typically 0.05-0.1. Results are not particularly sensitive to this parameter.")
 parser.add_argument("--min_counts", default=2, type=int,
@@ -82,9 +82,9 @@ scrub = scr.Scrublet(counts_matrix, expected_doublet_rate=args.expected_doublet_
 
 # Run scrublet
 L.info('Computing doublet scores and predicting doublets')
-doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=args.min_counts, 
-                                                          min_cells=args.min_cells, 
-                                                          min_gene_variability_pctl=args.min_gene_variability_pctl, 
+doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=args.min_counts,
+                                                          min_cells=args.min_cells,
+                                                          min_gene_variability_pctl=args.min_gene_variability_pctl,
                                                           n_prin_comps=args.n_prin_comps)
 
 # Check whether a threshold for identifying doublets has been automatically identififed
@@ -94,38 +94,40 @@ if not hasattr(scrub, 'threshold_'):
   L.info('Values in scrub_predicted_doublets column in output will be set to NA')
   # Calling doublets
   scrub.call_doublets(threshold=1)
-  # Creating output file with results  
-  out = pd.DataFrame({'BARCODE': barcodes, 
-                    'sample': [args.sample] * len(barcodes),
-                    'scrub_doublet_scores' : doublet_scores, 
+  # Creating output file with results
+  out = pd.DataFrame({'BARCODE': barcodes,
+                    'library_id': [args.library_id] * len(barcodes),
+                    'scrub_doublet_scores' : doublet_scores,
                     'scrub_predicted_doublets' : "NA"})
-else: 
+else:
   L.info('Calculated doublet score threshold: {}'.format(scrub.threshold_))
-  # Creating output file with results  
-  out = pd.DataFrame({'BARCODE': barcodes, 
-                    'sample': [args.sample] * len(barcodes),
-                    'scrub_doublet_scores' : doublet_scores, 
-                    'scrub_predicted_doublets' : predicted_doublets})
+  # Creating output file with results
+  out = pd.DataFrame({'BARCODE': barcodes,
+                      'barcode_id': [ x + "-" + args.library_id
+                                      for x in barcodes],
+                      'library_id': [args.library_id] * len(barcodes),
+                      'scrub_doublet_scores' : doublet_scores,
+                      'scrub_predicted_doublets' : predicted_doublets})
 
 L.info('Final output shape: {} rows, {} columns'.format(out.shape[0], out.shape[1]))
 
-# Write output 
+# Write output
 L.info('Writing file with doublet scores and predicted doublets')
-out.to_csv(os.path.join(args.outdir, 
-                        "_".join([args.sample, "scrublet.tsv.gz"])),
+out.to_csv(os.path.join(args.outdir,
+                        args.library_id + ".tsv.gz"),
                         sep="\t", index = False)
 
 # Save histogram
 scrub.plot_histogram()
-plt.savefig(os.path.join(args.outdir, 
-                         "_".join([args.sample,"doublet_score_histogram.png"])))
+plt.savefig(os.path.join(args.outdir,
+                         "_".join([args.library_id,"doublet_score_histogram.png"])))
 
 # Run and plot UMAP
 L.info('Running UMAP')
 scrub.set_embedding('UMAP', scr.get_umap(scrub.manifold_obs_, 10, min_dist=0.3))
 L.info('Plotting UMAP')
 scrub.plot_embedding('UMAP', order_points=True)
-plt.savefig(os.path.join(args.outdir, 
-                         "_".join([args.sample, "doublet_score_umap.png"])))
+plt.savefig(os.path.join(args.outdir,
+                         "_".join([args.library_id, "doublet_score_umap.png"])))
 
 L.info("Complete")

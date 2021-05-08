@@ -1,12 +1,29 @@
-"""
-===============
-Pipeline Export
-===============
+##############################################################################
+#
+#   Kennedy Institute of Rheumatology
+#
+#   $Id$
+#
+#   Copyright (C) 2020 Stephen Sansom
+#
+#   This program is free software; you can redistribute it and/or
+#   modify it under the terms of the GNU General Public License
+#   as published by the Free Software Foundation; either version 2
+#   of the License, or (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+###############################################################################
 
-:Author: Kathrin Jansen
-:Release: $Id$
-:Date: |today|
-:Tags: Python
+"""===========================
+Pipeline Export
+===========================
 
 Overview
 ========
@@ -22,7 +39,7 @@ See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
 information how to use CGAT pipelines.
 
 Configuration
--------------
+------------
 
 The pipeline requires a configured :file:`pipeline.yml` file.
 
@@ -78,19 +95,23 @@ import pandas as pd
 
 import tasks.control as C
 
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
 # -------------------------- < parse parameters > --------------------------- #
 
+# load options from the yml file
+parameter_file = C.get_parameter_file(__file__,__name__)
+PARAMS = P.get_parameters(parameter_file)
 
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_export.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_export.yml",
-     "pipeline_export.yml"])
-
-PARAMS["code_dir"] = Path(__file__).parents[1]
+# Set the location of the cellhub code directory
+if "code_dir" not in PARAMS.keys():
+    PARAMS["code_dir"] = Path(__file__).parents[1]
+else:
+    if PARAMS["code_dir"] != Path(__file__).parents[1]:
+        raise ValueError("Could not set the location of "
+                         "the pipeline code directory")
 
 
 # ----------------------- < pipeline configuration > ------------------------ #
@@ -111,11 +132,11 @@ def checkInputs(outfile):
     '''Check that input_samples.tsv exists and the path given in the file
        is a valid directorys. '''
 
-    if not os.path.exists("input_samples.tsv"):
+    if not os.path.exists(PARAMS["input_samples"]):
         raise ValueError('File specifying the input samples is not present.'
-                         'The file needs to be named "input_samples.tsv" ')
+                         'The file needs to be named PARAMS["input_samples"] ')
 
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     for p in samples["path"]:
         if not os.path.exists(p):
             raise ValueError('Input file does not exist.')
@@ -124,18 +145,18 @@ def checkInputs(outfile):
 
 def genClusterJobs():
     ''' Generate cluster jobs for each sample '''
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     infile = None
     samples.set_index("sample_id", inplace=True)
 
     for sample_name in samples.index:
-        sample_dir = sample_name + ".exp.dir"
+        sample_dir = os.path.join("export.dir", sample_name + ".exp.dir")
         out_sentinel = os.path.join(sample_dir, "export_anndata.sentinel")
         yield(infile, out_sentinel)
 
 
 # ########################################################################### #
-# ################################## Run #################################### #
+# ########################## Run EmptyDrops ################################# #
 # ########################################################################### #
 
 @follows(checkInputs)
@@ -144,20 +165,18 @@ def exportFromAnndata(infile, outfile):
     ''' Run python script to extract data from anndata object '''
 
     outdir = os.path.dirname(outfile)
-
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
     options = {}
 
-    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    sample_name = outfile.split("/")[1][:-len(".exp.dir")]
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
     infile_h5 = samples.loc[sample_name, "path"]
     options["infile_h5"] = infile_h5
     options["outdir"] = outdir
     options["dim_name"] = PARAMS["dim_name"]
-
     if PARAMS["use_full_anndata"]:
         options["infile_full"] = samples.loc[sample_name, "anndata"]
     if PARAMS["seurat_data_only"]:
@@ -187,8 +206,8 @@ def exportFromAnndata(infile, outfile):
 
 
 @transform(exportFromAnndata,
-           regex(r"(.*).exp.dir/export_anndata.sentinel"),
-           r"\1.exp.dir/create_seurat_object.sentinel")
+           regex(r"export.dir/(.*).exp.dir/export_anndata.sentinel"),
+           r"export.dir/\1.exp.dir/create_seurat_object.sentinel")
 def createSeuratObject(infile, outfile):
     ''' Run R script to create seurat object '''
 
@@ -197,11 +216,11 @@ def createSeuratObject(infile, outfile):
         os.makedirs(outdir)
 
     options = {}
-    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("input_samples.tsv", sep='\t')
+    sample_name = outfile.split("/")[1][:-len(".exp.dir")]
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
     # set matrixdir if required
-    if PARAMS["full_feat_space"]:
+    if not PARAMS["use_full_anndata"]:
         matrixdir = samples.loc[sample_name, "matrixdir"]
         options["matrixdir"] = matrixdir
     if PARAMS["write_rds"]:

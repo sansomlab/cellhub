@@ -13,8 +13,8 @@ projectname: scRNAseq cell QC
 author: COMBATOxford
 
 input:
-  # A tsv file containing the details of the input samples
-  samples: cellranger.multi.dir/input_samples.tsv
+  # A tsv file containing the details of the channel libraries
+  libraries: cellranger.multi.dir/libraries.tsv
 
 # compute resource options
 # ------------------------

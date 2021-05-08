@@ -1,6 +1,6 @@
 #' ---
 #' title: "Ambient RNA summary"
-#' output: 
+#' output:
 #'  html_document:
 #'   self_contained: false
 #'   toc: true
@@ -61,21 +61,21 @@ params <- parse_args(OptionParser(option_list=option_list))
 default_options <- list(
   # Path to the ambient RNA summary output file
   "outdir" = ".",
-  
-  # Comma separated paths to the directories containing the samples'
+
+  # Comma separated paths to the directories containing the libraries'
   # top genes data frame (top_ambient_genes.txt.gz), output of the ambient_rna.R
-  "sample_indir" = "",
-  
-  # Comma separated names of the samples analysed, 
-  # in the same order as the sample_indir
-  "sample_id" = "",
-  
-  # File with sample metadata
-  "sample_table" = ""
+  "library_indir" = "",
+
+  # Comma separated names of the libraries analysed,
+  # in the same order as the lib_indir
+  "library_id" = "",
+
+  # File with lib metadata
+  "library_table" = ""
 )
 
 
-# here the yaml can also be read in from the default location in code 
+# here the yaml can also be read in from the default location in code
 # directory
 options <- read_yaml(params$task_yml)
 
@@ -101,28 +101,28 @@ flog.info("\n")
 ## ###################### (i) Read in data ################################# ##
 ## ######################################################################### ##
 
-flog.info("Reading data of top ambient genes in samples")
-indir <- str_trim(unlist(str_split(opt$sample_indir, pattern = ",")), 
+flog.info("Reading data of top ambient genes in libraries")
+indir <- str_trim(unlist(str_split(opt$library_indir, pattern = ",")),
                   side="both")
-samples <- str_trim(unlist(str_split(opt$sample_id, pattern = ",")), 
+libraries <- str_trim(unlist(str_split(opt$library_id, pattern = ",")),
                     side="both")
-names(indir) <- samples
+names(indir) <- libraries
 df <- tibble()
 keep <- c()
 for (n in names(indir)){
-  tmp <- as_tibble(read.table(gzfile(file.path(indir[n], "ambient_genes.txt.gz")), 
+  tmp <- as_tibble(read.table(gzfile(file.path(indir[n], "ambient_genes.txt.gz")),
                               header = TRUE, stringsAsFactors = FALSE))
-  tmp$sample <- n
+  tmp$lib <- n
   df <- rbind(df, tmp)
-  keep <- unique(c(keep,tmp %>% filter(top==TRUE) %>% 
+  keep <- unique(c(keep,tmp %>% filter(top==TRUE) %>%
                      pull(ensembl) %>% as.character()))
 }
 df <- df %>% filter(ensembl %in% keep)
 
 #  Build matrix
 flog.info("Creating ambient profile matrix")
-df.wide <- df %>% dplyr::select(count_percentage, Symbol, sample) %>% 
-  pivot_wider(.,  names_from = sample,values_from = count_percentage) 
+df.wide <- df %>% dplyr::select(count_percentage, Symbol, lib) %>%
+  pivot_wider(.,  names_from = lib, values_from = count_percentage)
 rownames.df.wide <- as.character(df.wide$Symbol)
 df.wide$Symbol <- NULL
 m <- as.matrix(df.wide)

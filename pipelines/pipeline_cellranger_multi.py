@@ -71,15 +71,16 @@ from tasks import templates
 from tasks import resources
 from tasks import TASK
 
+import tasks.control as C
 
+# Override function to collect config files
+P.control.write_config_files = C.write_config_files
 
 # -------------------------- < parse parameters > --------------------------- #
 
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline.yml" % os.path.splitext(__file__)[0],
-     "../pipeline.yml",
-     "pipeline.yml"])
+# load options from the yml file
+parameter_file = C.get_parameter_file(__file__, __name__)
+PARAMS = P.get_parameters(parameter_file)
 
 # set the location of the pipeline code directory
 if "code_dir" not in PARAMS.keys():
@@ -112,7 +113,6 @@ def taskSummary(infile, outfile):
             run.append(str(v))
 
     tab = pd.DataFrame(list(zip(tasks,run)),columns=["task","run"])
-    print(tab)
 
     tab.to_latex(buf=outfile, index=False)
 
@@ -123,9 +123,8 @@ def taskSummary(infile, outfile):
 # ########################################################################### #
 
 @active_if(PARAMS["input"] == "mkfastq")
-@follows(mkdir("data.dir"))
-@originate("config.sentinel")
-
+@follows(mkdir("cellranger.multi.dir"))
+@originate("cellranger.multi.dir/config.sentinel")
 def makeConfig(outfile):
     '''Read parameters from yml file for the whole experiment and save config files as csv.'''
 
@@ -211,17 +210,20 @@ def makeConfig(outfile):
 
     # read parameters for libraries:
     lib_params = PARAMS["libraries"]
-    samples = list(lib_params.keys())
+    library_ids = list(lib_params.keys())
 
-    for i in samples:
+    for library_id in library_ids:
 
         # Save subsections of parameters in config files specific for each sample
         # (data.dir/sample01.csv data.dir/sample02.csv etc)
-        libsample_params = PARAMS["libraries_" + i]
-        sample_name = libsample_params["name"]
-        filename = "data.dir/" + i + "_"+ sample_name + ".csv"
+        libsample_params = PARAMS["libraries_" + library_id]
+
+        filename = "cellranger.multi.dir/" + library_id + ".csv"
+
         lib_df = pd.DataFrame(libsample_params)
-        lib_df.drop('name', axis=1, inplace=True)
+        print(lib_df)
+
+        lib_df.drop('description', axis=1, inplace=True)
 
         lib_columns = list(lib_df)
 
@@ -280,71 +282,75 @@ def makeConfig(outfile):
             df_filt.to_csv(csv_stream, header=True, index=False)
             csv_stream.write('\n')
 
+    IOTools.touch_file(outfile)
+
 # ########################################################################### #
 # ############################ run cellranger multi ######################### #
 # ########################################################################### #
 
 @follows(makeConfig)
-@transform("data.dir/*.csv",
+@transform("cellranger.multi.dir/*.csv",
            regex(r".*/([^.]*).*.csv"),
-           r"\1-cellranger.multi.sentinel")
-
+           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
 def cellrangerMulti(infile, outfile):
     '''
     Execute the cellranger multi pipleline for first sample.
     '''
 
     # read id_tag from file name
-    config_path = os.path.abspath(infile)
+    config_path = os.path.basename(infile)
     sample_basename = os.path.basename(infile)
     sample_name_sections = sample_basename.split(".")
     id_tag = sample_name_sections[0]
-    log_file = id_tag + ".log"
+
 
     #set the maximum number of jobs for cellranger
     max_jobs = PARAMS["cellranger_maxjobs"]
 
     ## send one job script to slurm queue which arranges cellranger run
     ## hard-coded to ensure enough resources
-    job_threads = 24
+    job_threads = 6
     job_memory = "24G"
 
-# this statement is to run in slurm mode
-    statement = (
-	'''cellranger multi
+    log_file = id_tag + ".log"
+
+    # this statement is to run in slurm mode
+    statement = '''cd cellranger.multi.dir;
+                    cellranger multi
 	    	    --id %(id_tag)s
                     --csv=%(config_path)s
                     --jobmode=slurm
                     --maxjobs=%(max_jobs)s
 		    --nopreflight
-            &> %(log_file)s
-        ''')
+                    &> %(log_file)s
+                 '''
 
     P.run(statement)
-
     IOTools.touch_file(outfile)
 
+
 @follows(makeConfig)
-@merge("data.dir/*.csv",
-        "input_samples.tsv")
-def makeSampleTable(sample_files, outfile):
+@merge("cellranger.multi.dir/*.csv",
+        "cellranger.multi.dir/libraries.tsv")
+def makeLibraryTable(library_files, outfile):
     # Build the path to the log file
-    log_file = outfile.replace(".tsv", ".log")
 
-    sample_names = []
+    library_names = []
 
-    for s in sample_files:
-        sample_name = os.path.basename(s)
-        sample_names.append(sample_name)
+    for library_file in library_files:
+        library_name = os.path.basename(library_file)
+        library_names.append(library_name)
 
-    samples = '///'.join(sample_names)
+    libraries = ','.join(library_names)
 
     job_threads = 2
     job_memory = "2000M"
 
-    statement = '''Rscript %(code_dir)s/R/sampleName2metadatatable.R
+    log_file = outfile.replace(".tsv", ".log")
+    statement = '''Rscript %(code_dir)s/R/cellranger_library_table.R
                     --outfile=%(outfile)s
-                    --samplefiles=%(samples)s
+                    --librarydir=cellranger.multi.dir
+                    --libraryfiles=%(libraries)s
                     &> %(log_file)s
                 '''
     P.run(statement)
@@ -355,7 +361,7 @@ def makeSampleTable(sample_files, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(makeConfig,cellrangerMulti,makeSampleTable)
+@follows(cellrangerMulti, makeLibraryTable)
 def full():
     '''
     Run the full pipeline.

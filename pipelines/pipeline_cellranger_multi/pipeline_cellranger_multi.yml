@@ -1,0 +1,150 @@
+#
+# Pipeline pipeline_cellranger6.py configuration file
+# ==================================================
+#
+
+# General options
+# ---------------
+
+pipeline:
+  logfile: pipeline_cellranger_multi.log
+
+# Project name
+projectname: CellRanger
+
+# Copyright statement
+copyright: KIR (2015-2021)
+
+# The pipeline can start from either
+# (A) cellranger mkfastq samples: "mkfastq"
+input: mkfastq
+
+# General Cellranger configuration options
+# ----------------------------------------
+
+cellranger:
+    # Passed to `cellranger multi`
+    # Max jobs is passed to slurm as the maximum number of jobs
+    maxjobs: 64
+
+
+# Chose whether to run the optional tasks
+# ---------------------------------------
+# True | False
+run:
+        gene-expression: true
+        feature: false
+        vdj: false
+
+# Parameters for Cellranger multi config file
+# -------------------------------------------
+
+# Section describing configuration of Gene Expression libraries only, unless otherwise specified.
+gene-expression:
+        # Path of folder containing 10x-compatible reference. Required for gene expression and Feature Barcode libraries.
+        # e.g. mouse /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        reference: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+
+        # Path to a target panel CSV file or name of a 10x Genomics fixed gene panel (pathway, pan-cancer, immunology, neuroscience). Optional.
+        target-panel:
+
+        # Disable targeted UMI filtering stage. Optional. Default: false.
+        no-target-umi-filter: false
+
+        # Hard trim the input Read_1/Read_2 of gene expression libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
+        r1-length:
+        r2-length:
+
+        # Assay configuration. NOTE: by default the assay configuration is detected automatically, which is the recommended mode.
+        # You usually will not need to specify a chemistry.
+        # Options are: 'auto' for autodetection, 'threeprime' for Single Cell 3', 'fiveprime' for  Single Cell 5', 'SC3Pv1' or 'SC3Pv2' or 'SC3Pv3' for Single Cell 3' v1/v2/v3, 'SC5P-PE' or 'SC5P-R2' for Single Cell 5', paired-end/R2-only, 'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
+        # Default: auto.
+        chemistry: auto
+
+        # Expected number of recovered cells. Optional.
+        # Default: 3000.
+        expect-cells: 8000
+
+        # Force pipeline to use this number of cells, bypassing cell detection. Optional. Default: detect cells using EmptyDrops. <int>
+        force-cells:
+
+        # Enables intron mode, which includes the counting of reads that align to intronic regions.
+        # Default: false
+        include-introns: false
+
+        # Disable secondary analysis, e.g. clustering. Optional.
+        # Default: false.
+        no-secondary: false
+
+        # Disables BAM(.bai) file generation, saving disk space at the expense of interrogable alignment records.
+        # Default: false.
+        no-bam: true
+
+# Section describing configuration of Feature Barcode libraries only, unless otherwise specified.
+feature:
+        # Feature reference CSV file, declaring Feature Barcode constructs and associated barcodes. Required for Feature Barcode libraries, otherwise optional.
+        # e.g. /analysis/pipeline_cellranger_6/test_pipeline_multi/features.TSC.csv
+        reference:
+
+        # Hard trim the input Read_1/Read_2 of Feature Barcode libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2.
+        r1-length:
+        r2-length:
+
+# Section describing configuration of VDJ Immune Profiling libraries only, unless otherwise specified.
+vdj:
+        # Path of folder containing 10x-compatible VDJ reference. Required for Immune Profiling libraries.
+        # /genomes/10x/refdata-cellranger-vdj-GRCm38-alts-ensembl-5.0.0
+        reference:
+
+        # If inner enrichment primers other than those provided in the 10x kits are used, they need to be specified here as a text file with one primer per line. Optional.
+        inner-enrichment-primers:
+
+        # Hard trim the input Read_1/Read_2 of VDJ libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
+        r1-length:
+        r2-length:
+
+# Parameters (will be converted to table) describing the input sequencing libraries. Must contain the header and 1 or more rows. Required.
+# # if more than one seq run per sample/channel, included them in fasq_id and fastqs separated by comma.
+libraries:
+
+    GSM2560248:
+        description: pbmc unstimulated 1% sub sample.
+        gene-expression:
+            fastq_id: bamtofastq
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.01/
+            feature_types: Gene Expression
+            subsample_rate:
+            lanes:
+        feature:
+            fastq_id:
+            fastqs:
+            feature_types: Antibody Capture
+            subsample_rate:
+            lanes:
+        vdj:
+            fastq_id:
+            fastqs:
+            feature_types: VDJ-B
+            subsample_rate:
+            lanes:
+
+    GSM2560249:
+        description: pbmc ifnb stimulated 1% sub sample.
+        gene-expression:
+            fastq_id: bamtofastq
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.01/
+            feature_types: Gene Expression
+            subsample_rate:
+            lanes:
+        feature:
+            fastq_id:
+            fastqs:
+            feature_types: Antibody Capture
+            subsample_rate:
+            lanes:
+        vdj:
+            fastq_id:
+            fastqs:
+            feature_types: VDJ-B
+            subsample_rate:
+            lanes:

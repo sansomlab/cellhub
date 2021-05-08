@@ -1,11 +1,11 @@
 ## Title ----
 ##
-## Subset the aggregated gene exp. matrix to equalize seq-depth differences among 
+## Subset the aggregated gene exp. matrix to equalize seq-depth differences among
 ## given groups of cells
 ##
 ## Description ----
 ##
-## Subset the aggregated gene exp. matrix to equalize seq-depth differences among 
+## Subset the aggregated gene exp. matrix to equalize seq-depth differences among
 ## given groups of cells. It accepts the outputs of the pipeline_fetch_cells.py
 ##
 ## The script can downsample UMI counts across a groups of cells
@@ -114,14 +114,14 @@ plotDownsamp <- function(matrixUMI, metadata, basename) {
 
     # Collate total UMI and cell rank for each cell of each sample
     inputStats <- do.call("rbind", lapply(
-        unique(metadata$sample_id),
+        unique(metadata$library_id),
         function(id){
-            codes_id <- subset(metadata, sample_id == id, "barcode", drop=TRUE)
+            codes_id <- subset(metadata, library_id == id, "barcode", drop=TRUE)
             nUMIs_id <- nUMIs[codes_id]
             data.frame(
                 "nUMIs"=sort(nUMIs_id, decreasing=TRUE),
                 "CellRank"=seq_along(nUMIs_id),
-                "sample"=id
+                "library_id"=id
             )
         }))
 
@@ -133,12 +133,12 @@ plotDownsamp <- function(matrixUMI, metadata, basename) {
     maxCellRank <- max(inputStats$CellRank)
 
     gg <- ggplot(inputStats) +
-        geom_line(aes(x = `CellRank`, y = nUMIs, colour=sample), size=0.25) +
+        geom_line(aes(x = `CellRank`, y = nUMIs, colour=library_id), size=0.25) +
         scale_x_log10(
             limits=c(1, maxCellRank)
         ) +
         scale_y_log10(
-            limits=c(1, 10^ceiling(log10(max(nUMIs)))) 
+            limits=c(1, 10^ceiling(log10(max(nUMIs))))
         ) +
         annotation_logticks() +
         labs(y="UMI count", x="Cell rank") +
@@ -157,13 +157,13 @@ plotDownsamp <- function(matrixUMI, metadata, basename) {
 
     gg <- ggplot(inputStats) +
         geom_violin(
-            aes(x = sample, y = nUMIs, colour=sample),
+            aes(x = library_id, y = nUMIs, colour=library_id),
             draw_quantiles=c(0.5), size=0.25) +
         scale_y_log10(
-            limits=c(1, 10^ceiling(log10(max(nUMIs)))) 
+            limits=c(1, 10^ceiling(log10(max(nUMIs))))
         ) +
         annotation_logticks(sides="l") +
-        labs(y="UMI count", x="Sample") +
+        labs(y="UMI count", x="Library_Id") +
         theme_bw() +
         theme(
             panel.grid.major=element_line(size=0.1, color="grey"),

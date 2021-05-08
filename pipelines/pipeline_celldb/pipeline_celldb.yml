@@ -3,20 +3,21 @@ database:
     # database name
     url: sqlite:///./csvdb
 
-data:
-
+input:
     # The location of the sequencing sample metadata. This containes information
     # about the indexed, sample names, genome used, sequencing ID
-    # sequencing_info: this is the aggregated sample/10X-chip-channel 
-    # metadata produced by the cellranger_pipeline.py
+    # sequencing_info: this is the aggregated sample/10X-chip-channel
+    # metadata produced by the pipeline_cellranger_multi.py
     #
-    sample_info: input_samples.tsv
+    samples: cellranger.multi.dir/input_samples.tsv
 
-    # If the user has sample/10X-chip-channel manually-curated metadata features, 
+data:
+
+    # If the user has sample/10X-chip-channel manually-curated metadata features,
     # then they can included here. TSV table with samples in the lines and features
-    # in the coloumns  This table must have a sample_id column with the sample 
+    # in the coloumns  This table must have a sample_id column with the sample
     # names as inputed in the pipeline_cellranger.py
-    sample_curated_metadata: 
+    sample_curated_metadata:
 
     # The location of the scrublet output directory
     # output of the pipeline_cell_qc.py
@@ -33,5 +34,5 @@ data:
     adt: qcmetrics.dir
 
 virtual:
-    # Build the database using virtual tables, if 0 then it will generate a non-virtual database 
+    # Build the database using virtual tables, if 0 then it will generate a non-virtual database
     active: 0

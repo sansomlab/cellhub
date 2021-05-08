@@ -20,17 +20,17 @@ options(stringsAsFactors = F)
 option_list <- list(
   make_option(c("--cellranger_dir"), default=".",
               help="Folder with filtered cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
-  make_option(c("--sample"), default=NULL,
-              help="sample or channel id"),
+  make_option(c("--library_id"), default=NULL,
+              help="library or channel id"),
   make_option(c("--barcodes_to_label_as_True"), default=NULL,
               help="A header-less two-column tsv file with filenames containing list of barcodes to label, one filename per row.
-              First column: name to identify the list, this will become the column name in the output table; 
+              First column: name to identify the list, this will become the column name in the output table;
               Second column: name of the file containing the list of barcodes to label.
               Each file must contain a list of barcodes, and should have the following format:
               A header-less, two-column, gziped tsv.gz file with barcodes to label.
               The name of the file will be used to set the column name in the output dataframe ('.tsv' will be removed from the final name).
               First column: barcode name in the format UMI-1, e.g AAACCTGAGAGGTACC-1.
-              Second column: sample or channel id name.
+              Second column: library_id or channel id name.
               If a barcode is included in the input file, it will be labeled as 'True', otherwise as 'False'"),
   make_option(c("--genesets_file"), default=NULL,
               help="Two-column tsv file with genesets to evaluate, one geneset per row.
@@ -84,7 +84,7 @@ total_UMI <- colSums(counts(s))
 
 # Create dataframe
 cell_qc <- tibble(barcode = colData(s)$Barcode,
-                  sample=opt$sample,
+                  library_id=opt$library_id,
                   ngenes = ngenes,
                   total_UMI= total_UMI)
 
@@ -93,7 +93,7 @@ if(length(unique(rowData(s)[["Type"]])) > 1) {
     adt_feats <- rowData(s)[["ID"]][rowData(s)[["Type"]] == "Antibody Capture"]
     adt_UMI <- colSums(counts(s)[adt_feats, ])
     cell_qc[["adt_UMI"]] <- adt_UMI
-  } 
+  }
   gex_feats <- rowData(s)[["ID"]][rowData(s)[["Type"]] == "Gene Expression"]
   gex_UMI <- colSums(counts(s)[gex_feats, ])
   cell_qc[["gex_UMI"]] <- gex_UMI
@@ -138,15 +138,15 @@ if(FALSE) {
 	  geneset_name <- gs.names[g]
 	  data(list=gs[g])
 	  geneset <- get(gs[g])
-	
+
 	  flog.info("Geneset %s contains %s genes",
 	            geneset_name, format(length(geneset), big.mark=","))
-	
+
 	  # Add to 'genesets' list
 	  genesets[[geneset_name]] <- which(rowData(s)$Symbol %in% geneset)
 	  flog.info("Including %s genes for %s",
 	            format(length(genesets[[geneset_name]]), big.mark=","), geneset_name)
-	
+
 	  # Report genes not found
 	  if ( sum(!geneset %in% rowData(s)$Symbol) >= 1) {
 	    not_found <- geneset[-which(geneset %in% rowData(s)$Symbol)]
@@ -234,15 +234,15 @@ if (!is.null(opt$barcodes_to_label_as_True)){
   colnames(input_lists) <- c("name", "file")
   for (i in 1:nrow(input_lists)) {
     bc <- read.csv(gzfile(input_lists$file[i]), sep="\t", header = FALSE)
-    colnames(bc) <- c("barcode", "sample")
-    
-    # Filter barcodes from current sample in list_temp
-    bc <- bc[bc$sample %in% opt$sample,]
-    
+    colnames(bc) <- c("barcode", "library_id")
+
+    # Filter barcodes from current library_id in list_temp
+    bc <- bc[bc$library_id %in% opt$library_id,]
+
     # Label barcodes in output dataframe
     cell_qc$newcol <- "False"
     cell_qc$newcol[cell_qc$barcode %in% bc$barcode] <- "True"
-    
+
     # Set column name in output
     colname <- input_lists$name[i]
     colnames(cell_qc)[colnames(cell_qc) == "newcol"] <- colname
@@ -252,8 +252,12 @@ if (!is.null(opt$barcodes_to_label_as_True)){
 # Format ouput to match tables in other pipelines from the cellhub repository
 colnames(cell_qc)[colnames(cell_qc)=="barcode"] <- "BARCODE"
 
+# Add the barcode_id column
+cell_qc$barcode_id <- paste(cell_qc$BARCODE, cell_qc$library_id, sep="-")
+
 # Write table
 flog.info("Writing output table")
-write.table(cell_qc, file = gzfile(opt$outfile), quote=FALSE, row.names = FALSE, sep="\t")
+write.table(cell_qc, file = gzfile(opt$outfile),
+            quote=FALSE, row.names = FALSE, sep="\t")
 
 flog.info("Completed")

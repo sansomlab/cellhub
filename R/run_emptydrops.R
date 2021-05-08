@@ -53,7 +53,7 @@ default_options <- list(
   "FDR" = 0.001,
 
   # Path to the emptyDrops output file
-  "outdir" = "sample.dir"
+  "outdir" = "library.dir"
 
   # Path to the file containing barcodes for blacklisting
   #"blacklist" = NULL
