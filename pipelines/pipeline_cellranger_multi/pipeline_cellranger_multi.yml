@@ -108,10 +108,10 @@ vdj:
 libraries:
 
     GSM2560248:
-        description: pbmc unstimulated 1% sub sample.
+        description: pbmc unstimulated 10% sub sample.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.01/
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.1/
             feature_types: Gene Expression
             subsample_rate:
             lanes:
@@ -129,10 +129,10 @@ libraries:
             lanes:
 
     GSM2560249:
-        description: pbmc ifnb stimulated 1% sub sample.
+        description: pbmc ifnb stimulated 10% sub sample.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.01/
+            fastqs: /gfs/mirror/geo/GSE96583/GSM2560249_0.1/
             feature_types: Gene Expression
             subsample_rate:
             lanes:

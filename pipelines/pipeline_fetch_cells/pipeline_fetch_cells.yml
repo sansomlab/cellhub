@@ -1,11 +1,21 @@
 # celldb location
 
-celldb: csvdb
+celldb: celldb.dir/csvdb
+
+# There are some issues for discussion...
+# the script needs to
+# - support both library_ids
+#   and sample_ids for pre/post database summaries
+# - the script should not recompute
+#   avaliable metrics (we have metrics, shouldn't need to read the market matrix!)
+# - generally qc reports would be best made in a
+#   separate pipeline.
+build_reports: False
 
 query: >-
   select * from final
-  where pct_mitochondrial <5
-  and ngenes >500;
+  where pct_mitochondrial < 10
+  and ngenes > 200;
 
 resources:
   # memory to be used for tasks: cellSubsets,
@@ -14,12 +24,12 @@ resources:
 
 
 matrix:
-  dir: /gfs/work/cesarmp/cellhub_test/gex_and_feat
+  dir: cellranger.multi.dir
   type: mm
   # column in cell_info from db (using query above) that corresponds to the
   # folder names in the cellranger output (=matrix_dir), this name is also used
   # to extract the loom files below
-  name: sample_id
+  name: library_id
   # suffix used for the cellranger output (not used for loom extraction), either none | suffix
   suffix: none
   # use the filtered|raw matrix.

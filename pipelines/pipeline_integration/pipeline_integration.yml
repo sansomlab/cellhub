@@ -10,6 +10,7 @@
 # all samples to run with the following columns:
 # sample_id | path
 # this will be the name of the folder | this is the path to the folder containing the anndata object (name: matrix.h5ad)
+input_samples: integration.tsv
 
 # Use xvfb for compilation of Rscripts
 use_xvfb: 0
@@ -139,7 +140,8 @@ harmony:
 qc_integration:
     # Other columns in metadata to plot or none,
     # The grouping variable from above is automatically added.
-    plot: exp_batch
+
+    plot: ngenes
     # This option can be used to plot cluster_ids from downstream
     # analyses on the UMAP. Set to 'none' or the path to a txt.gz file
     # which has two columns named 'barcodes' and 'cluster_id'.
@@ -147,7 +149,7 @@ qc_integration:
 
 report_umap:
   # 0 : not to run
-  # 1 : run 
+  # 1 : run
   run: 1
   # Add parameters that should be used for the summary here.
   # Only one combination of parameters is possible.

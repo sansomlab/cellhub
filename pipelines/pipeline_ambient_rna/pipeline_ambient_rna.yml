@@ -10,7 +10,9 @@
 projectname: scRNAseq analyse ambient RNA profiles
 
 # Author
-author: COMBATOxford
+author: Sansom lab
+
+input_libraries: cellranger.multi.dir/libraries.tsv
 
 
 # compute resource options
