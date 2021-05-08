@@ -14,7 +14,7 @@ This pipeline performs the following functions:
 Usage
 =====
 
-See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` on general
 information how to use CGAT pipelines.
 
 Configuration
@@ -59,19 +59,15 @@ import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-# modules for exploring environment
-import subprocess
-import pkg_resources
-
 import pandas as pd
 import numpy as np
 
 # import local pipeline utility functions
-from tasks import templates
-from tasks import resources
-from tasks import TASK
+from cellhub.tasks import templates
+from cellhub.tasks import resources
+from cellhub.tasks import TASK
 
-import tasks.control as C
+import cellhub.tasks.control as C
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files

@@ -1,3 +1,3 @@
-.. automodule:: pipelines.pipeline_fetch_cells
+.. automodule:: cellhub.pipeline_fetch_cells
    :members:
    :show-inheritance:

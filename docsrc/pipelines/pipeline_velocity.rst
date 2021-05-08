@@ -1,3 +1,3 @@
-.. automodule:: pipelines.pipeline_velocity
+.. automodule:: cellhub.pipeline_velocity
    :members:
    :show-inheritance:

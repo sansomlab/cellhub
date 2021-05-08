@@ -38,7 +38,7 @@ This pipeline performs the following functions:
 
 Usage
 =====
-See :ref:`PipelineSettingUp` and :ref:`PipelineRunning` on general
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` on general
 information how to use CGAT pipelines.
 
 Configuration

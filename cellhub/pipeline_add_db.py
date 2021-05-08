@@ -13,7 +13,7 @@ outputs to a central SQLite database.
 Usage
 =====
 
-See :ref:`` and :ref:`` for general information on how to use cgat
+See :doc:`Installation</Installation>` and :doc:`Usage</Usage>` for general information on how to use cgat
 pipelines.
 
 Configuration

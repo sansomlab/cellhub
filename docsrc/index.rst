@@ -6,16 +6,6 @@
 Welcome to cellhub's documentation!
 ===================================
 
-
-Coding guidelines
------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   CodingGuidelines.rst
-
-
 Installation
 ------------
 
@@ -25,14 +15,31 @@ Installation
    Installation.rst
 
 
-Getting started
----------------
+Overview
+--------
 
 .. toctree::
    :maxdepth: 2
 
    WorkflowOverview.rst
+   Usage.rst
+
+Examples
+--------
+
+.. toctree::
+   :maxdepth: 2
+
    IFNbExample.rst
+
+
+Coding guidelines
+-----------------
+
+.. toctree::
+   :maxdepth: 2
+
+   CodingGuidelines.rst
 
 
 Pipeline documentation

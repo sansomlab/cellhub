@@ -1,44 +1,81 @@
-CodingGuidelines
-================
+Coding Guidelines
+=================
 
-In the guidelines below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
+Repository layout
+-----------------
 
-1. Paths should never be hardcoded. They should be read from the configuation file.
-2. Yaml configuration files should be named pipeline_xxx.yml
-3. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
-4. Python code should pass pep8 checks, this will be enforced at some point in the future.
-5. Pipelines should be documented using the sphinx "autodocs" module
-6. For the autodocs documentation system to work pipelines should not read or write files outside of ruffus tasks (see below).
+.. list-table:: Repository layout
+   :widths: 25 100
+   :header-rows: 1
+
+   * - Folder
+     - Contents
+   * - cellhub
+     - The cellhub Python module which contains the set of CGAT-core pipelines
+   * - cellhub/tasks
+     - The cellhub tasks submodule which contains helper functions and pipeline task definitions
+   * - Python
+     - Python worker scripts that are executed by pipeline tasks
+   * - R
+     - R worker scripts that are executed by pipeline tasks
+   * - docsrc
+     - The documentation source files in restructured text format for compilation with sphinx
+   * - docs
+     - The compiled documentation
+   * - examples
+     - Configuration files for example datasets
+   * - conda
+     - Conda environment, TBD
+   * - tests
+     - TBD
+
+
+Coding style
+------------
+
+Currently we are working to improve and standardise the coding style:
+
+* Python code should be `pep8 <https://www.python.org/dev/peps/pep-0008/>`_ compliant. Compliance checks will be enforced soon.
+
+* R code should follow the `tidyverse style guide <https://style.tidyverse.org>`_. Please do not use right-hand assignment.
+
+* Arguments to Python scripts should be parsed with argparse.
+
+* Arguments to R scripts should be parsed with optparse or supplied via yaml files.
+
+* Logging in Python scripts should be performed with the standard library "logging" module.
+
+* Logging in R scripts should be performed with the "futile.logger" library.
+
+* If you need to write to stdout from R scripts use message() or warning(). Do not use print() or cat().
 
 
 Writing pipelines
 -----------------
 
-The pipelines live in the "pipelines" folder/module.
+The pipelines live in the "cellhub" python module.
 
-Auxillary task functions live in the "pipelines/task" folder/module.
+Auxiliary task functions live in the "cellhub/task" python sub-module.
 
-If you need to read or write files outside of ruffus tasks, for example in generator functions it is essential to test that the script has not been imported e.g.::
+.. note:: Tasks of more than a few lines should be abstracted into appropriately named sub-modules.
 
-  if __name__ == "__main__":
-     # read file
-     yield(inputs, outputs)
-  else:
-     # don't read file
-     yield(None, None)
+In the notes below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
 
-The reason for this is that the sphinx autodocs module needs to import the piplines to build the documentation and this will fail if the pipeline attempts to read or write files from/to non-existent paths when imported.
+1. Paths must never be hardcoded in the pipelines - rather they must be read from the yaml files.
+2. Yaml configuration files should be named pipeline_xxx.yml
+3. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
+4. We are documenting the pipelines using the sphinx "autodocs" module so please maintain informative rst docstrings.
 
 
-Yaml configuration files
-------------------------
+Yaml configuration file naming
+------------------------------
 
 The cgat-core system only supports configuration files name "pipeline.yml".
 
-We work around this by overriding the cgat-core functionality using a helper function in pipelines/task/control.py as follows::
+We work around this by overriding the cgat-core functionality using a helper function in cellhub.tasks.control as follows::
 
   import Pipeline as P
-  import tasks.control as C
+  import cellhub.tasks.control as C
 
   # Override function to collect config files
   P.control.write_config_files = C.write_config_files
@@ -46,10 +83,10 @@ We work around this by overriding the cgat-core functionality using a helper fun
 Default yml files must be located at the path pipelines/pipeline_xxx/pipeline_xxx.yml
 
 
-Writing documentation
----------------------
+Writing and compiling the documentation
+---------------------------------------
 
-The sources files for the documentation are found in::
+The source files for the documentation are found in::
 
   docsrc
 
