@@ -3,11 +3,6 @@
 Pipeline Integration
 ====================
 
-:Author: Kathrin Jansen
-:Release: $Id$
-:Date: |today|
-:Tags: Python
-
 Overview
 ========
 
@@ -132,12 +127,12 @@ def checkInputs(outfile):
        exists. Then make one folder for each experiments called
        *.exp.dir '''
 
-    if not os.path.exists("aggr_input_samples.tsv"):
+    if not os.path.exists(PARAMS["input_samples"]):
         raise ValueError('File specifying the input samples is not present.'
-                         'The file needs to be named "input_samples.tsv" ')
+                         'The file needs to be named PARAMS["input_samples"] ')
 
-    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
-    for p in samples["integr_path"]:
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
+    for p in samples["path"]:
         if not os.path.exists(p):
             raise ValueError('Aggregated, filtered matrix input folder'
                              ' does not exist.')
@@ -161,7 +156,7 @@ def genClusterJobs():
         yield(None, None)
         return
 
-    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
 
     for sample in samples["sample_id"]:
         outdir = sample + ".exp.dir"
@@ -169,7 +164,7 @@ def genClusterJobs():
             os.makedirs(outdir)
 
     # process all the integration experiments
-    experiments = [s + ".exp.dir" for s in samples["sample_id"]]
+    experiments = ["integration.dir/" + s + ".exp.dir" for s in samples["sample_id"]]
 
     for dirname in experiments:
         infile = None
@@ -252,15 +247,15 @@ def prepFolders(infile, outfile):
 # ########################################################################### #
 
 @transform(prepFolders,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/integration_python.sentinel")
+           regex(r"integration.dir/(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/prep_folder.sentinel"),
+           r"integration.dir/\1.exp.dir/\2.integrated.dir/\3.run.dir/integration_python.sentinel")
 def runScanpyIntegration(infile, outfile):
     '''Run scanpy normalization, hv genes and harmonypy on the data'''
 
     outdir = os.path.dirname(outfile)
 
-    tool = outfile.split("/")[1].split(".")[0]
-    run_options = outfile.split("/")[2][:-len(".run.dir")]
+    tool = outfile.split("/")[2].split(".")[0]
+    run_options = outfile.split("/")[3][:-len(".run.dir")]
     log_file = outfile.replace(".sentinel", ".log")
 
     options = {}
@@ -269,10 +264,10 @@ def runScanpyIntegration(infile, outfile):
     options["outdir"] = outdir
 
     # extract path from input_samples.tsv
-    sample_name = outfile.split("/")[0][:-len(".exp.dir")]
-    samples = pd.read_csv("aggr_input_samples.tsv", sep='\t')
+    sample_name = outfile.split("/")[1][:-len(".exp.dir")]
+    samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
-    infolder = samples.loc[sample_name, "integr_path"]
+    infolder = samples.loc[sample_name, "path"]
 
     options["matrixdir"] = infolder
     options["tool"] = tool
@@ -334,15 +329,15 @@ def runScanpyIntegration(infile, outfile):
 # ########################################################################### #
 
 @transform(runScanpyIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap_scanpy.sentinel")
+           regex(r"integration.dir/(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
+           r"integration.dir/\1.exp.dir/\2.integrated.dir/\3.run.dir/plots_umap_scanpy.sentinel")
 def runScanpyUMAP(infile, outfile):
     '''Run scanpy UMAP and make plots'''
 
     indir = os.path.dirname(infile)
     outdir = os.path.dirname(outfile)
     sampleDir = "/".join(indir.split("/")[:-1])
-    tool = sampleDir.split("/")[1].split(".")[0]
+    tool = sampleDir.split("/")[2].split(".")[0]  #[+1]
 
     plot_vars_str = str(PARAMS["qc_integration_plot"])
     if plot_vars_str == 'none':
@@ -388,8 +383,8 @@ def runScanpyUMAP(infile, outfile):
 
 
 @transform(runScanpyUMAP,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/plots_umap_scanpy.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/R_plots.dir/plots_umap.sentinel")
+           regex(r"integration.dir/(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/plots_umap_scanpy.sentinel"),
+           r"integration.dir/\1.exp.dir/\2.integrated.dir/\3.run.dir/R_plots.dir/plots_umap.sentinel")
 def plotUMAP(infile, outfile):
     '''
     Plot UMAP with different variables
@@ -400,14 +395,13 @@ def plotUMAP(infile, outfile):
         os.makedirs(outdir)
 
     plot_vars_str = str(PARAMS["qc_integration_plot"])
-    if plot_vars_str == 'none':
+    if plot_vars_str == "none":
         plot_vars = str(PARAMS["integration_split_factor"])
     else:
         plot_vars = plot_vars_str.strip().replace(" ", "").split(",")
         plot_vars = ",".join(plot_vars + [str(PARAMS["integration_split_factor"])])
 
     sampleDir = "/".join(indir.split("/")[:-1])
-    #tool = sampleDir.split("/")[1].split(".")[0]
 
     coord_file = os.path.join(indir, "umap.tsv.gz")
 
@@ -448,8 +442,9 @@ def plotUMAP(infile, outfile):
 def genJobsSummary():
     '''Job generator for summary jobs '''
     infile = None
-    dirs = os.listdir()
-    exp_dirs = [d for d in dirs if '.exp.dir' in d]
+
+    exp_dirs = glob.glob("integration.dir/*.exp.dir")
+
     for d in exp_dirs:
         outfile = os.path.join(d, "summary.dir", "make_summary.sentinel")
         yield(infile, outfile)
@@ -466,7 +461,7 @@ def summariseUMAP(infile, outfile):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    indir = outfile.split("/")[0]
+    indir = Path(outfile).parents[1] # i/exp/summ/out.sent outfile.split("/")[0]
     ## make plots for different combinations of variables
     summaries = [k.split("_")[-1] for k in PARAMS.keys()
                if k.startswith("report_umap_summary_")]
@@ -563,43 +558,47 @@ def summariseUMAP(infile, outfile):
                        '\\input %(vars_file)s '''
 
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/begin.tex
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/begin.tex
                      '''
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_rawdata.tex
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/col_rawdata.tex
                      '''
 
         if 'harmony' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_harmony.tex
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/col_harmony.tex
                      '''
         if 'bbknn' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_bbknn.tex
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/col_bbknn.tex
                      '''
         if 'scanorama' in tools:
             statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_scanorama.tex
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/col_scanorama.tex
                      '''
         statement += '''
-                     \\input %(code_dir)s/scpipelines/pipeline_integration/tex/col_legend.tex'
+                     \\input %(code_dir)s/pipelines/pipeline_integration/tex/col_legend.tex'
                      '''
 
 
         # Deliberately run twice - necessary for LaTeX compilation..
-#        P.run(statement)
-#        P.run(statement)
+
+        # TODO: the col_rawdata.tex latex snippet needs to be dynamically written
+        # to match the coloring variables.
+
+        # P.run(statement)
+        # P.run(statement)
 
         # Move the compiled pdfs to report.dir
- #       shutil.move(os.path.join(compilation_dir, jobName + ".pdf"),
- #                   os.path.join(summary_dir, jobName+".pdf"))
+        # shutil.move(os.path.join(compilation_dir, jobName + ".pdf"),
+        #            os.path.join(summary_dir, jobName+".pdf"))
     IOTools.touch_file(outfile)
 
 
 @follows(runScanpyUMAP)
 @transform(runScanpyIntegration,
-           regex(r"(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
-           r"\1.exp.dir/\2.integrated.dir/\3.run.dir/assess_integration.dir/run_ilisi.sentinel")
+           regex(r"integration.dir/(.*).exp.dir/(.*).integrated.dir/(.*).run.dir/integration_python.sentinel"),
+           r"integration.dir/\1.exp.dir/\2.integrated.dir/\3.run.dir/assess_integration.dir/run_ilisi.sentinel")
 
 def runLISIpy(infile, outfile):
     '''Assess the integration using iLISI (lisi on batch/dataset).
@@ -610,7 +609,7 @@ def runLISIpy(infile, outfile):
         os.makedirs(outdir)
 
     # extract tool from file name
-    tool = outfile.split("/")[1].split(".")[0]
+    tool = outfile.split("/")[2].split(".")[0]
     log_file = outfile.replace(".sentinel", ".log")
 
     options = {}
@@ -652,8 +651,7 @@ def runLISIpy(infile, outfile):
 def genJobsLISI():
     '''Job generator for LISI summary jobs '''
     infile = None
-    dirs = os.listdir()
-    exp_dirs = [d for d in dirs if '.exp.dir' in d]
+    exp_dirs = glob.glob("integration.dir/*.exp.dir")
     for d in exp_dirs:
         outfile = os.path.join(d, "summary.dir", "iLISI.dir", "make_lisi_summary.sentinel")
         yield(infile, outfile)
@@ -664,7 +662,7 @@ def genJobsLISI():
 def summariseLISI(infile, outfile):
     '''summarise the results from iLISI analysis
     '''
-    inpath = outfile.split("/")[0]
+    inpath = Path(outfile).parents[2] #.split("/")[0]
 
     f = []
     for currentpath, folders, files in os.walk(inpath):

@@ -12,30 +12,25 @@
 # - path = full path to the anndata object
 # - matrixdir = path to the folder with matrix, barcodes etc
 # OR - anndata = path to full log-norm anndata (from integration pipeline)
-input_samples: export.tsv
 
 # name of the dim reduction to extract from anndata,
 # also name for the new dim reduction in seurat object
 dim_name: harmony
 
 # whether to use full anndata (1) or matrixdir (0)
-use_full_anndata: 0
-
-# use the full feature space
-full_feat_space: 1
-
+use_full_anndata: 1
 # write out rds? (1) or h5seurat (0)
-write_rds: 1
+write_rds: 0
 
 # whether to include the data slot in seurat only (1) or include everything (0)
-# the output object is substantially smaller if counts
+# the output object is substantially smaller if counts 
 # and scaled data are not included
-seurat_data_only: 0
+seurat_data_only: 0 
 
-# Metadata input
-# ---------------------
+# Metadata input 
+# --------------------- 
 metadata:
-  # path to the metadata file (in tsv.gz format) | none
+  # path to the metadata file (in tsv.gz format) | none	
   path: none
   # column to use for matching between metadata file and input anndata | none
   id_col: none

@@ -219,7 +219,7 @@ def checkSampleFileInputs(infile, outfile):
 # -------------------- < Make sample metadata file > -------------------- #
 
 @follows(checkSampleFileInputs)
-@merge("data.dir/*.sample", "input_samples.tsv")
+@merge("data.dir/*.sample", PARAMS["input_samples"])
 def makeSampleTable(sample_files, outfile):
     
     # Build the path to the log file

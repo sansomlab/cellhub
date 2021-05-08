@@ -2,11 +2,6 @@
 Pipeline fetch cells
 ===========================
 
-:Author: Sansom lab
-:Release: $Id$
-:Date: |today|
-:Tags: Python
-
 Overview
 ========
 
@@ -132,9 +127,9 @@ def md5gz(fname):
 # ############################# pipeline tasks ############################## #
 # ########################################################################### #
 
-@follows(mkdir("cell.info.dir"))
+@follows(mkdir("fetch.cells.dir"))
 @files(PARAMS["celldb"],
-       "cell.info.dir/cell.table.sentinel")
+       "fetch.cells.dir/cell.table.sentinel")
 def fetch_cell_table(infile, outfile):
     '''Fetch the table of the user's desired cells from the database
        effectively, cell-metadata tsv table.
@@ -165,7 +160,7 @@ def fetch_cell_table(infile, outfile):
 def matrix_subset_jobs():
     '''Generate a list of subsets from the cell metadata'''
 
-    cell_tab = "cell.info.dir/cell.table.tsv.gz"
+    cell_tab = "fetch.cells.dir/cell.table.tsv.gz"
 
     if os.path.exists(cell_tab):
 
@@ -177,7 +172,7 @@ def matrix_subset_jobs():
 
         for matrix_id in matrix_ids:
 
-            matrix_subset_dir = os.path.join("matrix.subsets.dir", matrix_id)
+            matrix_subset_dir = os.path.join("fetch.cells.dir/matrix.subsets.dir", matrix_id)
 
             matrix_subset_barcodes = os.path.join(matrix_subset_dir,
                                                   "cells_to_extract.txt.gz")
@@ -185,12 +180,12 @@ def matrix_subset_jobs():
             yield [None, matrix_subset_barcodes]
 
 
-@follows(fetch_cell_table, mkdir("matrix.subsets.dir"))
+@follows(fetch_cell_table, mkdir("fetch.cells.dir/matrix.subsets.dir"))
 @files(matrix_subset_jobs)
 def setupSubsetJobs(infile, outfile):
     '''Setup the folders for the subsetting jobs'''
 
-    # cells = pd.read_csv("cell.info.dir/cell.table.tsv.gz", sep="\t")
+    # cells = pd.read_csv("fetch.cells.dir/cell.table.tsv.gz", sep="\t")
 
     matrix_subset_dir = os.path.dirname(outfile)
     matrix_id = os.path.basename(Path(outfile).parent)
@@ -205,8 +200,8 @@ def setupSubsetJobs(infile, outfile):
                        compression="gzip")
 
 @transform(setupSubsetJobs,
-           regex(r"matrix.subsets.dir/(.*)/cells_to_extract.txt.gz"),
-           r"matrix.subsets.dir/\1/matrix.mtx.gz")
+           regex(r"fetch.cells.dir/matrix.subsets.dir/(.*)/cells_to_extract.txt.gz"),
+           r"fetch.cells.dir/matrix.subsets.dir/\1/matrix.mtx.gz")
 def cellSubsets(infile, outfile):
     '''Extract a given subset of cells from a matrix
     if more than a feature modadility, the extrac_cells.R
@@ -239,9 +234,9 @@ def cellSubsets(infile, outfile):
     P.run(statement)
 
 
-@follows(mkdir("output.dir"))
+@follows(mkdir("fetch.cells.dir/output.dir"))
 @merge(cellSubsets,
-       "output.dir/matrix.mtx.gz")
+       "fetch.cells.dir/output.dir/matrix.mtx.gz")
 def mergeSubsets(infiles, outfile):
     '''merge the market matrix files into a single matrix'''
 
@@ -409,10 +404,12 @@ def mergeSubsets(infiles, outfile):
         if k == "gex":
             IOTools.touch_file(outfile_sent)
 
+
+@active_if(PARAMS["build_reports"])
 @follows(mergeSubsets)
 @transform(mergeSubsets,
-        regex(r"output.dir/(.*).mtx.gz"),
-        r"output.dir/\1_merged_qcmetrics_report.sentinel")
+        regex(r"fetch.cells.dir/output.dir/(.*).mtx.gz"),
+        r"fetch.cells.dir/output.dir/\1_merged_qcmetrics_report.sentinel")
 def build_qc_reports(infile, outfile):
     '''This task will run R/build_qc_mapping_report.R,
     It expects three files in the input directory barcodes.tsv.gz,
@@ -441,7 +438,7 @@ def build_qc_reports(infile, outfile):
             # Formulate and run statement
             statement = '''Rscript %(cellhub_dir)s/R/build_qc_mapping_reports.R
                         --tenxfolder=%(inputmat)s
-                        --sample_id=%(mod)s
+                        --library_id=%(mod)s
                         --specie="hg"
                         --outfolder=%(inputmat)s
                         &> %(log_mod_file)s
@@ -451,20 +448,21 @@ def build_qc_reports(infile, outfile):
     # Formulate and run statement
     statement = '''Rscript %(cellhub_dir)s/R/build_qc_mapping_reports.R
                 --tenxfolder=%(input_dir)s
-                --sample_id=%(sample_name)s
+                --library_id=%(sample_name)s
                 --specie="hg"
                 --outfolder=%(input_dir)s
                 &> %(log_file)s
                 '''
+
     P.run(statement)
 
     IOTools.touch_file(outfile)
 
 
-@follows(mkdir("output.subsampled.dir"))
+@follows(mkdir("fetch.cells.dir/output.subsampled.dir"))
 @transform(mergeSubsets,
-       regex(r"output.dir/(.*).mtx.gz"),
-       r"output.subsampled.dir/\1.sentinel")
+       regex(r".*/output.dir/(.*).mtx.gz"),
+       r"fetch.cells.dir/output.subsampled.dir/\1.sentinel")
 def transcriptDownsample(infile, outfile):
     '''
     Down-sample transcripts
@@ -477,7 +475,7 @@ def transcriptDownsample(infile, outfile):
 
     cellgroup_var = "sample_id"
     downsampling_function = "median"
-    cellmetadatafile = "cell.info.dir/cell.table.tsv.gz"
+    cellmetadatafile = "fetch.cells.dir/cell.table.tsv.gz"
 
     log_file = outfile.replace(".sentinel",
                                ".log")
@@ -499,10 +497,11 @@ def transcriptDownsample(infile, outfile):
 
     IOTools.touch_file(outfile)
 
+@active_if(PARAMS["build_reports"])
 @follows(transcriptDownsample)
 @transform(transcriptDownsample,
-        regex(r"output.subsampled.dir/(.*).sentinel"),
-        r"output.subsampled.dir/\1_subsampled_qcmetrics_report.sentinel")
+        regex(r"fetch.cells.dir/output.subsampled.dir/(.*).sentinel"),
+        r"fetch.cells.dir/output.subsampled.dir/\1_subsampled_qcmetrics_report.sentinel")
 def build_subsampled_qc_reports(infile, outfile):
     '''This task will run R/build_qc_mapping_report.R,
     It expects three files in the input directory barcodes.tsv.gz,

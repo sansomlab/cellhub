@@ -42,9 +42,9 @@ default_options <- list(
   # The path to the directory containing the cellranger
   # raw matrix and associates barcodes and features
   "cellrangerDir" = "",
-  
+
   # Path to the emptyDrops output file
-  "outdir" = "sample.dir"
+  "outdir" = "library.dir"
 )
 
 
@@ -69,15 +69,13 @@ sce <- sce[,colSums(counts(sce))>0]
 sce <- sce[rowSums(counts(sce))>0,]
 flog.info("Dimensions of filtered object: %s", dim(sce))
 
-mean_UMI_per_cell <- data.frame(BARCODE = colData(sce)$Barcode, 
-                                mean_umi = colMeans(counts(sce)), 
+mean_UMI_per_cell <- data.frame(BARCODE = colData(sce)$Barcode,
+                                mean_umi = colMeans(counts(sce)),
                                 stringsAsFactors = F)
 
-write.table(mean_UMI_per_cell, file = gzfile(file.path(opt$outdir, "meanUmiPerCell.tsv.gz")), 
+write.table(mean_UMI_per_cell, file = gzfile(file.path(opt$outdir, "meanUmiPerCell.tsv.gz")),
             sep="\t", quote = FALSE, row.names = FALSE)
 
 flog.info("Finished writing output...")
 
 flog.info("Completed")
-
-

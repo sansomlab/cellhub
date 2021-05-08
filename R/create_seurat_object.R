@@ -67,26 +67,31 @@ if(!is.null(options)) {
 flog.info("Running with options: ", opt, capture = TRUE)
 flog.info("\n")
 
-h5ad_input = file.path(opt$outdir, "full_anndata.h5ad")
-h5seurat_input = gsub(".h5ad", ".h5seurat", h5ad_input)
-flog.info("Convert anndata to h5seurat")
-Convert(h5ad_input, dest = "h5seurat", overwrite = TRUE)
-# load anndata with raw counts (=counts) and log-norm slot (=data)
-s <- LoadH5Seurat(h5seurat_input)
+if (is.null(opt$matrixdir)){
+   h5ad_input = file.path(opt$outdir, "full_anndata.h5ad")
+   h5seurat_input = gsub(".h5ad", ".h5seurat", h5ad_input)
+   flog.info("Convert anndata to h5seurat")
+   Convert(h5ad_input, dest = "h5seurat", overwrite = TRUE)
 
-if (!is.null(opt$matrixdir)){
-  
+   # load anndata with raw counts (=counts) and log-norm slot (=data)
+   s <- LoadH5Seurat(h5seurat_input)
+} else {
   data <- Read10X(opt$matrixdir)
-  full <- CreateSeuratObject(counts=data,
-                          project="project"
+  s <- CreateSeuratObject(counts=data,
+                          project="COMBAT_50k_subsample"
 			  )
-  full <- NormalizeData(full, normalization.method = "LogNormalize", 
-                        scale.factor = 10000)
-  
-  full@meta.data <- s@meta.data[colnames(full), ]
-  
-  s <- full
-  
+  s <- NormalizeData(s, normalization.method = "LogNormalize", scale.factor = 10000)
+  metafile <- file.path(opt$outdir, "metadata.tsv.gz")
+
+  metadata <- read.table(gzfile(metafile),
+  	                        sep="\t", header=TRUE, as.is=TRUE)
+  rownames(metadata) <- metadata$barcode
+  metadata$barcode <- NULL
+  metadata <- metadata[colnames(x = s), ]
+  for(meta_col in colnames(metadata)) {
+  s[[meta_col]] <- metadata[[meta_col]]
+  }
+
 }
 
 flog.info("Read dim reduction")
@@ -97,7 +102,7 @@ h5file = H5Fopen(file.path(opt$outdir, "scaled.h5"))
 #comp <- read.table(gzfile(file.path(folder_run, opt$dim_reduction)), sep = "\t", header=TRUE)
 comp <- t(h5file$comp)
 rownames(comp) = h5file$barcodes
-colnames(comp) = paste(opt$dim_name, c(1:ncol(comp)), sep="_")
+colnames(comp) = paste("harmony", c(1:ncol(comp)), sep="_")
 
 s[[opt$dim_name]] <- CreateDimReducObject(embeddings = as.matrix(comp), assay = "RNA")
 
@@ -135,6 +140,7 @@ if (ncol(s@assays$RNA@meta.features) > 0){
    meta_features[i] <- lapply(meta_features[i], as.character)
    s@assays$RNA@meta.features <- meta_features
 }
+
 
 if(!is.null(opt$cell_numbers)){
     flog.info("Start making subsets")

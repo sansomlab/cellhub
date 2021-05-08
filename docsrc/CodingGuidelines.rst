@@ -3,11 +3,12 @@ CodingGuidelines
 
 In the guidelines below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
 
-1. Yaml configuration files should be named pipeline_xxx.yml
-2. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
-3. Python code should pass pep8 checks, this will be enforced at some point in the future.
-4. Pipelines should be documented using the sphinx "autodocs" module
-5. For the autodocs documentation system to work pipelines should not read or write files outside of ruffus tasks (see below).
+1. Paths should never be hardcoded. They should be read from the configuation file.
+2. Yaml configuration files should be named pipeline_xxx.yml
+3. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
+4. Python code should pass pep8 checks, this will be enforced at some point in the future.
+5. Pipelines should be documented using the sphinx "autodocs" module
+6. For the autodocs documentation system to work pipelines should not read or write files outside of ruffus tasks (see below).
 
 
 Writing pipelines

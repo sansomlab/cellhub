@@ -1,0 +1,3 @@
+library_id	sample_id	cell_type	condition	replicate	genotype
+GSM2560248	pbmc_unstim_R1	pbmc	unstimulated	R1	wildtype
+GSM2560249	pbmc_stim_R1	pbmc	ifnb_stimulated	R1	wildtype

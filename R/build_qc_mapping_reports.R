@@ -4,19 +4,19 @@
 
 " Quality Control of a 10X GEX mapping output
 
-Usage: build_qc_mapping_reports.R --tenxfolder=<path> --sample_id=<string> --specie=<value> --outfolder=<folder>
+Usage: build_qc_mapping_reports.R --tenxfolder=<path> --library_id=<string> --specie=<value> --outfolder=<folder>
 
 Options:
   -h --help            Show this screen.
   --version            00.99.01.
   --tenxfolder=<path>   10X GEX output folder, /outs parent.
-  --sample_id=<string> Sample/channel id to call output report
+  --library_id=<string> Sample/channel id to call output report
   --specie=<value>     Either 'hg' or 'mm'.
   --outfolder=<file>   Path to results folder.
 
-Author: 
+Author:
   Cesar Prada
-e-mail: 
+e-mail:
   cesarprada[at]email.com
 
 "-> doc
@@ -72,15 +72,15 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 
     librarysize <- sum(features$feat_count_depth)
     features$pctlib <- features$feat_count_depth/librarysize
-    
+
     libsizecell <- colSums(cds[["exprs"]])
 
     top20feat <- head(arrange(features, -feat_count_depth),20)$id
     top20exp <- cds[["exprs"]][top20feat, ]
     pctlibsizecell <- lapply(seq(ncol(top20exp)), function(i) top20exp[, i]/libsizecell[i])
     names(pctlibsizecell) <- colnames(top20exp)
-    
-    top20 <- do.call(rbind, 
+
+    top20 <- do.call(rbind,
 	      lapply(names(pctlibsizecell), function(cell) {
 		  data.frame('pctlibcellsize'=pctlibsizecell[[cell]],
 			     'id'=names(pctlibsizecell[[cell]]),
@@ -91,7 +91,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
     print(head(top20))
     top20 <- merge(top20, select(features, c(`id`, gene_short_name)), by='id')
     print("Done")
-    
+
     gtop20 <- ggplot(top20, aes(x = gene_short_name, y=pctlibcellsize)) +
 	    geom_jitter(aes(group = gene_short_name), alpha=.2, color = "grey", shape=".") +
 	    geom_violin(alpha=.3, fill = "grey") +
@@ -105,28 +105,28 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 				     "% of total-counts"))
 
      g1 <- ggplot(`features`, aes(`feat_count_depth`)) +
-	geom_histogram(color = "grey", fill = "grey", 
+	geom_histogram(color = "grey", fill = "grey",
 		       bins = ceiling(max(features$feat_count_depth)/100)) +
 	geom_vline(xintercept = ceiling(quantile(features$feat_count_depth, 0.5)),
 		   linetype = "dashed", color = "black") +
 	geom_vline(xintercept = ceiling(quantile(features$feat_count_depth, .99)),
 		   linetype = "dotted", color = "grey") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       ceiling(mean(features$feat_count_depth))), 
-		 x = mean(features$feat_count_depth), 
-		 y = max(hist(features$feat_count_depth, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       ceiling(mean(features$feat_count_depth))),
+		 x = mean(features$feat_count_depth),
+		 y = max(hist(features$feat_count_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_count_depth),
 					   by = max(features$feat_count_depth)/ceiling(max(features$feat_count_depth)/100)),
 			      plot = FALSE)$counts),
 		 hjust = 0
 		 ) +
 	ggplot2::annotate("text",
-		 label = "> Top 1% deepest", 
-		 x = ceiling(quantile(features$feat_count_depth, .99)), 
-		 y = max(hist(features$feat_count_depth, 
-			      breaks = seq(from = 0, 
+		 label = "> Top 1% deepest",
+		 x = ceiling(quantile(features$feat_count_depth, .99)),
+		 y = max(hist(features$feat_count_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_count_depth),
 					   by = max(features$feat_count_depth)/ceiling(max(features$feat_count_depth)/100)),
 			      plot = FALSE)$counts)/2,
@@ -137,16 +137,16 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	ggtitle(paste(ds, "Feature count depth"))
 
     g1_1 <- ggplot(features, aes(feat_count_depth)) +
-	  geom_histogram(color = "grey", fill = "grey", 
+	  geom_histogram(color = "grey", fill = "grey",
 			 bins = (ceiling(max(features$feat_count_depth)/100))) +
 	  theme_classic() +
 	  xlim(c(-0.5, ceiling(quantile(features$feat_count_depth, 0.5)))) +
 	  ggtitle(paste(ds, "Feature count depth"),
 		  subtitle = "Quantile 50")
 
-    g2_wc <- ggplot(head(arrange(features, -feat_count_depth), nrow(features)*0.01), 
-		    aes(label = gene_short_name, 
-				size = feat_count_depth, 
+    g2_wc <- ggplot(head(arrange(features, -feat_count_depth), nrow(features)*0.01),
+		    aes(label = gene_short_name,
+				size = feat_count_depth,
 				color = feat_count_depth)) +
 		geom_text_wordcloud(rm_outside = TRUE) +
 		scale_size_area(max_size = 2.5) +
@@ -160,11 +160,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	geom_vline(xintercept = round(quantile(features$feat_log10_count_depth, 0.5), digits = 2),
 		   linetype = "dashed", color = "black") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       round(mean(features$feat_log10_count_depth), digits=2)), 
-		 x = mean(features$feat_log10_count_depth), 
-		 y = max(hist(features$feat_log10_count_depth, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       round(mean(features$feat_log10_count_depth), digits=2)),
+		 x = mean(features$feat_log10_count_depth),
+		 y = max(hist(features$feat_log10_count_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_log10_count_depth),
 					   by = max(features$feat_log10_count_depth)/100),
 			      plot = FALSE)$counts),
@@ -174,28 +174,28 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	ggtitle(paste(ds, "log10(feature count depth)"))
 
     g1 <- ggplot(`features`, aes(`feat_count_depth`)) +
-	geom_histogram(color = "grey", fill = "grey", 
+	geom_histogram(color = "grey", fill = "grey",
 		       bins = ceiling(max(features$feat_count_depth)/200)) +
 	geom_vline(xintercept = ceiling(quantile(features$feat_count_depth, 0.5)),
 		   linetype = "dashed", color = "black") +
 	geom_vline(xintercept = ceiling(quantile(features$feat_count_depth, .99)),
 		   linetype = "dotted", color = "grey") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       ceiling(mean(features$feat_count_depth))), 
-		 x = mean(features$feat_count_depth), 
-		 y = max(hist(features$feat_count_depth, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       ceiling(mean(features$feat_count_depth))),
+		 x = mean(features$feat_count_depth),
+		 y = max(hist(features$feat_count_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_count_depth),
 					   by = max(features$feat_count_depth)/ceiling(max(features$feat_count_depth)/200)),
 			      plot = FALSE)$counts),
 		 hjust = 0
 		 ) +
 	ggplot2::annotate("text",
-		 label = "> Top 1% deepest", 
-		 x = ceiling(quantile(features$feat_count_depth, .99)), 
-		 y = max(hist(features$feat_count_depth, 
-			      breaks = seq(from = 0, 
+		 label = "> Top 1% deepest",
+		 x = ceiling(quantile(features$feat_count_depth, .99)),
+		 y = max(hist(features$feat_count_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_count_depth),
 					   by = max(features$feat_count_depth)/ceiling(max(features$feat_count_depth)/100)),
 			      plot = FALSE)$counts)/2,
@@ -214,28 +214,28 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 		  subtitle = "Quantile 50")
 
     g2_2 <- ggplot(`features`, aes(`feat_cell_depth`)) +
-	geom_histogram(color = "grey", fill = "grey", 
+	geom_histogram(color = "grey", fill = "grey",
 		       bins = ceiling(max(features$feat_cell_depth)/100)) +
 	geom_vline(xintercept = ceiling(quantile(features$feat_cell_depth, 0.5)),
 		   linetype = "dashed", color = "black") +
 	geom_vline(xintercept = ceiling(quantile(features$feat_cell_depth, .99)),
 		   linetype = "dotted", color = "grey") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       ceiling(mean(features$feat_cell_depth))), 
-		 x = mean(features$feat_cell_depth), 
-		 y = max(hist(features$feat_cell_depth, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       ceiling(mean(features$feat_cell_depth))),
+		 x = mean(features$feat_cell_depth),
+		 y = max(hist(features$feat_cell_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_cell_depth),
 					   by = max(features$feat_cell_depth)/ceiling(max(features$feat_cell_depth)/100)),
 			      plot = FALSE)$counts),
 		 hjust = 0
 		 ) +
 	ggplot2::annotate("text",
-		 label = "> Top 1% deepest", 
-		 x = ceiling(quantile(features$feat_cell_depth, .99)), 
-		 y = max(hist(features$feat_cell_depth, 
-			      breaks = seq(from = 0, 
+		 label = "> Top 1% deepest",
+		 x = ceiling(quantile(features$feat_cell_depth, .99)),
+		 y = max(hist(features$feat_cell_depth,
+			      breaks = seq(from = 0,
 					   to = max(features$feat_cell_depth),
 					   by = max(features$feat_cell_depth)/ceiling(max(features$feat_cell_depth)/100)),
 			      plot = FALSE)$counts)/2,
@@ -245,9 +245,9 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	theme_classic() +
 	ggtitle(paste(ds, "Feature cell depth"))
 
-    g2_2_wc <- ggplot(head(arrange(features, -feat_cell_depth), nrow(features)*0.01), 
-		    aes(label = gene_short_name, 
-				size = feat_cell_depth, 
+    g2_2_wc <- ggplot(head(arrange(features, -feat_cell_depth), nrow(features)*0.01),
+		    aes(label = gene_short_name,
+				size = feat_cell_depth,
 				color = feat_cell_depth)) +
 		geom_text_wordcloud(rm_outside = TRUE) +
 		scale_size_area(max_size = 2.5) +
@@ -310,7 +310,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	dplyr::arrange(-cell_depth_counts) %>%
 	mutate(`rank` = seq(nrow(cell))) -> cell
     print(head(cell,2))
-   
+
     rownames(cell) <- cell$barcode
 
     g3 <- ggplot(cell, aes(cell_depth_counts)) +
@@ -318,11 +318,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	geom_vline(xintercept = ceiling(quantile(cell$cell_depth_counts, 0.5)),
 		   linetype = "dashed", color = "black") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       ceiling(mean(cell$cell_depth_counts))), 
-		 x = mean(cell$cell_depth_counts), 
-		 y = max(hist(cell$cell_depth_counts, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       ceiling(mean(cell$cell_depth_counts))),
+		 x = mean(cell$cell_depth_counts),
+		 y = max(hist(cell$cell_depth_counts,
+			      breaks = seq(from = 0,
 					   to = max(cell$cell_depth_counts),
 					   by = max(cell$cell_depth_counts)/1000),
 			      plot = FALSE)$counts),
@@ -342,11 +342,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	geom_vline(xintercept = quantile(cell$cell_log10_depth_counts, 0.5),
 		   linetype = "dashed", color = "black") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       round(mean(cell$cell_log10_depth_counts), digits=2)), 
-		 x = mean(cell$cell_log10_depth_counts), 
-		 y = max(hist(cell$cell_log10_depth_counts, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       round(mean(cell$cell_log10_depth_counts), digits=2)),
+		 x = mean(cell$cell_log10_depth_counts),
+		 y = max(hist(cell$cell_log10_depth_counts,
+			      breaks = seq(from = 0,
 					   to = max(cell$cell_log10_depth_counts),
 					   by = max(cell$cell_log10_depth_counts)/100),
 			      plot = FALSE)$counts),
@@ -366,11 +366,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	geom_vline(xintercept = quantile(cell$cell_depth_genes_detected, 0.5),
 		   linetype = "dashed", color = "black") +
 	ggplot2::annotate("text",
-		 label = paste("mean ~", 
-			       ceiling(mean(cell$cell_depth_genes_detected))), 
-		 x = mean(cell$cell_depth_genes_detected), 
-		 y = max(hist(cell$cell_depth_genes_detected, 
-			      breaks = seq(from = 0, 
+		 label = paste("mean ~",
+			       ceiling(mean(cell$cell_depth_genes_detected))),
+		 x = mean(cell$cell_depth_genes_detected),
+		 y = max(hist(cell$cell_depth_genes_detected,
+			      breaks = seq(from = 0,
 					   to = max(cell$cell_depth_genes_detected),
 					   by = max(cell$cell_depth_genes_detected)/100),
 			      plot = FALSE)$counts),
@@ -386,7 +386,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	  ggtitle(paste(ds, "Gene depth - Quantile 50"))
 
     g6 <- ggplot(cell, aes(x = `rank`, y = cell_depth_counts)) +
-	geom_point(aes(color = pct_mt_counts), 
+	geom_point(aes(color = pct_mt_counts),
 		   stat = "identity", alpha = .2, size = 0.5) +
 	scale_color_gradient(low = "black",  high = "red") +
 	ylim(c(0, max(cell$cell_depth_counts))) +
@@ -394,7 +394,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	ggtitle(paste(ds, "Depth vs. rank"))
 
     g6_1 <- ggplot(cell, aes(x = `rank`, y = cell_depth_counts)) +
-	  geom_point(aes(color = pct_rb_counts), 
+	  geom_point(aes(color = pct_rb_counts),
 		     stat = "identity", alpha = .2, size = 0.5) +
 	  scale_color_gradient(low = "pink",  high = "black") +
 	  ylim(c(0, max(cell$cell_depth_counts))) +
@@ -402,7 +402,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	  ggtitle(paste(ds, "Depth vs. rank"))
 
     g7 <- ggplot(cell, aes(x = cell_depth_counts, y = cell_depth_genes_detected)) +
-	geom_point(aes(color = pct_mt_counts), stat = "identity", 
+	geom_point(aes(color = pct_mt_counts), stat = "identity",
 		   alpha = 0.2, size = 0.5) +
 	scale_color_gradient(low = "black",  high = "red") +
 	theme_classic() +
@@ -410,7 +410,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 		subtitle = "% Mitochondrial-counts")
 
     g8 <- ggplot(cell, aes(x = cell_depth_counts, y = cell_depth_genes_detected)) +
-	geom_point(aes(color = pct_rb_counts, fill = pct_rb_counts), 
+	geom_point(aes(color = pct_rb_counts, fill = pct_rb_counts),
 		   stat = "identity", alpha = 0.2, size = 0.5) +
 	scale_color_gradient(high = "black",  low = "pink") +
 	scale_fill_gradient(high = "black",  low = "pink") +
@@ -425,12 +425,12 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 		geom_point(color = "red", alpha = .2, size = 0.5) +
 		theme_classic() +
 		ggtitle(paste(ds, "% Mitochondrial-counts vs. depth"))
-	
+
 
 	    g10 <-  ggplot(cell, aes(pct_mt_counts)) +
 		        geom_density(fill = "red", color = "white", alpha = 0.8) +
 			geom_vline(xintercept = median(cell$pct_mt_counts),
-				   linetype = "dashed", color = "black") + 
+				   linetype = "dashed", color = "black") +
 			theme_classic() +
 			coord_flip() +
 			ggtitle(paste(ds, "Mitochondrial-counts density"))
@@ -448,11 +448,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 			geom_vline(xintercept = median(cell$pct_mt_counts),
 				   linetype = "dashed", color = "black") +
 			ggplot2::annotate("text",
-					  label = paste("mean ~", 
-							round(mean(cell$pct_mt_counts), digits=2)), 
-					  	 x = mean(cell$pct_mt_counts), 
-						 y = max(hist(cell$pct_mt_counts, 
-							      breaks = seq(from = 0, 
+					  label = paste("mean ~",
+							round(mean(cell$pct_mt_counts), digits=2)),
+					  	 x = mean(cell$pct_mt_counts),
+						 y = max(hist(cell$pct_mt_counts,
+							      breaks = seq(from = 0,
 									   to = max(cell$pct_mt_counts),
 									   by = max(cell$pct_mt_counts)/1000),
 							      plot = FALSE)$density),
@@ -475,7 +475,7 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 	    g12 <-  ggplot(cell, aes(pct_rb_counts)) +
 		        geom_density(fill = "pink", color = "white", alpha = 0.8) +
 			geom_vline(xintercept = median(cell$pct_rb_counts),
-				   linetype = "dashed", color = "black") + 
+				   linetype = "dashed", color = "black") +
 			theme_classic() +
 			coord_flip() +
 			ggtitle(paste(ds, "Ribosomal-counts density"))
@@ -493,11 +493,11 @@ plot_qc <- function(cds, mt_genes, rb_genes, ds, jobname) {
 			geom_vline(xintercept = median(cell$pct_rb_counts),
 				   linetype = "dashed", color = "black") +
 			ggplot2::annotate("text",
-					  label = paste("mean ~", 
-							round(mean(cell$pct_rb_counts), digits=2)), 
-					  	 x = mean(cell$pct_rb_counts), 
-						 y = max(hist(cell$pct_rb_counts, 
-							      breaks = seq(from = 0, 
+					  label = paste("mean ~",
+							round(mean(cell$pct_rb_counts), digits=2)),
+					  	 x = mean(cell$pct_rb_counts),
+						 y = max(hist(cell$pct_rb_counts,
+							      breaks = seq(from = 0,
 									   to = max(cell$pct_rb_counts),
 									   by = max(cell$pct_rb_counts)/1000),
 							      plot = FALSE)$density),
@@ -534,7 +534,7 @@ load_cellranger_data <- function(pipestance_path=NULL, genome=NULL,
   v3p = file.path(od)
   v2p = file.path(od, "filtered_gene_bc_matrices")
   v3d = dir.exists(v3p)
-  
+
   matrix_dir = ifelse(v3d, v3p, v2p)
   print(matrix_dir)
 
@@ -623,7 +623,7 @@ print("Functions loaded")
 inputfolder <- arguments$tenxfolder
 sp <- arguments$specie
 outputfolder <- arguments$outfolder
-jobname <- arguments$sample_id
+jobname <- arguments$library_id
 
 print("Parameters loaded")
 
@@ -640,7 +640,7 @@ if(class(cds) != "list") {
 print(str(cds))
 
 if(sp == "mm") {
-	
+
 	if(colnames(cds[["fData"]])[1] == "gene_id") {
 
 		colnames(cds[["fData"]])[1] <- "id"
@@ -651,7 +651,7 @@ if(sp == "mm") {
 	message("Mitochondrial genes detected:")
 	print(mt_genes)
 	if(length(mt_genes) == 0) {
-		message("No mitochondrial genes detected") 
+		message("No mitochondrial genes detected")
 	}
 
 	# Ribosomal genes
@@ -663,16 +663,16 @@ if(sp == "mm") {
 	}
 
 } else if (sp == "hg") {
-	
+
 	# Mitochondrial genes
 	mt_genes <- cds[["fData"]][grepl("^MT-", cds[["fData"]]$gene_short_name), ]$id
 	message("Mitochondrial genes detected:")
 	print(mt_genes)
 
 	if(length(mt_genes) == 0) {
-		message("No mitochondrial genes detected") 
+		message("No mitochondrial genes detected")
 	}
-	
+
 	# Ribosomal genes
 	rb_genes <- cds[["fData"]][grepl("^RPS|^RPL", cds[["fData"]]$gene_short_name), ]$id
 	message("Ribosomal genes detected:")
@@ -691,7 +691,7 @@ if(sp == "mm") {
 res <- plot_qc(cds, mt_genes, rb_genes, jobname)
 
 # --- Write QC plots
-title <- ggdraw() + 
+title <- ggdraw() +
   draw_label(
     jobname,
     fontface = 'bold',
@@ -707,10 +707,10 @@ title <- ggdraw() +
 qc_file <- paste0(outputfolder, '/', jobname, '_', 'qcmetrics_report.pdf')
 
 pdf(qc_file, height = 11.69, width = 8.27)
-    plot_grid(title, plot_grid(plotlist = res$ps1, ncol = 2), 
+    plot_grid(title, plot_grid(plotlist = res$ps1, ncol = 2),
 	      ncol = 1, rel_heights = c(0.02, 1))
-    plot_grid(title, plot_grid(plotlist = res$ps2, ncol = 2), 
+    plot_grid(title, plot_grid(plotlist = res$ps2, ncol = 2),
 	      ncol = 1, rel_heights = c(0.02, 1))
 dev.off()
 
-message(paste("The QC report ", qc_file, "has been created."))
+message("The QC report ", qc_file, "has been created.")
