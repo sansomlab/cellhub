@@ -4,7 +4,7 @@ Tools for the alignment, quantification, database ingest, and retrieval of multi
 
 ## Documentation
 
-For installationa and usage please see the [cellhub docs](docs/cellhub.pdf)
+For installation and usage please see the [cellhub docs](docs/cellhub.pdf)
 
 ## General schema
 
