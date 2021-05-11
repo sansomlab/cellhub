@@ -57,7 +57,7 @@ And investigate the ambient rna::
 4. Loading the cell statistics into the celldb
 ----------------------------------------------
 
-The cell QC statistics and metadata are next loaded into a local sqlite database::
+The cell QC statistics and metadata ("samples.tsv") are next loaded into a local sqlite database::
 
   # cellhub celldb config
 
@@ -77,7 +77,7 @@ We use pipeline_fetch_cells to retrieve the cells we want for downstream analysi
 6. Integration
 --------------
 
-pipeline_integration supports integration of the data with harmony, bbknn and scanorama::
+Pipeline_integration supports integration of the data with harmony, bbknn and scanorama. In this example the location of the data is specified in the "integration.tsv" file as per the path given in the "pipeline_integration.yml" file. ::
 
   # cellhub integration config
 
