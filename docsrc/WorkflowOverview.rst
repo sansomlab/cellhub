@@ -44,7 +44,7 @@ If samples have been multiplexed within channels either genetically or using has
 
 The library and sample metadata, per cell statistics (and demultiplex assignments) are loaded into an sqlite database using :doc:`pipeline_celldb.py<pipelines/pipeline_celldb>`. The pipeline creates a view called "final" which contains the qc and metadata needed for cell selection and downstream analysis.
 
-.. note:: The user is required to supply a tab-separated sample metadata file via a path in the pipeline_celldb.yml configuration file. It should have columns for library_id, sample_id as well as any other relevant experimental metadata such as condition, genotype, age, replicate, sex etc.
+.. note:: The user is required to supply a tab-separated sample metadata file (e.g. "samples.tsv") via a path in the pipeline_celldb.yml configuration file. It should have columns for library_id, sample_id as well as any other relevant experimental metadata such as condition, genotype, age, replicate, sex etc.
 
 
 5. Fetching of cells for downstream analysis
@@ -61,6 +61,8 @@ The pipeline supports fetching of velocity information.
 --------------
 
 Alignment of samples is performed with :doc:`pipeline_integration.py <pipelines/pipeline_integration>`. Currently the pipeline supports harmony, bbknn and scanorama. It will produce UMAPs summarising the alignments and will compute the LISI statistic.
+
+.. note:: The user is required to supply a tsv file (e.g. "integration.tsv") containing the path to the pipeline_fetch_cells.py anndata object that holds the data which is to be integrated. The path to the tsv file is specified in the "pipeline_integration.yml" configuration file.
 
 
 7. Export for seurat [optional]
