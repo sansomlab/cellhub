@@ -35,8 +35,18 @@ def get_parameter_file(pipeline_path, name):
 
     pipeline_name = os.path.basename(pipeline_path)
 
-    if name == "__main__" and sys.argv[1] != "config":
-        return(pipeline_name.replace(".py", ".yml"))
+    if sys.argv[1] == "make":
+        yml_file = pipeline_name.replace(".py", ".yml")
+
+        if not os.path.exists(yml_file):
+            raise ValueError('local configuration file missing. Please e.g. run '
+                             '"cellhub ' + pipeline_name +  ' config" to check'
+                             'out a local copy of the default file')
 
     else:
-        return(os.path.splitext(pipeline_path)[0] + "/" + pipeline_name.replace(".py", ".yml"))
+        yml_file = os.path.splitext(pipeline_path)[0] + "/" + pipeline_name.replace(".py", ".yml")
+
+        if not os.path.exists(yml_file):
+            raise ValueError("default configuration file missing")
+
+    return(yml_file)
