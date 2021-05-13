@@ -56,8 +56,10 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 from pathlib import Path
 import pandas as pd
+import glob
 
 import cellhub.tasks.control as C
+import cellhub.tasks.api as api
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -85,48 +87,15 @@ if len(sys.argv) > 1:
                     sys.exit(P.main(sys.argv))
 
 
-# ########################################################################### #
-# ######## Check input libraries file and that the input exists ############### #
-# ########################################################################### #
-
-@follows(mkdir("cell.qc.dir"))
-@originate("cell.qc.dir/input.check.sentinel")
-def checkInputs(outfile):
-    '''Check that the input_libraries file exists and the path given in the file
-       is a valid directorys. '''
-
-    if not os.path.exists(PARAMS["input_libraries"]):
-        raise ValueError('File specifying the input libraries is not present.'
-                         'The file needs to be named PARAMS["input_libraries"] ')
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    for filtered_matrix_path in libraries["filt_path"]:
-        if not os.path.exists(filtered_matrix_path):
-          raise ValueError('Input folder from cellranger run (outs/)'
-                             ' does not exist.')
-    IOTools.touch_file(outfile)
-
 # ############################################# #
 # ######## Calculate QC metrics ############### #
 # ############################################# #
 
-
-def qc_metrics_jobs():
-    ''' Generate cluster jobs for each library '''
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-
-    for library_name in libraries.index:
-        out_library = library_name + ".tsv.gz"
-        out_sentinel = "/".join(["cell.qc.dir/qcmetrics.dir", out_library])
-        infile = None
-        yield(infile, out_sentinel)
-
-
-@follows(mkdir("cell.qc.dir"),checkInputs)
-@files(qc_metrics_jobs)
-def calculate_qc_metrics(infile, outfile):
+@follows(mkdir("cell.qc.dir"))
+@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/matrix.mtx.gz"),
+           r"cell.qc.dir/qcmetric.dir/\1.sentinel")
+def qcmetrics(infile, outfile):
     '''This task will run R/calculate_qc_metrics.R,
     It uses the input_libraries.tsv to read the path to the cellranger directory for each input
     Ouput: creates a cell.qc.dir folder and a library_qcmetrics.tsv.gz table per library/channel
@@ -140,10 +109,8 @@ def calculate_qc_metrics(infile, outfile):
         os.mkdir(outdir)
 
     # Get cellranger directory and id
-    library_name = outfile.split("/")[-1].replace(".tsv.gz", "")
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-    cellranger_dir = libraries.loc[library_name, "filt_path"]
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    cellranger_dir = os.path.dirname(infile)
 
     # Get genesets file
     if PARAMS["calculate_qc_metrics_geneset_file"] == "none" or PARAMS["calculate_qc_metrics_geneset_file"] == None:
@@ -167,13 +134,15 @@ def calculate_qc_metrics(infile, outfile):
 
     log_file = outfile.replace(".tsv.gz", ".log")
 
+    out_file = outfile.replace(".sentinel", ".tsv.gz")
+
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/calculate_qc_metrics.R
                  --cellranger_dir=%(cellranger_dir)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
-                 --outfile=%(outfile)s
+                 --outfile=%(out_file)s
                  %(genesets_file)s
                  %(barcodes_to_label_as_True)s
               '''
@@ -183,69 +152,45 @@ def calculate_qc_metrics(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-def qc_reports_jobs():
-    ''' Generate cluster jobs for each library '''
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-
-    for library_name in libraries.index:
-        out_library = "_".join([library_name, "qcmetrics_report.pdf"])
-        out_sentinel = "/".join(["cell.qc.dir/reports", out_library])
-        infile = libraries.loc[library_name]["filt_path"]
-        yield(infile, out_sentinel)
-
-
-@follows(mkdir("cell.qc.dir/reports"), checkInputs)
-@files(qc_reports_jobs)
-def build_qc_reports(infile, outfile):
-    '''This task will run R/build_qc_mapping_report.R,
-    It expects three files in the input directory barcodes.tsv.gz,
-    features.tsv.gz, and matrix.mtx.gz
-    Ouput: creates a library_qcmetrics_report.pdf table per input folder
+@merge(qcmetrics,
+       "cell.qc.dir/qcmetrics.dir/api.sentinel")
+def qcmetricsAPI(infiles, outfile):
     '''
-    # Get cellranger directory and id
-    library_name = outfile.split("/")[-1].replace("_cell.qc.dir/reports", "")
-    library_name = library_name.replace("_qcmetrics_report.pdf", "")
+    Add the QC metrics results to the API
+    '''
 
-    # Other settings
-    job_threads = PARAMS["resources_threads"]
-    job_threads = PARAMS["resources_threads"]
-    job_memory = "30G"
+    file_set={}
 
-    log_file = outfile.replace(".pdf", ".log")
+    for libqc in infiles:
 
-    # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/build_qc_mapping_reports.R
-                --tenxfolder=%(infile)s
-                --library_id=%(library_name)s
-                --specie="hg"
-                --outfolder="cell.qc.dir/reports"
-                &> %(log_file)s
-              '''
-    P.run(statement)
+        tsv_path = libqc.replace(".sentinel",".tsv.gz")
+        library_id = os.path.basename(tsv_path)
+
+        file_set[library_id] = {"path": tsv_path,
+                                "description":"qcmetric table for library " +\
+                                library_id,
+                                "format":"tsv"}
+
+    x = api.register("cell.qc")
+
+    x.dataset(analysis_name="qcmetrics",
+              data_subset="filtered",
+              file_set=file_set,
+              analysis_description="per library tables of cell GEX qc statistics",
+              file_format="tsv")
+
+    x.deposit()
+
 
 # ############################################# #
 # ######## Calculate doublet scores ########### #
 # ############################################# #
 
-@follows(checkInputs)
-def qc_doublet_scoring_jobs():
-    ''' Generate cluster jobs for each library '''
-
-    # if(__name__ == "__main__"):
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-
-    for library_name in libraries.index:
-        out_library = library_name + ".sentinel"
-        out_sentinel = "/".join(["cell.qc.dir/scrublet.dir", out_library])
-        infile = None
-        yield(infile, out_sentinel)
-
-
-@files(qc_doublet_scoring_jobs)
-def run_scrublet(infile, outfile):
+@follows(mkdir("cell.qc.dir"))
+@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/matrix.mtx.gz"),
+           r"cell.qc.dir/scrublet.dir/\1.sentinel")
+def scrublet(infile, outfile):
     '''This task will run python/run_scrublet.py,
     It uses the input_libraries.tsv to read the path to the cellranger directory for each input
     Ouput: creates a scrublet.dir folder and a library_scrublet.tsv.gz table per library/channel
@@ -257,11 +202,8 @@ def run_scrublet(infile, outfile):
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
-    # Get cellranger directory
-    library_name = outfile.split("/")[-1].replace(".sentinel", "")
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-    cellranger_dir = libraries.loc[library_name, "filt_path"]
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    cellranger_dir = os.path.dirname(infile)
 
     if PARAMS["scrublet_subset"]:
         whitelist = libraries.loc[library_name, "whitelist"]
@@ -307,6 +249,36 @@ def run_scrublet(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@merge(scrublet,
+       "cell.qc.dir/scrublet.dir/api.sentinel")
+def scrubletAPI(infiles, outfile):
+    '''
+    Add the scrublet results to the API
+    '''
+
+    file_set={}
+
+    for lib in infiles:
+
+        tsv_path = lib.replace(".sentinel",".tsv.gz")
+        library_id = os.path.basename(tsv_path)
+
+        file_set[library_id] = {"path": tsv_path,
+                                "description":"scrublet table for library " +\
+                                library_id,
+                                "format":"tsv"}
+
+    x = api.register("cell.qc")
+
+    x.dataset(analysis_name="scrublet",
+              data_subset="filtered",
+              file_set=file_set,
+              analysis_description="per library tables of cell scrublet scores",
+              file_format="tsv")
+
+    x.deposit()
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
 
@@ -328,7 +300,7 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(calculate_qc_metrics, build_qc_reports, run_scrublet, plot)
+@follows(qcmetricsAPI, scrubletAPI, plot)
 def full():
     '''
     Run the full pipeline.

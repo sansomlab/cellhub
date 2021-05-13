@@ -58,16 +58,33 @@ Datasets can be accessed directly via the endpoint. However it is recommend to a
 
 import yaml
 import os
+import shutil
+import re
 import copy
 from pprint import pprint
 
 class register():
     '''Prototype class for registering outputs on the service endpoint'''
 
-    def __init__(self, pipeline, endpoint="api"):
+    def __init__(self, pipeline = None, endpoint="api"):
 
-        self.pipeline = pipeline
+        if pipeline is None or pipeline == "":
+            raise ValueError("a pipeline name must be specified")
+
+        self.pipeline = re.sub("[ -_]",".",pipeline)
         self.endpoint = endpoint
+
+    def reset(self):
+        '''
+        Clean the pipeline endpoint
+        '''
+
+        endpoint_location = os.path.join(self.endpoint,
+                                         self.pipeline)
+
+        if os.path.exists(endpoint_location):
+
+            shutil.rmtree(endpoint_location)
 
     def dataset(self,
                 analysis_name,
@@ -76,12 +93,17 @@ class register():
                 file_format,
                 analysis_description = None,
                 data_subset = None,
-                data_id = None,
+                data_id = None
                 ):
+
+
 
 
         # self.description = description # free text description
         self.file_format = file_format # e.g. tsv, market-matrix etc
+
+
+
         self.data_subset = data_subset # e.g. for cell ranger full|filtered
         self.data_id = data_id  # e.g. for cell ranger this is the library_id
 
@@ -106,6 +128,16 @@ class register():
         #               "format": "market-matrix",
         #               "description": "Market matrix file"}
         # }
+
+        # check the files exist
+
+        print("*************************")
+        print(file_set)
+        for file_name in file_set.keys():
+            file_path = file_set[file_name]["path"]
+            if not os.path.exists(file_path):
+                raise ValueError("file_set file : " + file_name + " does not "
+                                 "exist at path: " + file_path)
 
         self.file_set = file_set # a dictionary of the files to be registered
 
@@ -134,13 +166,11 @@ class register():
             endpoint_location = os.path.join(endpoint_location,
                                              self.data_id)
 
-        print(self)
-        print("**********")
-        print(endpoint_location)
+        # ensure the endpoint location is clean
+        if os.path.exists(endpoint_location):
+            shutil.rmtree(endpoint_location)
 
-        if not os.path.exists(endpoint_location):
-            os.makedirs(endpoint_location)
-
+        os.makedirs(endpoint_location)
 
         # 2. construct and write the manifest
 
