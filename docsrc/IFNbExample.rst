@@ -1,11 +1,11 @@
 IFNb PBMC example
 =================
 
-To get started create a suitable directory and cd into it.
+To get started create a directory for the cellhub run and cd into it.
 
 Copy the yml, sample.tsv, integration.tsv and export.tsv configuration and metadata files for this example to the working folder::
 
-  cp /path/to/cellhub/examples/ifnb_pbmc/* .
+  cp /path/to/cellhub/examples/ifnb_pbmc/cellhub/* .
 
 
 1. Running Cellranger
@@ -64,14 +64,35 @@ The cell QC statistics and metadata ("samples.tsv") are next loaded into a local
   cellhub celldb make full -v5 -p20
 
 
-5. Fetching cells for downstream analysis
+5. Make and switch to a new location for downstream analysis
+------------------------------------------------------------
+
+Make a new directory (outside of the cellhub directory) in which to fetch and align the cells: ::
+
+  # e.g.
+  cd ..
+
+  mkdir ifnb_downstream_analysis
+  cd ifnb_downstream_analysis
+
+We will also need to copy the example yml files for the fetch_cells, integration and export pipelines into this folder: ::
+
+  cp /path/to/cellhub/examples/ifnb_pbmc/downstream_analysis/ .
+
+
+6. Fetching cells for downstream analysis
 -----------------------------------------
+
 
 We use pipeline_fetch_cells to retrieve the cells we want for downstream analysis. (QC thresholds and e.g. desired samples are specified in the pipeline_fetch_cells.yml) file::
 
   # cellhub fetch_cells config
 
+  # edit the "cellhub_location" in the pipeline_fetch_cell.yml
+  # file to point to the location of the cellhub directory.
+
   cellhub fetch_cells make full -v5 -p20
+
 
 
 6. Integration
@@ -83,6 +104,8 @@ Pipeline_integration supports integration of the data with harmony, bbknn and sc
 
   cellhub integration make full -v5 -p20
 
+.. warning:: pipeline_integration.py will be moving to a new sansomlab/scxl repository (along with pipeline_scxl from sansomlab/tenx).
+
 
 7. Export for downstream analysis
 ---------------------------------
@@ -92,6 +115,8 @@ Finally we can export the integrated anndata object to e.g. a Seurat object for 
   # cellhub export config
 
   cellhub export make full -v5 -p20
+
+.. warning:: pipeline_export.py will be moving to the new sansomlab/scxl repository
 
 
 8. Perform downstream analysis
