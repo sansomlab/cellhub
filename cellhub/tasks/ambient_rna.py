@@ -12,42 +12,46 @@ import pandas as pd
 import yaml
 from . import TASK
 
-def per_input(infile, input_libraries, outfile, PARAMS):
-    # Create options dictionary
+def per_input(infile, outfile, PARAMS):
+
 
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    mtx_dir = os.path.dirname(infile)
+
+    library_id = Path(outfile).parents[0]
+
+    # Create options dictionary
     options = {}
     options["umi"] = int(PARAMS["ambientRNA_umi"])
-
-    library_name = infile.split("/")[2].replace(".library.dir", "")
-    libraries = pd.read_csv(input_libraries, sep='\t')
-    libraries.set_index("library_id", inplace=True)
-    options["cellranger_dir"] = libraries.loc[library_name ,"raw_path"]
+    options["cellranger_dir"] = mtx_dir
     options["outdir"] = outdir
-    options["library_name"] = library_name
+    options["library_name"] = library_id
 
     # remove blacklisted cells if required
-    if 'blacklist' in libraries.columns:
-        options["blacklist"] = libraries.loc[library_name, "blacklist"]
+    if PARAMS["blacklist"] is not None:
+        options["blacklist"] = PARAMS["blacklist"]
 
     # Write yml file
-    task_yaml_file = os.path.abspath(os.path.join(outdir, "ambient_rna.yml"))
+    task_yaml_file = os.path.abspath(os.path.join(outdir,
+                                                  "ambient_rna.yml"))
 
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
-    output_dir = os.path.abspath(outdir)
-    knit_root_dir = os.getcwd()
-    fig_path =  os.path.join(output_dir, "fig.dir/")
+
+    # output_dir = os.path.abspath(outdir)
+    # knit_root_dir = os.getcwd()
+    # fig_path =  os.path.join(output_dir, "fig.dir/")
 
     # Other settings
     log_file = outfile.replace("sentinel","log")
-    job_threads = PARAMS["resources_threads"]
+
+    # job_threads = PARAMS["resources_threads"]
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_job_memory"])
+        memory=PARAMS["resources_job_memory"], cpu=PARAMS["resources_threads"])
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/ambient_rna_per_library.R
@@ -58,19 +62,18 @@ def per_input(infile, input_libraries, outfile, PARAMS):
     P.run(statement)
 
 
-def compare(infile, outfile, PARAMS):
+def compare(infiles, outfile, PARAMS):
 
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    library_indir = ",".join([os.path.dirname(x) for x in infiles])
+    library_id = ",".join([str(os.path.basename(Path(x).parents[0]))
+                           for x in infiles])
+
     # Create options dictionary
     options = {}
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    library_id = libraries.library_id.tolist()
-    library_indir = [ "ambient.rna.dir/profile_per_input.dir/" + s for s in library_id ]
-    library_indir = ",".join(library_indir)
-    library_id = ",".join(library_id)
     options["library_indir"] = library_indir
     options["library_id"] = library_id
     options["library_table"] = "input_libraries.tsv"
@@ -80,9 +83,10 @@ def compare(infile, outfile, PARAMS):
     task_yaml_file = os.path.abspath(os.path.join(outdir, "ambient_rna_compare.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
-    output_dir = os.path.abspath(outdir)
-    knit_root_dir = os.getcwd()
-    fig_path =  os.path.join(output_dir, "fig.dir/")
+
+    # output_dir = os.path.abspath(outdir)
+    # knit_root_dir = os.getcwd()
+    # fig_path =  os.path.join(output_dir, "fig.dir/")
 
     # Other settings
     log_file = outfile.replace("sentinel","log")

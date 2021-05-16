@@ -40,6 +40,16 @@ Coding guidelines
    :maxdepth: 2
 
    CodingGuidelines.rst
+   API.rst
+
+
+Tasks module documentation
+--------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   tasks/api.rst
 
 
 Pipeline documentation

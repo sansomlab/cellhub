@@ -28,7 +28,7 @@ The workflow begins with :doc:`pipeline_cellranger_multi.py<pipelines/pipeline_c
 
 Per-cell statistics are computed in parallel for each channel library using :doc:`pipeline_cell_qc.py<pipelines/pipeline_cell_qc>`. The pipeline computes various statistics including standard metrics such as percentage of mitochondrial reads, numbers of UMIs and numbers of genes per cell. In addition it can compute scores for custom genesets.
 
-.. note:: all per-channel matrices containing computed cell statistics are required to contain "library_id" and "barcode_id" columns. The "barcode_id" column must have the structure "umi_code-1-library_id" (e.g. AAAAAAAAAA-1-GSM0001).
+.. note:: all per-channel matrices containing computed cell statistics are required to contain "library_id" and "barcode_id" columns.
 
 .. note:: file names of the per-channel matrices are specified as "library_id.tsv.gz" (matrices for different analyses such as e.g. qcmetrics and scrublet scores are written to separate folders).
 

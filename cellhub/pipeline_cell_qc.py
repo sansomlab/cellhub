@@ -92,8 +92,8 @@ if len(sys.argv) > 1:
 # ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/matrix.mtx.gz"),
+@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/qcmetric.dir/\1.sentinel")
 def qcmetrics(infile, outfile):
     '''This task will run R/calculate_qc_metrics.R,
@@ -171,15 +171,14 @@ def qcmetricsAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.register("cell.qc")
+    x = api.api("cell.qc")
 
-    x.dataset(analysis_name="qcmetrics",
+    x.define_dataset(analysis_name="qcmetrics",
               data_subset="filtered",
               file_set=file_set,
-              analysis_description="per library tables of cell GEX qc statistics",
-              file_format="tsv")
+              analysis_description="per library tables of cell GEX qc statistics")
 
-    x.deposit()
+    x.register_dataset()
 
 
 # ############################################# #
@@ -187,8 +186,8 @@ def qcmetricsAPI(infiles, outfile):
 # ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/matrix.mtx.gz"),
+@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/scrublet.dir/\1.sentinel")
 def scrublet(infile, outfile):
     '''This task will run python/run_scrublet.py,
@@ -268,15 +267,14 @@ def scrubletAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.register("cell.qc")
+    x = api.api("cell.qc")
 
-    x.dataset(analysis_name="scrublet",
+    x.define_dataset(analysis_name="scrublet",
               data_subset="filtered",
               file_set=file_set,
-              analysis_description="per library tables of cell scrublet scores",
-              file_format="tsv")
+              analysis_description="per library tables of cell scrublet scores")
 
-    x.deposit()
+    x.register_dataset()
 
 
 # ---------------------------------------------------

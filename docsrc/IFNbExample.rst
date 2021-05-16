@@ -1,17 +1,34 @@
 IFNb PBMC example
 =================
 
-To get started create a directory for the cellhub run and cd into it.
+Setting up
+----------
 
-Copy the yml, sample.tsv, integration.tsv and export.tsv configuration and metadata files for this example to the working folder::
+1. Clone the example template to a local folder
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  cp /path/to/cellhub/examples/ifnb_pbmc/cellhub/* .
+Clone the folders and files for the example into a local folder.
+
+  cp -r /path/to/cellhub/examples/ifnb_pbmc/* .
+
+This will create 3 folders:
+
+- "cellhub" where the preprocessing pipelines will be run and where the cellhub database will be created
+- "integration" where data for cells of interest (e.g. passing qc) will be fetched and integrated
+- "scxl" where we can perform downstream analysis with `pipeline_scxl.py <https://github.com/sansomlab/tenx>`_.
 
 
-1. Running Cellranger
----------------------
+Running the pre-processing pipelines and creating the database
+--------------------------------------------------------------
+
+2. Running Cellranger
+^^^^^^^^^^^^^^^^^^^^^
 
 The first step is to configure and run pipeline_cellranger_multi. We already have a pre-configured yml file so we can skip this step but the syntax is included for reference here and also for the other steps: ::
+
+  # enter the cellhub directory
+
+  cd cellhub
 
   # cellhub cellranger_multi config
 
@@ -28,8 +45,8 @@ If you have not run "python setup.py devel" pipelines can instead be launched di
 .. note:: when launching pipelines directly if the "--pipeline-log" parameter is not specified the log file will be written to "pipeline.log".
 
 
-2. Running the cell qc pipeline
--------------------------------
+3. Running the cell qc pipeline
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next we run the cell qc pipeline::
 
@@ -38,8 +55,8 @@ Next we run the cell qc pipeline::
   cellhub cell_qc make full -v5 -p20
 
 
-3. Running emptydrops and investigating ambient RNA (optional)
---------------------------------------------------------------
+4. Running emptydrops and investigating ambient RNA (optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If desired we can run emptydrops::
 
@@ -54,8 +71,8 @@ And investigate the ambient rna::
   cellhub ambient_rna make full -v5 -p20
 
 
-4. Loading the cell statistics into the celldb
-----------------------------------------------
+5. Loading the cell statistics into the celldb
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The cell QC statistics and metadata ("samples.tsv") are next loaded into a local sqlite database::
 
@@ -64,39 +81,26 @@ The cell QC statistics and metadata ("samples.tsv") are next loaded into a local
   cellhub celldb make full -v5 -p20
 
 
-5. Make and switch to a new location for downstream analysis
-------------------------------------------------------------
-
-Make a new directory (outside of the cellhub directory) in which to fetch and align the cells: ::
-
-  # e.g.
-  cd ..
-
-  mkdir ifnb_downstream_analysis
-  cd ifnb_downstream_analysis
-
-We will also need to copy the example yml files for the fetch_cells, integration and export pipelines into this folder: ::
-
-  cp /path/to/cellhub/examples/ifnb_pbmc/downstream_analysis/ .
+Performing downstream analysis
+------------------------------
 
 
 6. Fetching cells for downstream analysis
------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 We use pipeline_fetch_cells to retrieve the cells we want for downstream analysis. (QC thresholds and e.g. desired samples are specified in the pipeline_fetch_cells.yml) file::
 
+  # change into the integration directory
+  cd ../integration
+
   # cellhub fetch_cells config
-
-  # edit the "cellhub_location" in the pipeline_fetch_cell.yml
-  # file to point to the location of the cellhub directory.
-
   cellhub fetch_cells make full -v5 -p20
 
 
 
-6. Integration
---------------
+7. Integration
+^^^^^^^^^^^^^^
 
 Pipeline_integration supports integration of the data with harmony, bbknn and scanorama. In this example the location of the data is specified in the "integration.tsv" file as per the path given in the "pipeline_integration.yml" file. ::
 
@@ -107,8 +111,8 @@ Pipeline_integration supports integration of the data with harmony, bbknn and sc
 .. warning:: pipeline_integration.py will be moving to a new sansomlab/scxl repository (along with pipeline_scxl from sansomlab/tenx).
 
 
-7. Export for downstream analysis
----------------------------------
+8. Export for downstream analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Finally we can export the integrated anndata object to e.g. a Seurat object for downstream analysis::
 
@@ -119,14 +123,17 @@ Finally we can export the integrated anndata object to e.g. a Seurat object for 
 .. warning:: pipeline_export.py will be moving to the new sansomlab/scxl repository
 
 
-8. Perform downstream analysis
-------------------------------
+9. Clustering analysis with pipeline_scxl
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Downstream analysis can be performed with `pipeline_scxl.py <https://github.com/sansomlab/tenx>`_. A suitable configuration file for working with the harmony aligned seurat object is provided in the examples/infb_pbmc/scxl/ folder::
+Cluster analysis can be performed with `pipeline_scxl.py <https://github.com/sansomlab/tenx>`_. A suitable configuration file for working with the harmony aligned seurat object is provided in the examples/infb_pbmc/scxl/ folder::
 
-  mkdir scxl.dir
-  cd scxl.dir
+  # change into the sxcl directory
+  cd ../scxl.dir
+
+  # link in the exported Seurat object from step 8
   mkdir integrated.seurat.dir
-  ln -s ../export.dir/pbmc.exp.dir/seurat_object.rds integrated.seurat.dir/begin.rds
-  cp /path/to/cellhub/examples/ifnb_pbmc/pipeline_scxl/pipeline.yml .
+  ln -s ../integration/export.dir/pbmc.exp.dir/seurat_object.rds integrated.seurat.dir/begin.rds
+
+  # a suitable yml file has been provided so we can now launch the pipeline
   python /path/to/tenx/pipelines/pipeline_scxl.py make full -v5 -p200

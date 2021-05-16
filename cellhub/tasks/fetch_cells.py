@@ -47,7 +47,8 @@ def get_cell_subset(barcodes,
                                      "cellranger.multi",
                                      modality,
                                      data_subset,
-                                     matrix_id)
+                                     matrix_id,
+                                     "mtx")
 
     statement = '''Rscript %(cellhub_code_dir)s/R/extract_cells.R
                    --cells=%(barcodes)s

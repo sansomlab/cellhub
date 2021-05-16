@@ -1,13 +1,16 @@
 from cgatcore import experiment as E
+from pathlib import Path
 import shutil
 import os
 import sys
 
 def write_config_files(pipeline_path, general_path):
-    '''create default configuration files in `path`.
+    '''
+    Retrieve default yaml configuration file from:
+    cellhub/yaml/pipeline_name.yml
     '''
 
-    paths = [pipeline_path, general_path]
+    paths = [os.path.join(Path(pipeline_path).parents[0], "yaml")]
     config_files = [ os.path.basename(pipeline_path) + ".yml" ]
 
     for dest in config_files:
@@ -36,6 +39,7 @@ def get_parameter_file(pipeline_path, name):
     pipeline_name = os.path.basename(pipeline_path)
 
     if sys.argv[1] == "make":
+
         yml_file = pipeline_name.replace(".py", ".yml")
 
         if not os.path.exists(yml_file):
@@ -47,7 +51,9 @@ def get_parameter_file(pipeline_path, name):
                              'out a local copy of the default file')
 
     else:
-        yml_file = os.path.splitext(pipeline_path)[0] + "/" + pipeline_name.replace(".py", ".yml")
+        yml_file = os.path.join(os.path.dirname(pipeline_path),
+                                "yaml",
+                                pipeline_name.replace(".py", ".yml"))
 
         if not os.path.exists(yml_file):
             raise ValueError("default configuration file missing")

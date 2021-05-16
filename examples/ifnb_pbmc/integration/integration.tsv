@@ -1,2 +1,2 @@
 sample_id	path
-pbmc	fetch.cells.dir/anndata.dir/
+pbmc	fetch.cells.dir/GEX.anndata.full.dir/

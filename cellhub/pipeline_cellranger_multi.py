@@ -458,7 +458,7 @@ def API(infile, outfile):
 
     # 1. register the GEX, ADT and HTO count matrices
 
-    x = api.register("cellranger.multi")
+    x = api.api("cellranger.multi")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",
@@ -496,48 +496,15 @@ def API(infile, outfile):
                 mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
                 mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
 
-                x.dataset(analysis_name=modality,
+                x.define_dataset(analysis_name=modality,
                           data_subset=data_subset,
                           data_id=library_id,
+                          data_format="mtx",
                           file_set=mtx_x,
-                          analysis_description="unfiltered cellranger count GEX output",
-                          file_format="10X-market-matrix")
+                          analysis_description="unfiltered cellranger count GEX output")
 
-                print("---------")
-                x.report()
-                x.deposit()
+                x.register_dataset()
 
-
-
-
-
-# @follows(makeConfig)
-# @merge("cellranger.multi.dir/*.csv",
-#         "cellranger.multi.dir/libraries.tsv")
-# def makeLibraryTable(library_files, outfile):
-#     # Build the path to the log file
-
-#     library_names = []
-
-#     for library_file in library_files:
-#         library_name = os.path.basename(library_file)
-#         library_names.append(library_name)
-
-#     libraries = ','.join(library_names)
-
-#     job_threads = 2
-#     job_memory = "2000M"
-
-#     log_file = outfile.replace(".tsv", ".log")
-#     statement = '''Rscript %(code_dir)s/R/cellranger_library_table.R
-#                     --outfile=%(outfile)s
-#                     --librarydir=cellranger.multi.dir
-#                     --libraryfiles=%(libraries)s
-#                     &> %(log_file)s
-#                 '''
-#     P.run(statement)
-
-#     IOTools.touch_file(outfile + ".sentinel")
 
 #
 # ---------------------------------------------------

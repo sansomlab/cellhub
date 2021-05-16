@@ -1,6 +1,9 @@
 '''
+API
+===
+
 Overview
-========
+--------
 
 This module contains the code for registering and accessing pipeline outputs
 from a common location.
@@ -8,52 +11,64 @@ from a common location.
 There are classes that provide methods for:
 
 (1) registering pipeline outputs to the common service endpoint
-(2) discovering the information avaliable from the service endpoint
-(3) accessing information from the service endpoint
+(2) discovering the information avaliable from the service endpoint (not yet written)
+(3) accessing information from the service endpoint (not yet written)
 
-The service endpoint is the folder "api". We use a rest-like syntax for providing access to piple outputs. The general structure is: ::
-
-api/pipline.name/analysis.name/data.subset.or.slice/data.files
-api/pipline.name/analysis.name/data.subset.or.slice/manifest.yml
-
-Where the manifest.yml file contains a description of dataset and file formats.
-
-For example the layout of the api for pipeline_cellranger_multi.py looks like this ::
-
-api/cellranger.multi/gex/filtered/library_id/
-api/cellranger.multi/gex/full/library_id/
-api/cellranger.multi/adt/filtered/library_id/
-api/cellranger.multi/adt/full/library_id/
-api/cellranger.multi/hto/filtered/library_id/
-api/cellranger.multi/hto/full/library_id/
-api/cellranger.multi/vdj/filtered/library_id/
-api/cellranger.multi/vdj/full/library_id/
-
+The service endpoint is the folder "api". We use a rest-like syntax for providing access to the pipline outputs.
 
 Usage
-=====
+-----
 
-Registering pipline ouputs on the service endpoint
---------------------------------------------------
+Registering ouputs on the service endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Pipelines must register their output datsets on the API using a subclass of the "register" class. Practically this involves:
+Please see :doc:`pipeline_cellranger_multi.py</pipelines/pipeline_cellranger_multi>` or :doc:`pipeline_cell_qc.py</pipelines/pipeline_cell_qc>` source code for examples.
 
-(1) creation of the appropriate folders in the "api" endpoint folder
-(2) symlinking of files to the appropriate folders
-(3) construction and deposition of the manifest.yml  file
-(4) sanity checking.
+As an example the code used for registering the qcmetrics outputs is reproduced with some comments here: ::
+
+  import cellhub.tasks.api as api
+
+  file_set={}
+
+  ...
+
+  # the set of files to be registered is defined as a dictionary
+  # the keys are arbitrary and will not appear in the api
+
+  file_set[library_id] = {"path": tsv_path,
+                          "description":"qcmetric table for library " +\
+                                        library_id,
+                          "format":"tsv"}
+
+  # an api object is created, passing the pipeline name
+  x = api.api("cell.qc")
+
+  # the dataset to be deposited is added
+  x.define_dataset(analysis_name="qcmetrics",
+                   data_subset="filtered",
+                   file_set=file_set,
+                   analysis_description="per library tables of cell GEX qc statistics",
+                   file_format="tsv")
+
+  # the dataset is linked in to the API
+  x.register_dataset()
 
 
 Discovering avaliable datasets
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 TBD.
 
 
 Accessing datasets
-------------------
+^^^^^^^^^^^^^^^^^^
 
-Datasets can be accessed directly via the endpoint. However it is recommend to access them via a subclass of the "read" class" which should provide basic sanity checking.
+For now datasets can be accessed directly via the "api" endpoint. However in future it will likely be recommended to access them via a subclass of the "read" class (not yet written) which will provide sanity checking.
+
+
+Class and method documentation
+------------------------------
+
 '''
 
 import yaml
@@ -63,8 +78,17 @@ import re
 import copy
 from pprint import pprint
 
-class register():
-    '''Prototype class for registering outputs on the service endpoint'''
+class api():
+    '''
+    A class for defining and registering datasets on the cellhub api.
+
+    When initialising an instance of the class, the pipeline name
+    is passed e.g.::
+
+      x = cellhub.tasks.api.register("cell_qc")
+
+    .. note:: pipeline names are sanitised to replace spaces, underscores and hypens with periods.
+    '''
 
     def __init__(self, pipeline = None, endpoint="api"):
 
@@ -73,66 +97,58 @@ class register():
 
         self.pipeline = re.sub("[ -_]",".",pipeline)
         self.endpoint = endpoint
+        self.dataset_defined = False
 
-    def reset(self):
+    def define_dataset(self,
+                    analysis_name = None,
+                    analysis_description = None,
+                    data_subset = None,
+                    data_id = None,
+                    data_format = None,
+                    file_set = None,
+    ):
         '''
-        Clean the pipeline endpoint
+        Define the dataset.
+
+        The "data_subset", "data_id" and "data_format" parameters are optional.
+
+        The file_set is a dictionary that contains the files to be registered: ::
+
+          { "name": { "path": "path/to/file",
+                      "format": "file-format",
+                      "description": "free-text" }
+
+        the top level "name" keys are arbitrary and not exposed in the API
+
+        e.g. for cell ranger output the file_set dictionary looks like this: ::
+
+          {"barcodes": {"path":"path/to/barcodes.tsv",
+                        "format": "tsv",
+                        "description": "cell barcode file"},
+          {"features": {"path":"path/to/features.tsv",
+                        "format": "tsv",
+                        "description": "features file"},
+          {"matrix": {"path":"path/to/matrix.mtx",
+                        "format": "market-matrix",
+                        "description": "Market matrix file"}
+          }
+
         '''
 
-        endpoint_location = os.path.join(self.endpoint,
-                                         self.pipeline)
+        if analysis_name is None:
+            raise ValueError("The analysis name must be specified")
 
-        if os.path.exists(endpoint_location):
+        if analysis_description is None:
+            raise ValueError("The analysis description must be specified")
 
-            shutil.rmtree(endpoint_location)
-
-    def dataset(self,
-                analysis_name,
-                file_set,
-#                description,
-                file_format,
-                analysis_description = None,
-                data_subset = None,
-                data_id = None
-                ):
-
-
-
-
-        # self.description = description # free text description
-        self.file_format = file_format # e.g. tsv, market-matrix etc
-
-
+        if file_set is None:
+            raise ValueError("The file_set  must be specified")
 
         self.data_subset = data_subset # e.g. for cell ranger full|filtered
         self.data_id = data_id  # e.g. for cell ranger this is the library_id
-
-
-        # The file_set is a dictionary that contains the files to be registered
-        #
-        # { "name": { "path": "path/to/file",
-        #             "format": "file-format",
-        #             "description": "free-text" }
-        #
-        # the top level "name" keys are arbitrary and not exposed in the API
-        #
-        # e.g. for cell ranger output
-        #
-        # {"barcodes": {"path":"path/to/barcodes.tsv",
-        #               "format": "tsv",
-        #               "description": "cell barcode file"},
-        # {"features": {"path":"path/to/features.tsv",
-        #               "format": "tsv",
-        #               "description": "features file"},
-        # {"matrix": {"path":"path/to/matrix.mtx",
-        #               "format": "market-matrix",
-        #               "description": "Market matrix file"}
-        # }
+        self.data_format = data_format # e.g. "mtx", "bam", "h5" as necessary
 
         # check the files exist
-
-        print("*************************")
-        print(file_set)
         for file_name in file_set.keys():
             file_path = file_set[file_name]["path"]
             if not os.path.exists(file_path):
@@ -143,15 +159,31 @@ class register():
 
         self.analysis_name = analysis_name
 
+        self.dataset_defined = True
 
-    def report(self):
 
-        pprint(vars(self))
+    def register_dataset(self):
+        '''
+        Register the dataset on the service endpoint. The method:
 
-    def deposit(self):
+        1. creates the appropriate folders in the "api" endpoint folder
+        2. symlinks the source files to the target location
+        3. constructs and deposits the manifest.yml file
+
+        The location at which datasets will be registered is defined as: ::
+
+          api/pipeline.name/analysis_name/[data_subset/][data_id/][data_format/]
+
+        (data_subset, data_id and data_format are [optional])
+
+        '''
+
+        if not self.dataset_defined:
+
+            raise ValueError("A dataset must be defined (register_dataset) before"
+                             " the register_datast method is called")
 
         # 1. create the output folders
-
         endpoint_location = os.path.join(self.endpoint,
                                          self.pipeline,
                                          self.analysis_name)
@@ -166,6 +198,11 @@ class register():
             endpoint_location = os.path.join(endpoint_location,
                                              self.data_id)
 
+        if self.data_format is not None:
+
+            endpoint_location = os.path.join(endpoint_location,
+                                             self.data_format)
+
         # ensure the endpoint location is clean
         if os.path.exists(endpoint_location):
             shutil.rmtree(endpoint_location)
@@ -173,7 +210,6 @@ class register():
         os.makedirs(endpoint_location)
 
         # 2. construct and write the manifest
-
         out_file_set = copy.deepcopy(self.file_set)
 
         for x in out_file_set.keys():
@@ -194,19 +230,35 @@ class register():
 
 
         # 3. link in the files
-
         for output_file in self.file_set.keys():
 
-
-            print("<<<<<<<<<<>>>>>>>>>>")
-            print(self.file_set[output_file])
-
             source_file = os.path.abspath(self.file_set[output_file]["path"])
+
             link_location = os.path.join(endpoint_location,
                                          os.path.basename(
                                              self.file_set[output_file]["path"]))
 
-
             os.symlink(os.path.relpath(source_file,
                                        os.path.dirname(link_location)),
                        link_location)
+
+
+    def show(self):
+        '''
+        Print the api object for debugging.
+        '''
+
+        pprint(vars(self))
+
+
+    def reset_endpoint(self):
+        '''
+        Clean the dataset endpoint
+        '''
+
+        endpoint_location = os.path.join(self.endpoint,
+                                         self.pipeline)
+
+        if os.path.exists(endpoint_location):
+
+            shutil.rmtree(endpoint_location)
