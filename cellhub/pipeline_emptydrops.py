@@ -68,6 +68,7 @@ import cgatcore.iotools as IOTools
 import pandas as pd
 
 import cellhub.tasks.control as C
+import cellhub.tasks.TASK as TASK
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -92,47 +93,13 @@ if len(sys.argv) > 1:
 
 
 # ########################################################################### #
-# ######## Check input libraries file and that the input exists ############### #
-# ########################################################################### #
-
-@follows(mkdir("emptydrops.dir"))
-@originate("emptydrops.dir/input.check.sentinel")
-def checkInputs(outfile):
-    '''Check that input_libraries.tsv exists and the path given in the file
-       is a valid directorys. '''
-
-    if not os.path.exists(PARAMS["input_libraries"]):
-        raise ValueError('File specifying the input libraries is not present.'
-                         'The file needs to be named PARAMS["input_libraries"] ')
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    for p in libraries["raw_path"]:
-        print(p)
-        if not os.path.exists(p):
-            raise ValueError('Input folder from cellranger run raw mtx matrices'
-                             ' does not exist.')
-    IOTools.touch_file(outfile)
-
-
-def genClusterJobs():
-    ''' Generate cluster jobs for each library '''
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    infile = None
-    libraries.set_index("library_id", inplace=True)
-
-    for library_name in libraries.index:
-        library_dir = library_name + ".library.dir"
-        out_sentinel = os.path.join("emptydrops.dir", library_dir, "emptyDrops.sentinel")
-        yield(infile, out_sentinel)
-
-
-# ########################################################################### #
 # ########################## Run EmptyDrops ################################# #
 # ########################################################################### #
 
-@follows(checkInputs)
-@files(genClusterJobs)
-def runEmptyDrops(infile, outfile):
+@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
+           r"emptydrops.dir/emptydrops.dir/\1/emptydrops.sentinel")
+def emptyDrops(infile, outfile):
     ''' Run Rscript to run EmptyDrops on each library '''
 
     outdir = os.path.dirname(outfile)
@@ -141,28 +108,21 @@ def runEmptyDrops(infile, outfile):
 
     options = {}
     options["FDR"] = float(PARAMS["emptydrops_FDR"])
-
-    library_name = outfile.split("/")[1][:-len(".library.dir")]
     options["outdir"] = outdir
+    options["cellrangerDir"] = os.path.dirname(infile)
 
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-
-    options["cellrangerDir"] = libraries.loc[library_name ,"raw_path"]
-
-    # # remove blacklisted cells if required
-    # if 'blacklist' in libraries.columns:
-    #     options["blacklist"] = libraries.loc[library_name, "blacklist"]
-
-    log_file = outfile.replace("sentinel","log")
-    job_threads = PARAMS["emptydrops_slots"]
-    if ("G" in PARAMS["emptydrops_memory"] or
-    "M" in PARAMS["emptydrops_memory"] ):
-        job_memory = PARAMS["emptydrops_memory"]
+    # # remove excludelisted cells if required
+    # if 'excludelist' in libraries.columns:
+    #     options["excludelist"] = libraries.loc[library_name, "excludelist"]
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "emptydrops.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
+
+    log_file = outfile.replace("sentinel","log")
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
     statement = '''Rscript %(code_dir)s/R/run_emptydrops.R
                    --task_yml=%(task_yaml_file)s
@@ -174,21 +134,10 @@ def runEmptyDrops(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-def genClusterJobsMeans():
-    ''' Generate cluster jobs for each library '''
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    infile = None
-    libraries.set_index("library_id", inplace=True)
-
-    for library_name in libraries.index:
-        library_dir = library_name + ".library.dir"
-        out_sentinel = os.path.join("emptydrops.dir", library_dir, "meanReads.sentinel")
-        yield(infile, out_sentinel)
-
-
-@follows(checkInputs)
-@files(genClusterJobsMeans)
-def calculateMeanReadsPerCell(infile, outfile):
+@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
+           r"emptydrops.dir/meanreads.dir/\1/meanreads.sentinel")
+def meanReads(infile, outfile):
     ''' Calculate the mean reads per cell '''
 
     outdir = os.path.dirname(outfile)
@@ -196,22 +145,17 @@ def calculateMeanReadsPerCell(infile, outfile):
         os.makedirs(outdir)
 
     options = {}
-    library_name = outfile.split("/")[1][:-len(".library.dir")]
     options["outdir"] = outdir
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    libraries.set_index("library_id", inplace=True)
-    options["cellrangerDir"] = libraries.loc[library_name ,"raw_path"]
-
-    log_file = outfile.replace("sentinel","log")
-    job_threads = PARAMS["emptydrops_slots"]
-    if ("G" in PARAMS["emptydrops_memory"] or
-    "M" in PARAMS["emptydrops_memory"] ):
-        job_memory = PARAMS["emptydrops_memory"]
+    options["cellrangerDir"] = os.path.dirname(infile)
 
     task_yaml_file = os.path.abspath(os.path.join(outdir, "calculate_mean_reads.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
+
+    log_file = outfile.replace("sentinel","log")
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
     statement = '''Rscript %(code_dir)s/R/calculate_mean_reads.R
                    --task_yml=%(task_yaml_file)s
@@ -226,7 +170,7 @@ def calculateMeanReadsPerCell(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(runEmptyDrops, calculateMeanReadsPerCell)
+@follows(emptyDrops, meanReads)
 def full():
     '''
     Run the full pipeline.

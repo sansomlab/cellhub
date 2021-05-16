@@ -1,6 +1,20 @@
 # celldb location
 
-celldb: celldb.dir/csvdb
+cellhub:
+  # The folder containing the cellhub instance
+  # from which we wish to retrieve the cells.
+  location: ../cellhub
+
+  # The query is executed against the "final" view of the
+  # cell hub sqlite database.
+  # - The fields retrieved must include "barcode_id".
+  # - All fields retrieved are parsed into a metadata file
+  #   for the downstream analysis.
+  sql_query: >-
+    select * from final
+    where pct_mitochondrial < 10
+    and ngenes > 200;
+
 
 # There are some issues for discussion...
 # the script needs to
@@ -11,11 +25,6 @@ celldb: celldb.dir/csvdb
 # - generally qc reports would be best made in a
 #   separate pipeline.
 build_reports: False
-
-query: >-
-  select * from final
-  where pct_mitochondrial < 10
-  and ngenes > 200;
 
 resources:
   # memory to be used for tasks: cellSubsets,
@@ -34,6 +43,11 @@ matrix:
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
+
+GEX:
+  downsample: True
+  downsample_group_var: sample_id
+  downsample_function: median
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True

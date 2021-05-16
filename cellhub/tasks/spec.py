@@ -6,8 +6,6 @@ def get(infile, outfile, PARAMS):
     '''
 
     parts = outfile.split("/")
-    print("***********")
-    print(parts)
     nparts = len(parts)
 
     spec = { "sample_name": parts[0].split(".")[0],

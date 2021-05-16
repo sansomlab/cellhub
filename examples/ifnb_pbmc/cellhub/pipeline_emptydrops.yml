@@ -27,6 +27,6 @@ emptydrops:
   # based on emptyDrops output
   FDR: 0.001
   # memory to use. This can be set to 'none' if only slots should be used.
-  memory: 10000M
+  memory: 10G
   # number of slots/threads to use for emptydrops
   slots: 2

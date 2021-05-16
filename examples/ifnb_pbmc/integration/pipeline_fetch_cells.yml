@@ -1,0 +1,80 @@
+# celldb location
+
+cellhub:
+  # The folder containing the cellhub instance
+  # from which we wish to retrieve the cells.
+  location: ../cellhub
+
+  # The query is executed against the "final" view of the
+  # cell hub sqlite database.
+  # - The fields retrieved must include "barcode_id".
+  # - All fields retrieved are parsed into a metadata file
+  #   for the downstream analysis.
+  sql_query: >-
+    select * from final
+    where pct_mitochondrial < 10
+    and ngenes > 200;
+
+
+# There are some issues for discussion...
+# the script needs to
+# - support both library_ids
+#   and sample_ids for pre/post database summaries
+# - the script should not recompute
+#   avaliable metrics (we have metrics, shouldn't need to read the market matrix!)
+# - generally qc reports would be best made in a
+#   separate pipeline.
+build_reports: False
+
+resources:
+  # memory to be used for tasks: cellSubsets,
+  # can be set to none | e.g. 40G
+  memory: none
+
+
+matrix:
+  dir: cellranger.multi.dir
+  type: mm
+  # column in cell_info from db (using query above) that corresponds to the
+  # folder names in the cellranger output (=matrix_dir), this name is also used
+  # to extract the loom files below
+  name: library_id
+  # suffix used for the cellranger output (not used for loom extraction), either none | suffix
+  suffix: none
+  # use the filtered|raw matrix.
+  out_type: filtered
+
+GEX:
+  downsample: True
+  downsample_group_var: sample_id
+  downsample_function: median
+
+loom:
+  # whether to fetch and summarise the loom files for the selected cells, either False | True
+  fetch: False
+  dir: /well/combat/projects/preprocess/citeseq_initial/velocity
+
+# Number of cells to be randomly drawn
+# or "all"
+#
+sample: all
+
+# A tsv file containing the mapping of cells to
+# matrices with columns
+# "barcode" "matrix_id"
+cell_to_matrix_map_file: None
+
+# A tsv file containing a table describing the
+# cell matrices with columns
+# "matrix_id" "matrix_dir" "matrix_type"
+matrix_table_file: None
+
+# A tsv file containing a table with cell metadata
+# It must have a "barcode" column that corresponds
+# to the final barcodes of the output matrix
+metadata_file: None
+
+# A tsv file containing a table with qc information
+# It must have a "barcode" column that corresponds
+# to the final barcodes of the output matrix
+qcdata_file: None

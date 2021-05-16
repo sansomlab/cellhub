@@ -1,6 +1,7 @@
 # celldb location
 
-celldb: celldb.dir/csvdb
+cellhub:
+  location: .
 
 # There are some issues for discussion...
 # the script needs to
@@ -34,6 +35,11 @@ matrix:
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
+
+GEX:
+  downsample: True
+  downsample_group_var: sample_id
+  downsample_function: median
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True

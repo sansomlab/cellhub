@@ -102,36 +102,36 @@ def load_samples(outfile):
             outfile=outfile)
 
 
-@follows(mkdir("celldb.dir"))
-@originate("celldb.dir/libraries.load")
-def load_libraries(outfile):
-    ''' load the library metadata table '''
+# @follows(mkdir("celldb.dir"))
+# @originate("celldb.dir/libraries.load")
+# def load_libraries(outfile):
+#     ''' load the library metadata table '''
 
-    x = PARAMS["table_library"]
+#     x = PARAMS["table_library"]
 
-    DB.load(x["name"],
-            x["path"],
-            db_url=PARAMS["database_url"],
-            index = x["index"],
-            outfile=outfile)
+#     DB.load(x["name"],
+#             x["path"],
+#             db_url=PARAMS["database_url"],
+#             index = x["index"],
+#             outfile=outfile)
 
 
-@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-@originate("celldb.dir/cellranger_stats.load")
-def load_cellranger_stats(outfile):
-    '''load metadata of mapping data into database '''
+# @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+# @originate("celldb.dir/cellranger_stats.load")
+# def load_cellranger_stats(outfile):
+#     '''load metadata of mapping data into database '''
 
-    table_file = outfile.replace(".load", ".tsv")
+#     table_file = outfile.replace(".load", ".tsv")
 
-    celldb.preprocess_cellranger_stats(
-        PARAMS["table_library"]["path"],
-        table_file)
+#     celldb.preprocess_cellranger_stats(
+#         PARAMS["table_library"]["path"],
+#         table_file)
 
-    DB.load("cellranger_stats",
-            table_file,
-            db_url=PARAMS["database_url"],
-            index = "library_id",
-            outfile=outfile)
+#     DB.load("cellranger_stats",
+#             table_file,x
+#             db_url=PARAMS["database_url"],
+#             index = "library_id",
+#             outfile=outfile)
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
@@ -167,10 +167,10 @@ def load_gex_scrublet(outfile):
 
 
 @follows(load_samples,
-         load_libraries,
+         # load_libraries,
          load_gex_qcmetrics,
-         load_gex_scrublet,
-         load_cellranger_stats)
+         load_gex_scrublet)
+         # load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")
 def final(outfile):
@@ -182,16 +182,17 @@ def final(outfile):
     # LEFT JOIN cellranger_statistics mm \
 
     s = PARAMS["table_sample"]["name"]
-    l = PARAMS["table_library"]["name"]
+    # l = PARAMS["table_library"]["name"]
     gex_qc = PARAMS["table_gex_qcmetrics"]["name"]
     gex_scrub = PARAMS["table_gex_scrublet"]["name"]
     lib = PARAMS["table_library"]["name"]
 
+    #           FROM %(l)s l \
+    #             LEFT JOIN %(gex_qc)s qc \
+    # ON qc.library_id = l.library_id \
     statement = "CREATE VIEW final AS \
-                 SELECT s.*, l.*, qc.*, scrub.* \
-                 FROM %(l)s l \
-                 LEFT JOIN %(gex_qc)s qc \
-                 ON qc.library_id = l.library_id \
+                 SELECT s.*, qc.*, scrub.* \
+                 FROM %(gex_qc)s qc \
                  LEFT JOIN %(s)s s \
                  on qc.library_id = s.library_id \
                  LEFT JOIN %(gex_scrub)s scrub \

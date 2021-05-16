@@ -7,27 +7,29 @@ Configuring and running pipelines
 
 Run the cellhub --help command to view the help documentation and find available pipelines to run cellhub.
 
-The cellhub pipelines are written using `cgat-core <https://github.com/cgat-developers/cgat-core>`_ pipelining system. From more information please see the `CGAT-core paper <https://doi.org/10.12688/f1000research.18674.2>`_. Here we illustrate how the pipelines can be run using a toy example which is included in this repository.
+The cellhub pipelines are written using `cgat-core <https://github.com/cgat-developers/cgat-core>`_ pipelining system. From more information please see the `CGAT-core paper <https://doi.org/10.12688/f1000research.18674.2>`_. Here we illustrate how the pipelines can be run using the cellranger_multi pipeline as an example.
 
-Following installation, to find the available pipelines run::
+Following installation, to find the available pipelines run: ::
 
   cellhub -h
 
-Next generate the configuration yml file (for the example pipeline it is empty)::
+Next generate a configuration yml file: ::
 
-  cellhub example config -v5
+  cellhub cellranger_multi config -v5
 
-To fully run the example cellhub pipeline run::
+To fully run the example cellhub pipeline run: ::
 
-  cellhub example make full -v5
+  cellhub cellranger_multi make full -v5
 
-However, it may be best to run the individual tasks of the pipeline to get a feel of what each task is doing::
+However, it may be best to run the individual tasks of the pipeline to get a feel of what each task is doing. To list the pipline tasks and their current status, use the 'show' command: ::
 
-  cellhub example make exampleOriginate -v5
+  cellhub cellranger_multi show
 
-You can also run the pipeline with more advanced combinatorics by running the task::
+Individual tasks can then be executed by name, e.g. ::
 
-  cellhub example make advancedRuffus -v5
+  cellhub cellranger_multi make cellrangerMulti -v5
+
+.. note:: If any upstream tasks are out of date they will automatically be run before the named task is executed.
 
 
 Getting Started

@@ -68,6 +68,8 @@ from cellhub.tasks import resources
 from cellhub.tasks import TASK
 
 import cellhub.tasks.control as C
+import cellhub.tasks.cellranger as cellranger
+import cellhub.tasks.api as api
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -324,40 +326,191 @@ def cellrangerMulti(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
+@transform(cellrangerMulti,
+           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
+           r"\1/out.dir/\2/post.process.matrices.sentinel")
+def postProcessMatrices(infile, outfile):
+    '''
+    Post-process the cellranger multi matrices to split the
+    counts for the GEX, ADT and HTO modalities into seperate
+    market matrices.
 
-@follows(makeConfig)
-@merge("cellranger.multi.dir/*.csv",
-        "cellranger.multi.dir/libraries.tsv")
-def makeLibraryTable(library_files, outfile):
-    # Build the path to the log file
+    * A critical function of the pre-processing is to reformat
+      the cellbarcodes to the "UMI-1-LIBRARY_ID" format.
 
-    library_names = []
+    cellranger.multi.dir folder layout is
 
-    for library_file in library_files:
-        library_name = os.path.basename(library_file)
-        library_names.append(library_name)
+    (1) unfiltered outputs
+    ----------------------
+    library_id/outs/multi/count/raw_feature_bc_matrix/
+    library_id/outs/multi/vdj_b/
 
-    libraries = ','.join(library_names)
+    (2) filtered outputs
+    --------------------
+    library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+    library_id/outs/per_sample_outs/sample|library_id/vdj_b
 
-    job_threads = 2
-    job_memory = "2000M"
+    Notes
+    -----
+    - the feature_bc_matrix can contain GEX, ADT and HTO
+    - vdj_b = BCR sequencing
+    - vdj_t ?!? presumably this is what the TCR folder will look like but we have not
+      had any datasets yet.
 
-    log_file = outfile.replace(".tsv", ".log")
-    statement = '''Rscript %(code_dir)s/R/cellranger_library_table.R
-                    --outfile=%(outfile)s
-                    --librarydir=cellranger.multi.dir
-                    --libraryfiles=%(libraries)s
-                    &> %(log_file)s
-                '''
-    P.run(statement)
+    Task overview
+    -------------
+    (i) split the raw counts into seperate GEX, HTO and ADT matrices
+    (ii) link in the raw vdj
+    (iii) for each sample, do (i) and (ii)
 
-    IOTools.touch_file(outfile + ".sentinel")
+    Outputs
+    -------
+
+    post.processed.dir/unfiltered/gex/
+    post.processed.dir/unfiltered/ADT/
+    post.processed.dir/unfiltered/HTO/
+    post.processed.dir/unfiltered/vdj_b/
+    post.processed.dir/unfiltered/vdj_t/
+
+    post.processed.dir/per_sample/sample|library_id/gex/
+    post.processed.dir/per_sample/sample|library_id/ADT/
+    post.processed.dir/per_sample/sample|library_id/HTO/
+    post.processed.dir/per_sample/sample|library_id/vdj_b/
+    post.processed.dir/per_sample/sample|library_id/vdj_t/
+    '''
+
+    out_dir = os.path.dirname(outfile)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
+
+    # 1. deal with unfiltered count data
+    matrix_location = os.path.join("cellranger.multi.dir", library_id,
+                                   "outs/multi/count/raw_feature_bc_matrix")
+
+    output_location = os.path.join("cellranger.multi.dir/out.dir/",
+                                   library_id, "unfiltered")
+
+    cellranger.get_counts(matrix_location, output_location,
+                          library_id)
+
+    for vdj_type in ["b", "t"]:
+
+        vdj_location = os.path.join("cellranger.multi.dir", library_id,
+                                    "outs/multi/vdj_" + vdj_type)
+
+        vdj_out_location = os.path.join("cellranger.multi.dir/out.dir/",
+                                         library_id, "unfiltered/vdj" + vdj_type)
+
+    if os.path.exists(vdj_location):
+        os.symlink(vdj_location, vdj_b_out_location)
+
+
+    # 2. deal with per sample libraries
+
+    per_sample_loc = os.path.join("cellranger.multi.dir",
+                                  library_id,
+                                  "outs/per_sample_outs/")
+
+    per_sample_dirs = glob.glob(per_sample_loc + "*")
+
+    for per_sample_dir in per_sample_dirs:
+
+        matrix_location = os.path.join(per_sample_dir,
+                                       "count/sample_feature_bc_matrix")
+
+        sample_id = os.path.basename(per_sample_dir)
+
+        output_location = os.path.join("cellranger.multi.dir/out.dir/",
+                                       library_id,
+                                       sample_id)
+
+        cellranger.get_counts(matrix_location, output_location,
+                              library_id)
+
+        for vdj_type in ["b", "t"]:
+
+            vdj_location = os.path.join(per_sample_dir,
+                                        "vdj_" + vdj_type)
+
+            vdj_out_location = os.path.join("cellranger.multi.dir/out.dir/",
+                                            library_id,
+                                            sample_id,
+                                            "vdj_" + vdj_type)
+
+            if os.path.exists(vdj_location):
+                os.symlink(vdj_location, vdj_b_out_location)
+
+
+    IOTools.touch_file(outfile)
+
+
+
+@transform(postProcessMatrices,
+           regex(r"(.*)/out.dir/(.*)/post.process.matrices.sentinel"),
+           r"\1/out.dir/\2/api.register.sentinel")
+def API(infile, outfile):
+    '''
+    Register the outputs on the service endpoint
+    '''
+
+    # 1. register the GEX, ADT and HTO count matrices
+
+    x = api.api("cellranger.multi")
+
+    mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
+                                 "format": "tsv",
+                                 "description": "cell barcode file"},
+                    "features": {"path":"path/to/features.tsv",
+                                  "format": "tsv",
+                                  "description": "features file"},
+                     "matrix": {"path":"path/to/matrix.mtx",
+                                 "format": "market-matrix",
+                                 "description": "Market matrix file"}
+                     }
+
+    library_id = outfile.split("/")[-2]
+
+    source_loc = os.path.dirname(infile)
+
+    for data_subset in ["unfiltered", "filtered"]:
+
+
+        for modality in ["GEX", "ADT", "HTO"]:
+
+            if data_subset == "filtered":
+                subset_dir = library_id
+            else:
+                subset_dir = data_subset
+
+            mtx_loc = os.path.join(source_loc,
+                                   subset_dir,
+                                   modality)
+
+            if os.path.exists(mtx_loc):
+
+                mtx_x = mtx_template.copy()
+                mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+                mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+                mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+                x.define_dataset(analysis_name=modality,
+                          data_subset=data_subset,
+                          data_id=library_id,
+                          data_format="mtx",
+                          file_set=mtx_x,
+                          analysis_description="unfiltered cellranger count GEX output")
+
+                x.register_dataset()
+
 
 #
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, makeLibraryTable)
+@follows(cellrangerMulti, API)
 def full():
     '''
     Run the full pipeline.

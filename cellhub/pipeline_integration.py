@@ -97,11 +97,9 @@ P.control.write_config_files = C.write_config_files
 
 # -------------------------- < parse parameters > --------------------------- #
 
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_integration.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_integration.yml",
-     "pipeline_integration.yml"])
+# load options from the yml file
+parameter_file = C.get_parameter_file(__file__,__name__)
+PARAMS = P.get_parameters(parameter_file)
 
 # set the location of the code directory
 PARAMS["code_dir"] = Path(__file__).parents[1]

@@ -28,7 +28,7 @@ The workflow begins with :doc:`pipeline_cellranger_multi.py<pipelines/pipeline_c
 
 Per-cell statistics are computed in parallel for each channel library using :doc:`pipeline_cell_qc.py<pipelines/pipeline_cell_qc>`. The pipeline computes various statistics including standard metrics such as percentage of mitochondrial reads, numbers of UMIs and numbers of genes per cell. In addition it can compute scores for custom genesets.
 
-.. note:: all per-channel matrices containing computed cell statistics are required to contain "library_id" and "barcode_id" columns. The "barcode_id" column must have the structure "umi_code-1-library_id" (e.g. AAAAAAAAAA-1-GSM0001).
+.. note:: all per-channel matrices containing computed cell statistics are required to contain "library_id" and "barcode_id" columns.
 
 .. note:: file names of the per-channel matrices are specified as "library_id.tsv.gz" (matrices for different analyses such as e.g. qcmetrics and scrublet scores are written to separate folders).
 
@@ -52,6 +52,8 @@ The library and sample metadata, per cell statistics (and demultiplex assignment
 
 Cells are fetched using :doc:`pipeline_fetch_cells.py<pipelines/pipeline_fetch_cells>`. The user specifies the cells that they wish to retrieve from the "final" table (see step 4) via an sql statement in the pipeline_fetch_cells.yml configuration file. The pipeline will extract the cells and metadata from the original matrices and combine them into market matrices and anndata objects for downstream analyses.
 
+It is recommended to fetch cells into a new directory. By design fetching of a single dataset per-directory is supported.
+
 The pipeline supports fetching of velocity information.
 
 .. note:: The retrieved metadata will include a "sample_id" column. From this point onwards it is natural to think of the "sample_id" as the unit of interest. The "library_ids" remain in the metadata along with all the qc statistics to facilitate downstream investigation of batch effects and cell quality.
@@ -64,13 +66,15 @@ Alignment of samples is performed with :doc:`pipeline_integration.py <pipelines/
 
 .. note:: The user is required to supply a tsv file (e.g. "integration.tsv") containing the path to the pipeline_fetch_cells.py anndata object that holds the data which is to be integrated. The path to the tsv file is specified in the "pipeline_integration.yml" configuration file.
 
+.. warning:: pipeline_integration.py will be moving to a new sansomlab/scxl repository (along with pipeline_scxl from sansomlab/tenx).
+
 
 7. Export for seurat [optional]
 -------------------------------
 
 The integration pipeline outputs an anndata object suitable for analysis with scanpy. A Seurat object can be prepared using :doc:`pipeline_export.py <pipelines/pipeline_export>`.
 
-
+.. warning:: pipeline_export.py will also be moving to the new sansomlab/scxl repository.
 
 
 Workflow Diagram

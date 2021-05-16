@@ -69,7 +69,7 @@ table:
     # scrublet: scrublet.dir
     gex_scrublet:
       name: gex_scrublet
-      path: cell.qc.dir/scrublet.dir
+      path: api/cell.qc/scrublet/filtered
       glob: "*.tsv.gz"
       id_type: library_id
       index: barcode_id
@@ -80,7 +80,7 @@ table:
     # qcmetrics: qcmetrics.dir
     gex_qcmetrics:
       name: gex_qcmetrics
-      path: cell.qc.dir/qcmetrics.dir
+      path: api/cell.qc/qcmetrics/filtered
       glob: "*.tsv.gz"
       id_type: library_id
       index: barcode_id

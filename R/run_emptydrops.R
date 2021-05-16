@@ -55,8 +55,8 @@ default_options <- list(
   # Path to the emptyDrops output file
   "outdir" = "library.dir"
 
-  # Path to the file containing barcodes for blacklisting
-  #"blacklist" = NULL
+  # Path to the file containing barcodes for excludelisting
+  #"excludelist" = NULL
 )
 
 
@@ -83,20 +83,20 @@ sce <- read10xCounts(file.path(opt$cellrangerDir))
 flog.info("Dimensions of input object: %s", dim(sce))
 
 ## ######################################################################### ##
-## ############## (ii) Filter data including blacklisting ################## ##
+## ############## (ii) Filter data including excludelisting ################## ##
 ## ######################################################################### ##
 
-# if (!is.null(opt$blacklist)) {
-#   stopifnot(file.exists(opt$blacklist))
-#   flog.info("Read blacklisted cells from: %s", opt$blacklist)
-#   cells_blacklist <- data.frame(barcodes_in = scan(opt$blacklist, "character"))
-#   cells_blacklist$barcodes_blacklist = paste(cells_blacklist$barcodes_in, "1", sep="-")
-#   flog.info("Number of cells in given blacklist: %s", nrow(cells_blacklist))
-#   cells_remove <- colData(sce)$Barcode %in% cells_blacklist$barcodes_blacklist
+# if (!is.null(opt$excludelist)) {
+#   stopifnot(file.exists(opt$excludelist))
+#   flog.info("Read excludelisted cells from: %s", opt$excludelist)
+#   cells_excludelist <- data.frame(barcodes_in = scan(opt$excludelist, "character"))
+#   cells_excludelist$barcodes_excludelist = paste(cells_excludelist$barcodes_in, "1", sep="-")
+#   flog.info("Number of cells in given excludelist: %s", nrow(cells_excludelist))
+#   cells_remove <- colData(sce)$Barcode %in% cells_excludelist$barcodes_excludelist
 #   sce <- sce[, !cells_remove]
-#   flog.info("Number of cells after blacklisting: %s", ncol(sce))
+#   flog.info("Number of cells after excludelisting: %s", ncol(sce))
 # } else {
-#   flog.info("No cells were blacklisted.") }
+#   flog.info("No cells were excludelisted.") }
 
 sce <- sce[,colSums(counts(sce))>0]
 sce <- sce[rowSums(counts(sce))>0,]

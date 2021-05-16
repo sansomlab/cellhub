@@ -32,7 +32,7 @@ This file must have the following columns:
 * exp_batch - might or might not be useful. If not used, fill with "1"
 * channel_id - might or might not be useful. If not used, fill with "1"
 * seq_batch - might or might not be useful. If not used, fill with "1"
-* (optional) blacklist - path to a file with cell_ids to blacklist
+* (optional) excludelist - path to a file with cell_ids to excludelist
 
 You can add any other columns as required, for example pool_id
 
@@ -89,76 +89,26 @@ if len(sys.argv) > 1:
         if(sys.argv[1] == "config") and __name__ == "__main__":
                     sys.exit(P.main(sys.argv))
 
-# ########################################################################### #
-# ######## Check input libraries file and that the input exists ############### #
-# ########################################################################### #
-
-@originate("input.check.sentinel")
-def checkInputs(outfile):
-    '''Check that input_libraries.tsv exists and the path given in the file
-       is a valid directorys. '''
-
-    if not os.path.exists(PARAMS["input_libraries"]):
-        raise ValueError('File specifying the input libraries is not present.'
-                         'The file needs to be named PARAMS["input_libraries"] ')
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    for p in libraries["raw_path"]:
-        if not os.path.exists(p):
-          raise ValueError('Input folder from cellranger run (outs/)'
-                             ' does not exist.')
-    IOTools.touch_file(outfile)
 
 # ########################################################################### #
 # ########################### Ambient RNA analysis ########################## #
 # ########################################################################### #
 
-# ------------------------------------------------------------------------
-# Create output folder for each input (e.g channel, library) in "per_input"
-
-@follows(checkInputs)
-def genClusterJobs():
-    ''' Generate cluster jobs for each library '''
-
-    libraries = pd.read_csv(PARAMS["input_libraries"], sep='\t')
-    infile = None
-
-    for library in libraries["library_id"]:
-        outfolder = "ambient.rna.dir/profile_per_input.dir/" + library
-        outfile = os.path.join(outfolder, "prep.sentinel")
-        yield(infile, outfile)
-
-
-@follows(checkInputs)
-@files(genClusterJobs)
-def prepFolders(infile, outfile):
-    ''' Prepare folder structure for libraries '''
-
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-
-    IOTools.touch_file(outfile)
 
 # --------------------------------------------------------
 # Run ambient rna analysis per input (e.g channel, library)
 
-@transform(prepFolders,
-           regex(r"ambient.rna.dir/profile_per_input.dir/(.*)/prep.sentinel"),
-           add_inputs(PARAMS["input_libraries"]),
+@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"ambient.rna.dir/profile_per_input.dir/\1/ambient_rna.sentinel")
-def ambient_rna_per_input(infiles, outfile):
+def ambient_rna_per_input(infile, outfile):
     '''Explore count and gene expression profiles of ambient RNA droplets per input
     - The output is saved in profile_per_input.dir/<input_id>
     - The output consists on a html report and a ambient_genes.txt.gz file
     - See more details of the output in the ambient_rna_per_library.R
     '''
 
-    infile, input_libraries = infiles
-
-    ambient_rna.per_input(infile, input_libraries, outfile, PARAMS)
-
-    # Create sentinel file
+    ambient_rna.per_input(infile, outfile, PARAMS)
     IOTools.touch_file(outfile)
 
 
@@ -167,15 +117,14 @@ def ambient_rna_per_input(infiles, outfile):
 
 @merge(ambient_rna_per_input,
        "ambient.rna.dir/profile_compare.dir/ambient_rna_compare.sentinel")
-def ambient_rna_compare(infile, outfile):
+def ambient_rna_compare(infiles, outfile):
     '''Compare the expression of top ambient RNA genes across inputs
     - The output is saved in profile_compare.dir
     - Output includes and html report and a ambient_rna_profile.tsv
     - See more details of the output in the ambient_rna_compare.R
     '''
 
-    ambient_rna.compare(infile, outfile, PARAMS)
-
+    ambient_rna.compare(infiles, outfile, PARAMS)
     IOTools.touch_file(outfile)
 
 
