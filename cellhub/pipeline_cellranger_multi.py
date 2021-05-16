@@ -335,6 +335,9 @@ def postProcessMatrices(infile, outfile):
     counts for the GEX, ADT and HTO modalities into seperate
     market matrices.
 
+    * A critical function of the pre-processing is to reformat
+      the cellbarcodes to the "UMI-1-LIBRARY_ID" format.
+
     cellranger.multi.dir folder layout is
 
     (1) unfiltered outputs
@@ -390,7 +393,8 @@ def postProcessMatrices(infile, outfile):
     output_location = os.path.join("cellranger.multi.dir/out.dir/",
                                    library_id, "unfiltered")
 
-    cellranger.get_counts(matrix_location, output_location)
+    cellranger.get_counts(matrix_location, output_location,
+                          library_id)
 
     for vdj_type in ["b", "t"]:
 
@@ -423,7 +427,8 @@ def postProcessMatrices(infile, outfile):
                                        library_id,
                                        sample_id)
 
-        cellranger.get_counts(matrix_location, output_location)
+        cellranger.get_counts(matrix_location, output_location,
+                              library_id)
 
         for vdj_type in ["b", "t"]:
 

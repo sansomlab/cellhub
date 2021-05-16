@@ -28,8 +28,8 @@ def get_cell_subset(barcodes,
     '''
     subset a mtx matrix
     '''
-    api_location=os.path.join(PARAMS["cellhub_location"],
-                              "api"),
+    #api_location=os.path.join(PARAMS["cellhub_location"],
+    #                          "api"),
 
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -42,7 +42,7 @@ def get_cell_subset(barcodes,
 
     to_cluster = True
 
-    source_matrix_dir = os.path.join(PARAMS["cellhub_dir"],
+    source_matrix_dir = os.path.join(PARAMS["cellhub_location"],
                                      "api",
                                      "cellranger.multi",
                                      modality,
@@ -149,8 +149,13 @@ def merge_subsets(infiles, outfile, PARAMS):
                     ''' % locals()
 
         # append the barcodes, adding the matrix identifier
+        # | awk '{print $1"-1-%(matrix_id)s"}'
+        # SNS may 2021: no longer necessary as we switch to
+        # using the barcode_id which is set upstream in
+        # cellranger_multi.
+        # (TODO additional work may be needed to guarentee uniqueness
+        # between different cellhub instances).
         statement += '''zcat %(barcodes_file)s
-                       | awk '{print $1"-1-%(matrix_id)s"}'
                        >> %(barcodes_outfile)s;
                     ''' % locals()
 

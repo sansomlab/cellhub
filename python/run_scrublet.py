@@ -95,16 +95,14 @@ if not hasattr(scrub, 'threshold_'):
   # Calling doublets
   scrub.call_doublets(threshold=1)
   # Creating output file with results
-  out = pd.DataFrame({'BARCODE': barcodes,
+  out = pd.DataFrame({'barcode_id': barcodes,
                     'library_id': [args.library_id] * len(barcodes),
                     'scrub_doublet_scores' : doublet_scores,
                     'scrub_predicted_doublets' : "NA"})
 else:
   L.info('Calculated doublet score threshold: {}'.format(scrub.threshold_))
   # Creating output file with results
-  out = pd.DataFrame({'BARCODE': barcodes,
-                      'barcode_id': [ x + "-" + args.library_id
-                                      for x in barcodes],
+  out = pd.DataFrame({'barcode_id': barcodes,
                       'library_id': [args.library_id] * len(barcodes),
                       'scrub_doublet_scores' : doublet_scores,
                       'scrub_predicted_doublets' : predicted_doublets})

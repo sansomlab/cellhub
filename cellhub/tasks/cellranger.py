@@ -5,7 +5,8 @@ import shutil
 import os
 from cgatcore import pipeline as P
 
-def get_counts(matrix_location, output_location):
+def get_counts(matrix_location, output_location,
+               library_id):
     '''
     Post-process a cellranger multi count market matrix
     to generate individual per-modality matrices.
@@ -27,6 +28,8 @@ def get_counts(matrix_location, output_location):
 
     feature_types = set(features["type"])
 
+    # define hash mapping of cellranger feature types
+    # to three letter modality codes
     feature_names = {"Antibody Capture": "ADT",
                      "Gene Expression": "GEX",
                      "Multiplexing Capture": "HTO"}
@@ -83,11 +86,19 @@ def get_counts(matrix_location, output_location):
                      sep="\t", header=None, index=False)
 
             # copy across the cell barcodes
-            shutil.copyfile(os.path.join(matrix_location,
-                                         "barcodes.tsv.gz"),
-                            os.path.join(out_path,
-                                         "barcodes.tsv.gz"))
 
+            barcode_file = os.path.join(matrix_location,
+                                        "barcodes.tsv.gz")
+
+            barcode_outfile = os.path.join(out_path,
+                                           "barcodes.tsv.gz")
+
+            statement = '''zcat %(barcode_file)s
+                           | awk 'BEGIN{FS="-"}{print $1"-%(library_id)s"}'
+                           | gzip -c
+                           >> %(barcode_outfile)s'''
+
+            P.run(statement)
 
             out_mtx = os.path.join(out_path,
                                    "matrix.mtx")
