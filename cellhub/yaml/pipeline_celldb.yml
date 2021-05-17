@@ -105,6 +105,20 @@ table:
         LEFT JOIN gex_scrublet scrub
         ON qc.barcode_id = scrub.barcode_id;
 
+      # Query example for a hashed dataset.
+      # *** note that the sample table is joined
+      #     on library_id AND hto_id ***
+      #
+      # sql_query: >-
+      #   CREATE VIEW final AS
+      #   SELECT s.*, qc.*, scrub.*, gd.*
+      #   FROM gex_qcmetrics qc
+      #   LEFT JOIN gex_scrublet scrub
+      #   ON qc.barcode_id = scrub.barcode_id
+      #   LEFT JOIN gmm_demux gd
+      #   ON qc.barcode_id = gd.barcode_id
+      #   LEFT JOIN sample s
+      #   on qc.library_id = s.library_id AND gd.gmm_call = s.hto_id;
 
 
 
