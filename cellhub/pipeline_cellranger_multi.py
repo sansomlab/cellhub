@@ -621,7 +621,7 @@ def vdjAPI(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, mtxAPI)
+@follows(cellrangerMulti, mtxAPI, vdjAPI)
 def full():
     '''
     Run the full pipeline.
