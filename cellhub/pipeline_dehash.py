@@ -101,6 +101,7 @@ def gmmDemux(infile, outfile):
 
     statement = '''GMM-demux %(input_mtx)s
                              %(HTOs)s
+                             --threshold %(gmm_demux_threshold)s
                              --full %(gmm_working_dir)s/full
                              --simplified %(gmm_working_dir)s/simple
                              --output %(gmm_working_dir)s/SSD
@@ -168,7 +169,7 @@ def gmmAPI(infiles, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-@follows()
+@follows(gmmAPI)
 def full():
     pass
 

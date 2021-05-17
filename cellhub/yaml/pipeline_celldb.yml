@@ -50,20 +50,6 @@ table:
       index: library_id,sample_id
       final_fields: "*"
 
-    # For projects in which cells are multiplexed
-    # this is the location of the folder that contains the
-    # per-library cell-to-samples assignments after
-    # demultiplexing (pipeline_demux.py, to be written)
-    # to use, set active: True
-    demux:
-      active: False
-      name:
-      path:
-      glob: "*.tsv.gz"
-      id_type:
-      index:
-      final_fields:
-
     # The location of the scrublet output directory
     # output of the pipeline_cell_qc.py
     # scrublet: scrublet.dir
@@ -86,6 +72,18 @@ table:
       index: barcode_id
       final_fields: "*"
 
+    # location of the gmm_demux results
+    # output of the pipeline_dehasj.py
+    gmm_demux:
+      active: False
+      name: gmm_demux
+      path: api/dehash/gmm.demux/filtered
+      glob: "*.tsv.gz"
+      id_type: library_id
+      index: barcode_id
+      final_fields: "*"
+
+
     # location for ADT qc metric
     # output of the pipeline_cell_qc.py
     adt_qcmetrics:
@@ -96,6 +94,32 @@ table:
       id_type: library_id
       index: barcode_id
       final_fields: "*"
+
+    final:
+      sql_query: >-
+        CREATE VIEW final AS
+        SELECT s.*, qc.*, scrub.*
+        FROM gex_qcmetrics qc
+        LEFT JOIN sample s
+        on qc.library_id = s.library_id
+        LEFT JOIN gex_scrublet scrub
+        ON qc.barcode_id = scrub.barcode_id;
+
+      # Query example for a hashed dataset.
+      # *** note that the sample table is joined
+      #     on library_id AND hto_id ***
+      #
+      # sql_query: >-
+      #   CREATE VIEW final AS
+      #   SELECT s.*, qc.*, scrub.*, gd.*
+      #   FROM gex_qcmetrics qc
+      #   LEFT JOIN gex_scrublet scrub
+      #   ON qc.barcode_id = scrub.barcode_id
+      #   LEFT JOIN gmm_demux gd
+      #   ON qc.barcode_id = gd.barcode_id
+      #   LEFT JOIN sample s
+      #   on qc.library_id = s.library_id AND gd.gmm_call = s.hto_id;
+
 
 
 virtual:
