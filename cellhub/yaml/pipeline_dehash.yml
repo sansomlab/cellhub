@@ -1,0 +1,21 @@
+
+threshold:
+
+hto:
+  per_library: False
+
+  names: C0301_TotalSeqC,C0302_TotalSeqC,C0303_TotalSeqC
+
+  # if per_library: True
+  # add the per-library HTO names here and they will be picked up
+  #
+  # library_id_01: C0301_TotalSeqC,C0302_TotalSeqC,C0303_TotalSeqC
+  # library_id_02: C0401_TotalSeqC,C0402_TotalSeqC,C0403_TotalSeqC
+
+
+gmm_demux:
+
+  threshold: 0.8
+
+  # estimated number of cells for --summary
+  ncells: 20000
