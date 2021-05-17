@@ -101,11 +101,11 @@ def get_counts(matrix_location, output_location,
             P.run(statement)
 
             out_mtx = os.path.join(out_path,
-                                   "matrix.mtx.gz")
+                                   "matrix.mtx")
 
             nrows = x.shape[0]
             ncol = input_mtx_dimensions[1]
-            nentries = len(fi)
+            nentries = len(mtx_rows)
 
             with open(out_mtx, "w") as mtx:
 
@@ -120,12 +120,13 @@ def get_counts(matrix_location, output_location,
                             | grep -v "^%%"
                             | awk 'NR>1 && $1>=%(idx_start)s && $1<=%(idx_end)s{
                                      print $1-%(row_offset)s,$2,$3}'
-                            | gzip -c
                             >> %(out_mtx)s;
                         '''
 
             P.run(statement)
 
+            # Gzip the outfile
+            P.run('''gzip %(out_mtx)s''')
 
 def contig_annotations(ctg_loc, out_loc, library_id):
     '''
