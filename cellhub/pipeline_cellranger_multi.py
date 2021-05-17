@@ -328,55 +328,39 @@ def cellrangerMulti(infile, outfile):
 
 @transform(cellrangerMulti,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
-           r"\1/out.dir/\2/post.process.matrices.sentinel")
-def postProcessMatrices(infile, outfile):
+           r"\1/out.dir/\2/post.process.mtx.sentinel")
+def postProcessMtx(infile, outfile):
     '''
     Post-process the cellranger multi matrices to split the
     counts for the GEX, ADT and HTO modalities into seperate
     market matrices.
 
-    * A critical function of the pre-processing is to reformat
-      the cellbarcodes to the "UMI-1-LIBRARY_ID" format.
+    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" synta.
 
-    cellranger.multi.dir folder layout is
+    Cellranger inputs
+    -----------------
 
-    (1) unfiltered outputs
+    The input cellranger.multi.dir folder layout is:
+
+    unfiltered "outs": ::
+
+      library_id/outs/multi/count/raw_feature_bc_matrix/
+
+    filtered "outs": ::
+
+      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+
+    Post-processed outputs
     ----------------------
-    library_id/outs/multi/count/raw_feature_bc_matrix/
-    library_id/outs/multi/vdj_b/
 
-    (2) filtered outputs
-    --------------------
-    library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
-    library_id/outs/per_sample_outs/sample|library_id/vdj_b
+    This task produces
 
-    Notes
-    -----
-    - the feature_bc_matrix can contain GEX, ADT and HTO
-    - vdj_b = BCR sequencing
-    - vdj_t ?!? presumably this is what the TCR folder will look like but we have not
-      had any datasets yet.
+    unfiltered: ::
+      out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
 
-    Task overview
-    -------------
-    (i) split the raw counts into seperate GEX, HTO and ADT matrices
-    (ii) link in the raw vdj
-    (iii) for each sample, do (i) and (ii)
+    filtered: ::
+      out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
 
-    Outputs
-    -------
-
-    post.processed.dir/unfiltered/gex/
-    post.processed.dir/unfiltered/ADT/
-    post.processed.dir/unfiltered/HTO/
-    post.processed.dir/unfiltered/vdj_b/
-    post.processed.dir/unfiltered/vdj_t/
-
-    post.processed.dir/per_sample/sample|library_id/gex/
-    post.processed.dir/per_sample/sample|library_id/ADT/
-    post.processed.dir/per_sample/sample|library_id/HTO/
-    post.processed.dir/per_sample/sample|library_id/vdj_b/
-    post.processed.dir/per_sample/sample|library_id/vdj_t/
     '''
 
     out_dir = os.path.dirname(outfile)
@@ -391,25 +375,15 @@ def postProcessMatrices(infile, outfile):
                                    "outs/multi/count/raw_feature_bc_matrix")
 
     output_location = os.path.join("cellranger.multi.dir/out.dir/",
-                                   library_id, "unfiltered")
+                                   library_id,
+                                   "unfiltered",
+                                   "mtx")
 
-    cellranger.get_counts(matrix_location, output_location,
+    cellranger.get_counts(matrix_location,
+                          output_location,
                           library_id)
 
-    for vdj_type in ["b", "t"]:
-
-        vdj_location = os.path.join("cellranger.multi.dir", library_id,
-                                    "outs/multi/vdj_" + vdj_type)
-
-        vdj_out_location = os.path.join("cellranger.multi.dir/out.dir/",
-                                         library_id, "unfiltered/vdj" + vdj_type)
-
-    if os.path.exists(vdj_location):
-        os.symlink(vdj_location, vdj_b_out_location)
-
-
     # 2. deal with per sample libraries
-
     per_sample_loc = os.path.join("cellranger.multi.dir",
                                   library_id,
                                   "outs/per_sample_outs/")
@@ -425,35 +399,25 @@ def postProcessMatrices(infile, outfile):
 
         output_location = os.path.join("cellranger.multi.dir/out.dir/",
                                        library_id,
-                                       sample_id)
+                                       "filtered",
+                                       sample_id,
+                                       "mtx")
 
-        cellranger.get_counts(matrix_location, output_location,
+        cellranger.get_counts(matrix_location,
+                              output_location,
                               library_id)
-
-        for vdj_type in ["b", "t"]:
-
-            vdj_location = os.path.join(per_sample_dir,
-                                        "vdj_" + vdj_type)
-
-            vdj_out_location = os.path.join("cellranger.multi.dir/out.dir/",
-                                            library_id,
-                                            sample_id,
-                                            "vdj_" + vdj_type)
-
-            if os.path.exists(vdj_location):
-                os.symlink(vdj_location, vdj_b_out_location)
 
 
     IOTools.touch_file(outfile)
 
 
 
-@transform(postProcessMatrices,
-           regex(r"(.*)/out.dir/(.*)/post.process.matrices.sentinel"),
-           r"\1/out.dir/\2/api.register.sentinel")
-def API(infile, outfile):
+@transform(postProcessMtx,
+           regex(r"(.*)/out.dir/(.*)/post.process.mtx.sentinel"),
+           r"\1/out.dir/\2/register.mtx.sentinel")
+def mtxAPI(infile, outfile):
     '''
-    Register the outputs on the service endpoint
+    Register the post-processed mtx files on the API endpoint
     '''
 
     # 1. register the GEX, ADT and HTO count matrices
@@ -481,12 +445,13 @@ def API(infile, outfile):
         for modality in ["GEX", "ADT", "HTO"]:
 
             if data_subset == "filtered":
-                subset_dir = library_id
+                data_subset_path = data_subset + "/" + library_id
             else:
-                subset_dir = data_subset
+                data_subset_path = data_subset
 
             mtx_loc = os.path.join(source_loc,
-                                   subset_dir,
+                                   data_subset_path,
+                                   "mtx",
                                    modality)
 
             if os.path.exists(mtx_loc):
@@ -501,7 +466,153 @@ def API(infile, outfile):
                           data_id=library_id,
                           data_format="mtx",
                           file_set=mtx_x,
-                          analysis_description="unfiltered cellranger count GEX output")
+                          analysis_description="Cellranger count GEX output")
+
+                x.register_dataset()
+
+
+
+@transform(cellrangerMulti,
+           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
+           r"\1/out.dir/\2/post.process.vdj.sentinel")
+def postProcessVDJ(infile, outfile):
+    '''
+    Post-process the cellranger contig annotations.
+
+    The cellbarcodes are reformatted to the "UMI-LIBRARY_ID" syntax.
+
+    Cellranger inputs
+    -----------------
+
+    The input cellranger.multi.dir folder layout is:
+
+    unfiltered "outs": ::
+
+      library_id/outs/multi/vdj_[b|t]/
+
+    filtered "outs": ::
+
+      library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
+
+    Post-processed outputs
+    ----------------------
+
+    This task produces
+
+    unfiltered: ::
+      out.dir/library_id/unfiltered/vdj_[t|b]/
+
+    filtered: ::
+      out.dir/library_id/filtered/sample_id/vdj_[t|b]/
+
+    '''
+
+
+    out_dir = os.path.dirname(outfile)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
+
+    vdj_types = ["vdj_b", "vdj_t"]
+
+    for vdj_type in vdj_types:
+
+        if os.path.exists(os.path.join("cellranger.multi.dir", library_id,
+                                       "outs/multi/", vdj_type)):
+
+            # 1. deal with unfiltered contig assigments
+            ctg_loc = os.path.join("cellranger.multi.dir", library_id,
+                                   "outs/multi/",
+                                   vdj_type,
+                                   "all_contig_annotations.csv")
+
+            out_loc = os.path.join("cellranger.multi.dir/out.dir/",
+                                   library_id,
+                                   "unfiltered",
+                                   vdj_type,
+                                   "all_contig_annotations.csv.gz")
+
+            cellranger.contig_annotations(ctg_loc, out_loc, library_id)
+
+
+            per_sample_loc = os.path.join("cellranger.multi.dir",
+                                          library_id,
+                                          "outs/per_sample_outs/")
+
+            per_sample_dirs = glob.glob(per_sample_loc + "*")
+
+            for per_sample_dir in per_sample_dirs:
+
+                sample_id = os.path.basename(per_sample_dir)
+
+                ctg_loc = os.path.join(per_sample_dir,
+                                       vdj_type,
+                                       "filtered_contig_annotations.csv")
+
+                out_loc = os.path.join("cellranger.multi.dir/out.dir/",
+                                       library_id,
+                                       "filtered",
+                                       sample_id,
+                                       vdj_type,
+                                       "filtered_contig_annotations.csv.gz")
+
+                cellranger.contig_annotations(ctg_loc, out_loc, library_id)
+
+    IOTools.touch_file(outfile)
+
+
+
+@transform(postProcessVDJ,
+           regex(r"(.*)/out.dir/(.*)/post.process.vdj.sentinel"),
+           r"\1/out.dir/\2/register.vdj.sentinel")
+def vdjAPI(infile, outfile):
+    '''
+    Register the post-processed VDJ contigfiles on the API endpoint
+    '''
+
+    x = api.api("cellranger.multi")
+
+    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv.gz",
+                                           "format": "csv",
+                                           "description": "per-cell contig annotations"}}
+
+    library_id = outfile.split("/")[-2]
+
+    source_loc = os.path.dirname(infile)
+
+    for data_subset in ["unfiltered", "filtered"]:
+
+        for vdj_type in ["vdj_b", "vdj_t"]:
+
+
+            if data_subset == "filtered":
+                data_subset_path = data_subset + "/" + library_id
+                prefix = "filtered"
+            elif data_subset == "unfiltered":
+                data_subset_path = data_subset
+                prefix = "all"
+            else:
+                raise ValueError("subset not recognised")
+
+            vdj_loc = os.path.join(source_loc,
+                                   data_subset_path,
+                                   vdj_type)
+
+            if os.path.exists(vdj_loc):
+
+                contig_file = os.path.join(vdj_loc,
+                                           prefix + "_contig_annotations.csv.gz")
+
+                vdj_x = vdj_template.copy()
+                vdj_x["contig_annotations"]["path"] = contig_file
+
+                x.define_dataset(analysis_name=vdj_type,
+                          data_subset=data_subset,
+                          data_id=library_id,
+                          file_set=vdj_x,
+                          analysis_description="cellranger contig annotations")
 
                 x.register_dataset()
 
@@ -510,7 +621,7 @@ def API(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, API)
+@follows(cellrangerMulti, mtxAPI, vdjAPI)
 def full():
     '''
     Run the full pipeline.

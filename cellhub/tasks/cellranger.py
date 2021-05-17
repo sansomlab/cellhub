@@ -105,7 +105,7 @@ def get_counts(matrix_location, output_location,
 
             nrows = x.shape[0]
             ncol = input_mtx_dimensions[1]
-            nentries = len(fi)
+            nentries = len(mtx_rows)
 
             with open(out_mtx, "w") as mtx:
 
@@ -122,7 +122,27 @@ def get_counts(matrix_location, output_location,
                                      print $1-%(row_offset)s,$2,$3}'
                             >> %(out_mtx)s;
                         '''
+
             P.run(statement)
 
-            statement = '''gzip %(out_mtx)s'''
-            P.run(statement)
+            # Gzip the outfile
+            P.run('''gzip %(out_mtx)s''')
+
+def contig_annotations(ctg_loc, out_loc, library_id):
+    '''
+    Fix the barcode syntax to "UMI-LIBRARY_ID" format
+    '''
+
+    outdir = os.path.dirname(out_loc)
+
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    statement = '''cat %(ctg_loc)s
+                   | sed '1s/barcode/barcode_id/g'
+                   | sed 's/\(^[^-]*\)[^,]*\(.*$\)/\\1-%(library_id)s\\2/g'
+                   | gzip -c
+                   > %(out_loc)s
+                '''
+
+    P.run(statement)
