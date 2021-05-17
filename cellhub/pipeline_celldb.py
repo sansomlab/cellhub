@@ -78,6 +78,10 @@ P.control.write_config_files = C.write_config_files
 parameter_file = C.get_parameter_file(__file__,__name__)
 PARAMS = P.get_parameters(parameter_file)
 
+print("-------------------_")
+print(PARAMS)
+
+
 def connect():
     '''connect to database.
     Use this method to connect to additional databases.
@@ -165,38 +169,40 @@ def load_gex_scrublet(outfile):
             index = x["index"],
             outfile=outfile)
 
+@active_if(PARAMS["table_gmm_demux"]["active"])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("celldb.dir/gmm.demux.load")
+def load_gmm_demux(outfile):
+    '''load the gmm demux dehashing calls into the database '''
+
+    x = PARAMS["table_gmm_demux"]
+
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
+
 
 @follows(load_samples,
-         # load_libraries,
          load_gex_qcmetrics,
-         load_gex_scrublet)
+         load_gex_scrublet,
+         load_gmm_demux)
          # load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")
 def final(outfile):
-    ''' '''
+    '''
+    Construct a "final" view on the database from which
+    the cells can be selected and fetched by
+    pipeline_fetch_cells.py
+    '''
 
     dbh = connect()
 
-    # the mapping metadata isn't needed here.
-    # LEFT JOIN cellranger_statistics mm \
-
-    s = PARAMS["table_sample"]["name"]
-    # l = PARAMS["table_library"]["name"]
-    gex_qc = PARAMS["table_gex_qcmetrics"]["name"]
-    gex_scrub = PARAMS["table_gex_scrublet"]["name"]
-    lib = PARAMS["table_library"]["name"]
-
-    #           FROM %(l)s l \
-    #             LEFT JOIN %(gex_qc)s qc \
-    # ON qc.library_id = l.library_id \
-    statement = "CREATE VIEW final AS \
-                 SELECT s.*, qc.*, scrub.* \
-                 FROM %(gex_qc)s qc \
-                 LEFT JOIN %(s)s s \
-                 on qc.library_id = s.library_id \
-                 LEFT JOIN %(gex_scrub)s scrub \
-                 ON qc.barcode_id = scrub.barcode_id" % locals()
+    statement = PARAMS["table_final"]["sql_query"]
 
     cc = database.executewait(dbh, statement, retries=5)
 

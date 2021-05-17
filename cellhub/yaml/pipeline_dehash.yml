@@ -15,7 +15,7 @@ hto:
 
 gmm_demux:
 
-  threshold: 0.8
+  threshold: 0
 
   # estimated number of cells for --summary
   ncells: 20000
