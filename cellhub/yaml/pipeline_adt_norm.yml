@@ -1,0 +1,42 @@
+#
+# pipeline_adt_norm.py configuration file
+# =========================================
+#
+
+# General options
+# ---------------
+
+# Project name
+projectname: celldb-test
+
+# Author
+author: Samson lab
+
+# Background vs cell seq-depth thresholds
+# based on detected gene/feature depth 
+# log10 scale
+
+dsb:
+        background:
+                counts:
+                        min: 1
+                        max: 2
+                feats:
+                        min: 1
+                        max: 2
+        cell:
+                counts:
+                        min: 2.5
+                        max: "Inf"
+                feats:
+                        min: 2
+                        max: "Inf"
+
+# compute resource options
+# ------------------------
+resources:
+    # job memory for tasks; use this in combination with nslots
+    # if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+    # number of job threads/slots
+    threads: 1
