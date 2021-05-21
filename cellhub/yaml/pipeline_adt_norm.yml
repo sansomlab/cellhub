@@ -17,20 +17,20 @@ author: Samson lab
 # log10 scale
 
 dsb:
-        background:
-                counts:
-                        min: 1
-                        max: 2
-                feats:
-                        min: 1
-                        max: 2
-        cell:
-                counts:
-                        min: 2.5
-                        max: "Inf"
-                feats:
-                        min: 2
-                        max: "Inf"
+    background:
+        counts:
+            min: 
+            max:
+        feats:
+            min:
+            max:
+    cell:
+        counts:
+            min:
+            max:
+        feats:
+            min:
+            max:
 
 # compute resource options
 # ------------------------

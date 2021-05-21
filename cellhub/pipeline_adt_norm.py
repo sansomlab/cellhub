@@ -1,6 +1,6 @@
 '''
 ================
-Pipeline Cell QC
+Pipeline ADT dsb normalization
 ================
 
 Overview
@@ -130,7 +130,7 @@ def gexdepth(infile, outfile):
 
 
 @merge(gexdepth,
-       "adt_dsb.dir/api.sentinel")
+       "adt_dsb.dir/api_gex.sentinel")
 def gexdepthAPI(infiles, outfile):
     '''
     Add the umi depth metrics results to the API
@@ -138,10 +138,10 @@ def gexdepthAPI(infiles, outfile):
 
     file_set={}
 
-    for libqc in infiles:
+    for lib in infiles:
 
-        tsv_path = libqc.replace(".sentinel",".tsv.gz")
-        library_id = os.path.basename(tsv_path)
+        tsv_path = lib.replace(".sentinel",".tsv.gz")
+        library_id = os.path.basename(tsv_path).replace("_gex", "")
 
         file_set[library_id] = {"path": tsv_path,
                                 "description":"all barcodes gex umi depth table for library " +\
@@ -150,12 +150,16 @@ def gexdepthAPI(infiles, outfile):
 
     x = api.api("adt_norm")
 
-    x.define_dataset(analysis_name="qcmetrics",
-              data_subset="unfiltered",
+    x.define_dataset(analysis_name="depth_metrics",
+              data_subset="gex",
               file_set=file_set,
               analysis_description="per library tables of cell GEX depth")
 
     x.register_dataset()
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
 
 @follows(mkdir("adt_dsb.dir"))
 @transform(glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz"),
@@ -201,8 +205,108 @@ def adtdepth(infile, outfile):
 
 
 @merge(adtdepth,
-       "adt_dsb.dir/api.sentinel")
+       "adt_dsb.dir/api_adt.sentinel")
 def adtdepthAPI(infiles, outfile):
+    '''
+    Add the umi depth metrics results to the API
+    '''
+
+    file_set={}
+
+    for lib in infiles:
+
+        tsv_path = lib.replace(".sentinel",".tsv.gz")
+        library_id = os.path.basename(tsv_path).replace("_adt", "")
+
+        file_set[library_id] = {"path": tsv_path,
+                                "description":"all barcodes adt umi depth table for library " +\
+                                library_id,
+                                "format":"tsv"}
+
+    x = api.api("adt_norm")
+
+    x.define_dataset(analysis_name="depth_metrics",
+              data_subset="adt",
+              file_set=file_set,
+              analysis_description="per library tables of cell ADT depth")
+
+    x.register_dataset()
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+
+
+@follows(adtdepthAPI)
+@transform(glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+           r"adt_dsb.dir/\1/mtx/\1.sentinel")
+def dsb_norm(infile, outfile):
+    '''This task will run R/normalize_adt.R,
+    It will read the infiltered ADT count matrix. If not user definition of background and cell containig 
+    barcodes, then the automatic guess from the gex and adt get depth tasks will be used.
+    - Calculate dsb normalized ADT expression matrix
+    - Write market matrices per sample
+    '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    # Get cellranger directory and id
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    cellranger_dir = os.path.dirname(infile)
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    gex_depth = "api/adt.norm/depth_metrics/gex/" + library_name + "_gex.tsv.gz"
+    adt_depth = "api/adt.norm/depth_metrics/adt/" + library_name + "_adt.tsv.gz"
+ 
+    #if (PARAMS["dsb_background_counts_min"]) : 
+    #    bcmin = PARAMS["dsb_background_counts_min"]
+    #    bcmax = PARAMS["dsb_background_counts_max"]
+    #    bfmin = PARAMS["dsb_background_feats_min"]
+    #    bfmax = PARAMS["dsb_background_feats_max"]
+    #    ccmin = PARAMS["dsb_cell_counts_min"]
+    #    ccmax = PARAMS["dsb_cell_counts_max"]
+    #    cfmin = PARAMS["dsb_cell_feats_min"]
+    #    cfmax = PARAMS["dsb_cell_feats_max"]
+
+    log_file = outfile.replace(".tsv.gz", ".log")
+
+    out_file = outfile.replace(".sentinel", ".mtx.gz")
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/normalize_adt.R
+                 --cellranger_dir=%(cellranger_dir)s
+                 --library_id=%(library_name)s
+                 --gex_depth=%(gex_depth)s
+                 --adt_depth=%(adt_depth)s
+                 --bcmin=%(bcmin)s
+                 --bcmax=%(bcmax)s
+                 --bfmin=%(bfmin)s
+                 --bfmax=%(bfmax)s
+                 --ccmin=%(ccmin)s
+                 --ccmax=%(ccmax)s
+                 --cfmin=%(cfmin)s
+                 --cfmax=%(cfmax)s
+                 --numcores=%(job_threads)s
+                 --log_filename=%(log_file)s
+                 --outfile=%(out_file)s
+              '''
+    P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+
+@merge(adtdepth,
+       "adt_dsb.dir/api_adt.sentinel")
+def dsbAPI(infiles, outfile):
     '''
     Add the umi depth metrics results to the API
     '''
@@ -250,7 +354,7 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(gexdepthAPI, adtdepthAPI, plot)
+@follows(gexdepthAPI, adtdepthAPI, dsb_norm, plot)
 def full():
     '''
     Run the full pipeline.
