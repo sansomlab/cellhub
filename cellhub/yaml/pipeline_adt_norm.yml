@@ -15,19 +15,27 @@ author: Samson lab
 # Background vs cell seq-depth thresholds
 # based on detected gene/feature depth 
 # log10 scale
-
+# leave this empty for an automated choice
 dsb:
     background:
+        # log10 ADT count threshold
+        # (e.g. min=1.2, max=2.2)
         counts:
-            min: 
+            min:
             max:
+        # number of GEX genes detected 
+        # (e.g. min=10, max=190) 
         feats:
             min:
             max:
     cell:
+        # log10 ADT count thresholds
+        # (e.g. min=2.5, max=5)
         counts:
             min:
             max:
+        # number of GEX genes detected
+        # (e.g. min=200, max=8000)
         feats:
             min:
             max:

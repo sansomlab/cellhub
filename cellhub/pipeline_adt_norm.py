@@ -73,6 +73,7 @@ else:
     if PARAMS["code_dir"] != Path(__file__).parents[1]:
         raise ValueError("Could not set the location of "
                          "the pipeline code directory")
+print(PARAMS)
 
 # ----------------------- < pipeline configuration > ------------------------ #
 
@@ -235,6 +236,71 @@ def adtdepthAPI(infiles, outfile):
     # Create sentinel file
     IOTools.touch_file(outfile)
 
+@follows(adtdepthAPI)
+@transform(glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+           r"adt_dsb.dir/\1/\1_plot.sentinel")
+def plot_norm_adt(infile, outfile):
+    '''This task will run R/plot_norm_adt.R,
+    It will read the infiltered ADT count matrix. If not user definition of background and cell containig 
+    barcodes, then the automatic guess from the gex and adt get depth tasks will be used.
+    - Visual report on the cell vs background dataset split
+    - If user provided thresholds, those will be included
+    '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    # Get cellranger directory and id
+    library_name = os.path.basename(outfile)[:-len("_plot.sentinel")]
+    cellranger_dir = os.path.dirname(infile)
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    gex_depth = "api/adt.norm/depth_metrics/gex/" + library_name + "_gex.tsv.gz"
+    adt_depth = "api/adt.norm/depth_metrics/adt/" + library_name + "_adt.tsv.gz"
+
+    # Background & cell count/features threshold
+    bcmin = PARAMS["dsb_background"]["counts"]["min"]
+    bcmax = PARAMS["dsb_background"]["counts"]["max"]
+    bfmin = PARAMS["dsb_background"]["feats"]["min"]
+    bfmax = PARAMS["dsb_background"]["feats"]["max"]
+    ccmin = PARAMS["dsb_cell"]["counts"]["min"]
+    ccmax = PARAMS["dsb_cell"]["counts"]["max"]
+    cfmin = PARAMS["dsb_cell"]["feats"]["min"]
+    cfmax = PARAMS["dsb_cell"]["feats"]["max"]
+
+    log_file = outfile.replace(".tsv.gz", ".log")
+
+    out_file = outfile.replace(".sentinel", ".pdf")
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/plot_norm_adt.R
+                 --cellranger_dir=%(cellranger_dir)s
+                 --library_id=%(library_name)s
+                 --gex_depth=%(gex_depth)s
+                 --adt_depth=%(adt_depth)s
+                 --bcmin=%(bcmin)s
+                 --bcmax=%(bcmax)s
+                 --bfmin=%(bfmin)s
+                 --bfmax=%(bfmax)s
+                 --ccmin=%(ccmin)s
+                 --ccmax=%(ccmax)s
+                 --cfmin=%(cfmin)s
+                 --cfmax=%(cfmax)s
+                 --numcores=%(job_threads)s
+                 --log_filename=%(log_file)s
+                 --outfile=%(out_file)s
+              '''
+    P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
 
 
 @follows(adtdepthAPI)
@@ -265,20 +331,20 @@ def dsb_norm(infile, outfile):
 
     gex_depth = "api/adt.norm/depth_metrics/gex/" + library_name + "_gex.tsv.gz"
     adt_depth = "api/adt.norm/depth_metrics/adt/" + library_name + "_adt.tsv.gz"
- 
-    #if (PARAMS["dsb_background_counts_min"]) : 
-    #    bcmin = PARAMS["dsb_background_counts_min"]
-    #    bcmax = PARAMS["dsb_background_counts_max"]
-    #    bfmin = PARAMS["dsb_background_feats_min"]
-    #    bfmax = PARAMS["dsb_background_feats_max"]
-    #    ccmin = PARAMS["dsb_cell_counts_min"]
-    #    ccmax = PARAMS["dsb_cell_counts_max"]
-    #    cfmin = PARAMS["dsb_cell_feats_min"]
-    #    cfmax = PARAMS["dsb_cell_feats_max"]
+
+    # Background & cell count/features threshold
+    bcmin = PARAMS["dsb_background"]["counts"]["min"]
+    bcmax = PARAMS["dsb_background"]["counts"]["max"]
+    bfmin = PARAMS["dsb_background"]["feats"]["min"]
+    bfmax = PARAMS["dsb_background"]["feats"]["max"]
+    ccmin = PARAMS["dsb_cell"]["counts"]["min"]
+    ccmax = PARAMS["dsb_cell"]["counts"]["max"]
+    cfmin = PARAMS["dsb_cell"]["feats"]["min"]
+    cfmax = PARAMS["dsb_cell"]["feats"]["max"]
 
     log_file = outfile.replace(".tsv.gz", ".log")
 
-    out_file = outfile.replace(".sentinel", ".mtx.gz")
+    out_file = outfile.replace(".sentinel", ".mtx")
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/normalize_adt.R
@@ -354,7 +420,7 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(gexdepthAPI, adtdepthAPI, dsb_norm, plot)
+@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, plot)
 def full():
     '''
     Run the full pipeline.
