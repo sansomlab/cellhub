@@ -38,7 +38,7 @@ args = parser.parse_args()
 
 L.info("Reading in the 10x market matrix")
 x = scanpy.read_10x_mtx(args.mtxdir10x,
-                        gex_only=True,
+                        gex_only=False,
                         cache=False)
 
 print(x)
@@ -67,7 +67,7 @@ if args.obsdata is not None:
 
     else:
 #        raise ValueError("Data matrix does not match given observations")
-        L.info("Data matrix does not match given observations, if GEXADT mode")
+        L.info("Data matrix does not match given observations, if ADT mode")
         L.info("then expected less counts, otherwise, worry about it.")
 
 else:

@@ -277,6 +277,64 @@ def exportAnnData(infiles, outfile):
 # ########################################################################### #
 
 # Fetch DSB normalised ADT data from the api here.
+@active_if(PARAMS["ADT_fetch"])
+@follows(mkdir("fetch.cells.dir/ADT.mtx.subsets.dir"))
+@transform(barcodeSubsets,
+           regex(r"fetch.cells.dir/barcode.subsets.dir/(.*).tsv.gz"),
+           r"fetch.cells.dir/ADT.mtx.subsets.dir/\1/matrix.mtx.gz")
+def ADTSubsets(infile, outfile):
+    '''
+    Extract the ADT cell subsets from the parent mtx.
+    '''
+
+    matrix_subset_dir = os.path.dirname(infile)
+    matrix_id = os.path.basename(infile).replace(".tsv.gz","")
+
+    outdir = os.path.dirname(outfile)
+
+    fetch_cells.get_cell_subset(barcodes=infile,
+                                modality="ADT",
+                                matrix_id=matrix_id,
+                                outdir=outdir,
+                                PARAMS=PARAMS,
+                                data_subset="filtered")
+
+
+@follows(mkdir("fetch.cells.dir/ADT.mtx.full.dir"))
+@merge(ADTSubsets,
+       "fetch.cells.dir/ADT.mtx.full.dir/matrix.sentinel")
+def mergeADTSubsets(infiles, outfile):
+    '''
+    Merge the ADT cell subsets into a single mtx.
+    '''
+
+    out_mtx_file = outfile.replace(".sentinel",".mtx.gz")
+
+    fetch_cells.merge_subsets(infiles, out_mtx_file, PARAMS)
+
+    IOTools.touch_file(outfile)
+
+
+@transform(mergeADTSubsets,
+           regex(r"fetch.cells.dir/ADT.mtx.(.*).dir/.*.sentinel"),
+           add_inputs(fetchCells),
+           r"fetch.cells.dir/ADT.anndata.\1.dir/matrix.sentinel")
+def exportAnnDataADT(infiles, outfile):
+    '''
+       Export h5ad anndata matrices for downstream analysis with
+       scanpy
+    '''
+
+    mtx, obs = infiles
+    mtx_dir = os.path.dirname(mtx)
+    obs_file = obs.replace(".sentinel",".tsv.gz")
+    outdir = os.path.dirname(outfile)
+    matrix_name = os.path.basename(outfile).replace(".sentinel",".h5ad")
+
+    fetch_cells.export_anndata(mtx_dir, obs_file, outdir, matrix_name,
+                               PARAMS)
+
+    IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
@@ -298,7 +356,7 @@ def exportAnnData(infiles, outfile):
 # ########################################################################### #
 
 
-@follows(exportAnnData)
+@follows(exportAnnDataADT, exportAnnData)
 def full():
     pass
 
