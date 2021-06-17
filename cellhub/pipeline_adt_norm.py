@@ -344,7 +344,7 @@ def dsb_norm(infile, outfile):
 
     log_file = outfile.replace(".tsv.gz", ".log")
 
-    out_file = outfile.replace(".sentinel", ".mtx")
+    out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/normalize_adt.R
@@ -369,34 +369,45 @@ def dsb_norm(infile, outfile):
     # Create sentinel file
     IOTools.touch_file(outfile)
 
-
-@merge(adtdepth,
-       "adt_dsb.dir/api_adt.sentinel")
-def dsbAPI(infiles, outfile):
+@transform(dsb_norm,
+           regex(r"adt_dsb.dir/.*/mtx/(.*).sentinel"),
+           r"adt_dsb.dir/\1/mtx/\1_api_load.sentinel")
+def dsbAPI(infile, outfile):
     '''
-    Add the umi depth metrics results to the API
+    Register the ADT normalized mtx files on the API endpoint
     '''
-
-    file_set={}
-
-    for libqc in infiles:
-
-        tsv_path = libqc.replace(".sentinel",".tsv.gz")
-        library_id = os.path.basename(tsv_path)
-
-        file_set[library_id] = {"path": tsv_path,
-                                "description":"all barcodes adt umi depth table for library " +\
-                                library_id,
-                                "format":"tsv"}
-
     x = api.api("adt_norm")
 
-    x.define_dataset(analysis_name="qcmetrics",
-              data_subset="unfiltered",
-              file_set=file_set,
-              analysis_description="per library tables of cell ADT depth")
+    mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
+                                 "format": "tsv",
+                                 "description": "cell barcode file"},
+                    "features": {"path":"path/to/features.tsv",
+                                  "format": "tsv",
+                                  "description": "features file"},
+                     "matrix": {"path":"path/to/matrix.mtx",
+                                 "format": "market-matrix",
+                                 "description": "Market matrix file"}
+                     }
+
+    library_id = os.path.basename(outfile)[:-len("_api_load.sentinel")]
+    mtx_loc = os.path.dirname(infile)
+
+    mtx_x = mtx_template.copy()
+    mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+    mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+    mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+    x.define_dataset(analysis_name="dsb_norm",
+                     data_subset="mtx",
+                     data_id=library_id,
+                     data_format="mtx",
+                     file_set=mtx_x,
+                     analysis_description="ADT dsb normalized mtx matrices.")
 
     x.register_dataset()
+    
+    # Create sentinel file
+    IOTools.touch_file(outfile)
 
 
 # ---------------------------------------------------
@@ -420,7 +431,7 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, plot)
+@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, dsbAPI, plot)
 def full():
     '''
     Run the full pipeline.

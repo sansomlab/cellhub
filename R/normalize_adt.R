@@ -166,6 +166,8 @@ write.table(features, ffile, sep = "\t", quote = FALSE,
 gzip(ffile)
 
 sparse_adt_norm_tab <- Matrix(adt_norm, sparse = TRUE)
+#mmfile <- paste0(dirname(opt$outfile), '/matrix.mtx')
+#writeMM(obj = sparse_adt_norm_tab, file = mmfile)
 writeMM(obj = sparse_adt_norm_tab, file = opt$outfile)
 gzip(opt$outfile)
 
