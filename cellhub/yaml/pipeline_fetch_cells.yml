@@ -3,7 +3,7 @@
 cellhub:
   # The folder containing the cellhub instance
   # from which we wish to retrieve the cells.
-  location: ../cellhub
+  location: ./
 
   # The query is executed against the "final" view of the
   # cell hub sqlite database.
@@ -29,7 +29,7 @@ build_reports: False
 resources:
   # memory to be used for tasks: cellSubsets,
   # can be set to none | e.g. 40G
-  memory: none
+  memory: 40G
 
 
 matrix:
@@ -48,6 +48,9 @@ GEX:
   downsample: True
   downsample_group_var: sample_id
   downsample_function: median
+
+ADT:
+  fetch: True
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True
