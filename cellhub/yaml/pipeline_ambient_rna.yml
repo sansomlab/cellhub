@@ -14,6 +14,8 @@ author: Sansom lab
 
 input_libraries: cellranger.multi.dir/libraries.tsv
 
+# [optional] a list of cell barcodes to exclude
+blacklist: None
 
 # compute resource options
 # ------------------------
@@ -34,5 +36,3 @@ ambientRNA:
     # If 'none': only exp_batch, channel_id, and seq_batch will be shown (only if they have more than one level)
     # Options: 'all' or comma-separated column names (e.g 'genotype,tissue,sex')
     plot_annotation: pool_id
-
-blacklist: None
