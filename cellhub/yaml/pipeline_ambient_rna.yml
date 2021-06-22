@@ -15,7 +15,7 @@ author: Sansom lab
 input_libraries: cellranger.multi.dir/libraries.tsv
 
 # [optional] a list of cell barcodes to exclude
-blacklist: None
+excludelist: None
 
 # compute resource options
 # ------------------------

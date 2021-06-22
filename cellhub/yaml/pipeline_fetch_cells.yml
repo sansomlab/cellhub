@@ -3,7 +3,7 @@
 cellhub:
   # The folder containing the cellhub instance
   # from which we wish to retrieve the cells.
-  location: ./
+  location: ../cellhub
 
   # The query is executed against the "final" view of the
   # cell hub sqlite database.
@@ -49,8 +49,10 @@ GEX:
   downsample_group_var: sample_id
   downsample_function: median
 
+
+# If ADT included, set True to create an ADT independent dataset
 ADT:
-  fetch: True
+  fetch: False
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True
