@@ -1,13 +1,12 @@
-# Libraries ------
+# Libraries --------------------------------------------------------------------
 stopifnot(require(optparse),
           require(futile.logger),
           require(dplyr),
           require(DropletUtils),
           require(tibble),
-          require(scater),
+          require(Seurat),
           require(Matrix),
-	  require(BiocParallel)
-#	  require(cellqc)
+	        require(BiocParallel)
 )
 
 # modify from https://stackoverflow.com/questions/27418461
@@ -24,28 +23,32 @@ find_valley <- function(x) {
   return(modes)
 }
 
-# Global options ------
+# Global options ---------------------------------------------------------------
 
 options(stringsAsFactors = F)
 
-
-# Script arguments ------
+# Script arguments -------------------------------------------------------------
 
 option_list <- list(
-  make_option(c("--cellranger_dir"), default=".",
-              help="Folder with filtered cellranger output. Must include barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
+  make_option(c("--unfiltered_dir"), default=".",
+              help="Folder with unfiltered cellranger output. 
+              Must include barcodes.tsv.gz, features.tsv.gz, 
+              and matrix.mtx.gz"),
+  make_option(c("--filtered_dir"), default=".",
+              help="Folder with the filtered cellranger output. 
+              Must include barcodes.tsv.gz, features.tsv.gz, 
+              and matrix.mtx.gz"),
   make_option(c("--library_id"), default=NULL,
               help="library or channel id"),
   make_option(c("--numcores"), default=2,
-              help="Number of cores used to run scater's perCellQCMetrics function"),
+              help="Number of cores."),
   make_option(c("--log_filename"), default="qcmetrics.log"),
   make_option(c("--outfile"), default="qcmetrics.tsv.gz")
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
-# Logger ------
-
+# Logger -----------------------------------------------------------------------
 # Prepare the logger and the log file location
 # the logger is by default writing to ROOT logger and the INFO threshold level
 flog.threshold(INFO)
@@ -53,37 +56,45 @@ flog.threshold(INFO)
 flog.appender(appender.file(opt$log_filename))
 flog.info("Running with parameters:", opt, capture = TRUE)
 
-# Number of cores to use perCellQC function ------
+# Number of cores to use -------------------------------------------------------
 
 multicoreParam <- MulticoreParam(workers = opt$numcores)
 
+# Read in data -----------------------------------------------------------------
 
-# Read in data ------
-#####################
-
-flog.info("Reading data and making SingleCellExperiment object...")
-s <- read10xCounts(file.path(opt$cellranger_dir))
+flog.info("Reading unfiltered data...")
+s <- Read10X(opt$unfiltered_dir)
 flog.info("Number of cells in input: %s", format(ncol(s), big.mark=","))
 
+flog.info("Reading filtered data...")
+f <- Read10X(file.path(opt$filtered_dir))
+flog.info("Number of cells in input: %s", format(ncol(f), big.mark=","))
 
-# Compute basic QC metrics ------
-#################################
+# Compute basic QC metrics -----------------------------------------------------
 
 flog.info("Calculating basic QC metrics...")
 
-# Number of genes
-ngenes <- colSums(counts(s) > 0)
+# Number of features detected
+nfeat <- colSums(s > 0)
 
 # Total UMI counts
-total_UMI <- colSums(counts(s))
+total_UMI <- colSums(s)
 
 # Create dataframe
-cell_qc <- tibble(barcode_id = colData(s)$Barcode,
-                  library_id = opt$library_id,
-                  ngenes = ngenes,
-                  total_UMI = total_UMI,
-                  log_total_UMI = log10(total_UMI))
+cell_qc <- data.frame(barcode_id = colnames(s),
+                      library_id = opt$library_id,
+                      nfeat = nfeat,
+                      total_UMI = total_UMI,
+                      log_total_UMI = log10(total_UMI),
+                      log_nfeat = log10(nfeat)) %>%
+  mutate('group' = ifelse(barcode_id %in% colnames(f), "cell", "background"))
 
+
+flog.info("Cells group distribution:", table(cell_qc$group), capture = TRUE)
+
+# ------------------------------------------------------------------------------
+if(FALSE) {
+  
 adj <- 1
 limits <- NULL
 while(length(limits) != 2) {
@@ -92,10 +103,12 @@ while(length(limits) != 2) {
   d <- den$y
   log_depth <- den$x
   limits <- log_depth[find_valley(d)]
-  print(limits)
+  flog.info("Working limits:", limits, capture = TRUE)
 }
 
 if(length(limits) == 2) {
+  
+  flog.info("Picked limits:", limits, capture = TRUE)
   
   if(limits[2] > 2 & limits[2] < 3) {
     
@@ -106,10 +119,12 @@ if(length(limits) == 2) {
     dlim_min <- limits[2] + 0.1
     cell_qc %>%
       mutate(group = ifelse(log_total_UMI < blim_min, "debri", 
-                            ifelse(log_total_UMI > blim_min & log_total_UMI < blim_max, "background",
-                                   ifelse(log_total_UMI > dlim_min, "cell", "intermediate")))) -> cell_qc
+                            ifelse(log_total_UMI > blim_min & 
+                                     log_total_UMI < blim_max, "background",
+                                   ifelse(log_total_UMI > dlim_min, "cell", 
+                                          "intermediate")))) -> cell_qc
     
-    flog.info(table(cell_qc$group))
+    flog.info("Barcode assignments:", table(cell_qc$group), capture = TRUE)
               
   } else if(limits[1] > 2 & limits[1] < 3) {
     
@@ -119,20 +134,31 @@ if(length(limits) == 2) {
     dlim_min <- limits[1] + 0.1
     cell_qc %>%
       mutate(group = ifelse(log_total_UMI < blim_max, "background", 
-                            ifelse(log_total_UMI > dlim_min, "cell", "intermediate"))) -> cell_qc
+                            ifelse(log_total_UMI > dlim_min, "cell", 
+                                   "intermediate"))) -> cell_qc
     
-    flog.info(table(cell_qc$group))
+    flog.info("Barcode assignments:", table(cell_qc$group), capture = TRUE)
               
+  } else {
+    
+    flog.info("Pretty unusual limits, unable to cope with it.")
+    cell_qc %>%
+      mutate(group = "undetermined") -> cell_qc
+    
   }
 
 } else {
   
+  flog.info("Unable to determine background & cell barcodes.")
   cell_qc %>%
     mutate(group = "undetermined") -> cell_qc
   
 }
 
-# Write table
+}
+# ------------------------------------------------------------------------------
+
+# Write table ------------------------------------------------------------------
 flog.info("Writing output table")
 write.table(cell_qc, file = gzfile(opt$outfile),
             quote=FALSE, row.names = FALSE, sep="\t")

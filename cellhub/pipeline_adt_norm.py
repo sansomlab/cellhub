@@ -104,7 +104,8 @@ def gexdepth(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
-    cellranger_dir = os.path.dirname(infile)
+    unfiltered_dir = os.path.dirname(infile)
+    filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -112,13 +113,14 @@ def gexdepth(infile, outfile):
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
 
-    log_file = outfile.replace(".tsv.gz", ".log")
+    log_file = outfile.replace(".sentinel", ".log")
 
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
-                 --cellranger_dir=%(cellranger_dir)s
+                 --unfiltered_dir=%(unfiltered_dir)s
+                 --filtered_dir=%(filtered_dir)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
@@ -179,7 +181,8 @@ def adtdepth(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
-    cellranger_dir = os.path.dirname(infile)
+    unfiltered_dir = os.path.dirname(infile)
+    filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -187,13 +190,14 @@ def adtdepth(infile, outfile):
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
 
-    log_file = outfile.replace(".tsv.gz", ".log")
+    log_file = outfile.replace(".sentinel", ".log")
 
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
-                 --cellranger_dir=%(cellranger_dir)s
+                 --unfiltered_dir=%(unfiltered_dir)s
+                 --filtered_dir=%(filtered_dir)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
@@ -242,7 +246,7 @@ def adtdepthAPI(infiles, outfile):
            r"adt_dsb.dir/\1/\1_plot.sentinel")
 def plot_norm_adt(infile, outfile):
     '''This task will run R/plot_norm_adt.R,
-    It will read the infiltered ADT count matrix. If not user definition of background and cell containig 
+    It will read the unfiltered ADT count matrix. If not user definition of background and cell containig 
     barcodes, then the automatic guess from the gex and adt get depth tasks will be used.
     - Visual report on the cell vs background dataset split
     - If user provided thresholds, those will be included
@@ -254,7 +258,7 @@ def plot_norm_adt(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len("_plot.sentinel")]
-    cellranger_dir = os.path.dirname(infile)
+    unfiltered_dir = os.path.dirname(infile)
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -275,13 +279,13 @@ def plot_norm_adt(infile, outfile):
     cfmin = PARAMS["dsb_cell"]["feats"]["min"]
     cfmax = PARAMS["dsb_cell"]["feats"]["max"]
 
-    log_file = outfile.replace(".tsv.gz", ".log")
+    log_file = outfile.replace(".sentinel", ".log")
 
     out_file = outfile.replace(".sentinel", ".pdf")
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/plot_norm_adt.R
-                 --cellranger_dir=%(cellranger_dir)s
+                 --unfiltered_dir=%(unfiltered_dir)s
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
                  --adt_depth=%(adt_depth)s
@@ -321,7 +325,8 @@ def dsb_norm(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
-    cellranger_dir = os.path.dirname(infile)
+    unfiltered_dir = os.path.dirname(infile)
+    filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -348,7 +353,8 @@ def dsb_norm(infile, outfile):
 
     # Formulate and run statement
     statement = '''Rscript %(code_dir)s/R/normalize_adt.R
-                 --cellranger_dir=%(cellranger_dir)s
+                 --unfiltered_dir=%(unfiltered_dir)s
+                 --filtered_dir=%(filtered_dir)s
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
                  --adt_depth=%(adt_depth)s
