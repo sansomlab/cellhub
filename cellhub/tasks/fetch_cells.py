@@ -24,7 +24,8 @@ def get_cell_subset(barcodes,
                     matrix_id,
                     outdir,
                     PARAMS,
-                    data_subset="filtered",):
+                    data_subset="filtered",
+                    dsb=False,):
     '''
     subset a mtx matrix
     '''
@@ -42,13 +43,22 @@ def get_cell_subset(barcodes,
 
     to_cluster = True
 
-    source_matrix_dir = os.path.join(PARAMS["cellhub_location"],
-                                     "api",
-                                     "cellranger.multi",
-                                     modality,
-                                     data_subset,
-                                     matrix_id,
-                                     "mtx")
+    if (dsb):
+        source_matrix_dir = os.path.join(PARAMS["cellhub_location"],
+                                         "api",
+                                         "adt.norm",
+                                         "dsb_norm",
+                                         "mtx",
+                                         matrix_id,
+                                         "mtx")
+    else:
+        source_matrix_dir = os.path.join(PARAMS["cellhub_location"],
+                                         "api",
+                                         "cellranger.multi",
+                                         modality,
+                                         data_subset,
+                                         matrix_id,
+                                         "mtx")
 
     statement = '''Rscript %(cellhub_code_dir)s/R/extract_cells.R
                    --cells=%(barcodes)s

@@ -276,7 +276,7 @@ def exportAnnData(infiles, outfile):
 # ######################### fetch ADT data ################################## #
 # ########################################################################### #
 
-# Fetch DSB normalised ADT data from the api here.
+# Fetch ADT counts datamatrices from the api here.
 @active_if(PARAMS["ADT_fetch"])
 @follows(mkdir("fetch.cells.dir/ADT.mtx.subsets.dir"))
 @transform(barcodeSubsets,
@@ -336,6 +336,64 @@ def exportAnnDataADT(infiles, outfile):
 
     IOTools.touch_file(outfile)
 
+# Fetch DSB normalised ADT data from the api here.
+@active_if(PARAMS["ADT_fetch"])
+@follows(mkdir("fetch.cells.dir/ADT.mtx.dsb.subsets.dir"))
+@transform(barcodeSubsets,
+           regex(r"fetch.cells.dir/barcode.subsets.dir/(.*).tsv.gz"),
+           r"fetch.cells.dir/ADT.mtx.dsb.subsets.dir/\1/matrix.mtx.gz")
+def dsbADTSubsets(infile, outfile):
+    '''
+    Extract the dsb normalized ADT cell subsets from the parent mtx
+    '''
+
+    matrix_subset_dir = os.path.dirname(infile)
+    matrix_id = os.path.basename(infile).replace(".tsv.gz","")
+
+    outdir = os.path.dirname(outfile)
+
+    fetch_cells.get_cell_subset(barcodes=infile,
+                                modality="ADT",
+                                matrix_id=matrix_id,
+                                outdir=outdir,
+                                PARAMS=PARAMS)
+
+
+@follows(mkdir("fetch.cells.dir/ADT.mtx.dsb.full.dir"))
+@merge(dsbADTSubsets,
+       "fetch.cells.dir/ADT.mtx.dsb.full.dir/matrix.sentinel")
+def mergedsbADTSubsets(infiles, outfile):
+    '''
+    Merge the dsb normalized ADT cell subsets into a single mtx.
+    '''
+
+    out_mtx_file = outfile.replace(".sentinel",".mtx.gz")
+
+    fetch_cells.merge_subsets(infiles, out_mtx_file, PARAMS)
+
+    IOTools.touch_file(outfile)
+
+
+@transform(mergedsbADTSubsets,
+           regex(r"fetch.cells.dir/ADT.mtx.dsb.(.*).dir/.*.sentinel"),
+           add_inputs(fetchCells),
+           r"fetch.cells.dir/dsbADT.anndata.\1.dir/matrix.sentinel")
+def exportAnnDatadsbADT(infiles, outfile):
+    '''
+       Export h5ad anndata matrices for downstream analysis with
+       scanpy
+    '''
+
+    mtx, obs = infiles
+    mtx_dir = os.path.dirname(mtx)
+    obs_file = obs.replace(".sentinel",".tsv.gz")
+    outdir = os.path.dirname(outfile)
+    matrix_name = os.path.basename(outfile).replace(".sentinel",".h5ad")
+
+    fetch_cells.export_anndata(mtx_dir, obs_file, outdir, matrix_name,
+                               PARAMS)
+
+    IOTools.touch_file(outfile)
 
 # ########################################################################### #
 # ######################### fetch VDJ_B data ################################ #
@@ -356,7 +414,7 @@ def exportAnnDataADT(infiles, outfile):
 # ########################################################################### #
 
 
-@follows(exportAnnDataADT, exportAnnData)
+@follows(exportAnnDatadsbADT, exportAnnDataADT, exportAnnData)
 def full():
     pass
 
