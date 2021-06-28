@@ -220,8 +220,8 @@ flog.info("DSBNormalizeProtein ...")
 adt_norm <- tryCatch({
   
   DSBNormalizeProtein(
-    cell_protein_matrix = back_adt_mtx, 
-    empty_drop_matrix = cell_adt_mtx, 
+    cell_protein_matrix = cell_adt_mtx, 
+    empty_drop_matrix = back_adt_mtx, 
     denoise.counts = FALSE)
   
 }, error=function(e) {
