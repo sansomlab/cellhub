@@ -163,6 +163,146 @@ def gmmAPI(infiles, outfile):
     x.register_dataset()
 
 
+@transform("api/cellranger.multi/ADT/filtered/*/mtx/matrix.mtx.gz",
+           regex("api/cellranger.multi/ADT/filtered/(.*)/mtx/matrix.mtx.gz"),
+           r"dehash.dir/demuxEM.dir/\1.demuxEM.hash.count.csv.sentinel")
+def hashCountCSV(infile, outfile):
+    '''
+    Make the hash count csv table for demuxEM
+    '''
+
+    demuxEM_working_dir = os.path.dirname(outfile)
+    if not os.path.exists(demuxEM_working_dir):
+        os.makedirs(demuxEM_working_dir)
+
+    import anndata as anndata
+    import scanpy as sc
+    import pandas as pd
+
+    if PARAMS["hto_per_library"] == True:
+        HTOs = "_".join([PARAMS["hto"], library_id])
+
+    else:
+        HTOs = PARAMS["hto_names"]
+
+    ## move this to a helper script.
+    ad = sc.read_10x_mtx(os.path.dirname(infile), gex_only=False)
+    ad = ad.T
+    ad = ad[HTOs.strip().split(",")]
+
+    x = pd.DataFrame(ad.X.todense())
+    x.columns = [x.split("-")[0] for x in ad.var.index]
+    x.index = ad.obs.index
+
+    # we need to remove cells with zero hashing counts
+    # https://github.com/klarman-cell-observatory/demuxEM/pull/8/commits/fc5c4ebb28f01bce222774b5a035342d579b55bc
+    x = x.loc[:, x.sum(axis=0)>0]
+
+    outpath = outfile.replace(".sentinel",".gz")
+
+    x.to_csv(outpath, index=True, index_label="Antibody")
+
+
+    IOTools.touch_file(outfile)
+
+
+@transform(hashCountCSV,
+           regex(r'.*/.*/(.*).demuxEM.hash.count.csv.sentinel'),
+           r"dehash.dir/demuxEM.dir/\1.demuxEM.sentinel")
+def demuxEM(infile, outfile):
+    '''
+    Run demuxEM
+    '''
+
+    outdir = os.path.dirname(outfile)
+    sample = os.path.basename(infile).replace(".demuxEM.hash.count.csv.sentinel","")
+
+    h5_file = os.path.join("api/cellranger.multi/counts/unfiltered",
+                       sample,
+                       "h5/raw_feature_bc_matrix.h5")
+
+    hash_count_file = infile.replace(".sentinel",".gz")
+
+    statement = '''demuxEM --generate-diagnostic-plots
+                           --min-num-genes=100
+                           --min-num-umis=100
+                           --min-signal-hashtag=10
+                            %(h5_file)s
+                            %(hash_count_file)s
+                            dehash.dir/demuxEM.dir/%(sample)s
+                 '''
+
+    P.run(statement)
+
+    IOTools.touch_file(outfile)
+
+
+@transform(demuxEM,
+           regex(r'.*/.*/(.*).demuxEM.sentinel'),
+           r"dehash.dir/demuxEM.dir/\1.parse.demuxEM.sentinel")
+def parseDemuxEM(infile, outfile):
+        '''
+        Parse the ridiculous output format from demuxEM.
+        '''
+
+        import pegasusio as pegio
+
+        demuxEM_dir = os.path.dirname(infile)
+        sample = os.path.basename(infile).replace(".demuxEM.sentinel","")
+
+        x = pegio.read_input(os.path.join(demuxEM_dir,
+                                             sample + '.out.demuxEM.zarr.zip'))
+
+        outpath = outfile.replace(".parse.demuxEM.sentinel",".tsv.gz")
+
+        # fix the barcode.
+        rp = pd.DataFrame(x.obsm["raw_probs"])
+
+        rp.columns = [ "raw_prob_" + str(x) for x in rp.columns ]
+
+        rp.index = x.obs.index
+
+        out = pd.concat([x.obs[["demux_type","assignment"]], rp], axis=1)
+
+        out.index = [ x + "-" + sample for x in out.index ]
+
+        out.columns = [ "demuxEM_" + x for x in out.columns ]
+
+        out.to_csv(outpath, index_label="barcode_id", sep="\t")
+
+        IOTools.touch_file(outfile)
+
+
+@merge(parseDemuxEM,
+       "dehash.dir/demuxEM.api.sentinel")
+def demuxemAPI(infiles, outfile):
+    '''
+    Register the demuxEM results on the API
+    '''
+
+    file_set={}
+
+    for x in infiles:
+
+        library_id = os.path.basename(x)[:-len(".parse.demuxEM.sentinel")]
+
+        tsv_path = os.path.join(os.path.dirname(x),
+                                library_id + ".tsv.gz")
+
+        file_set[library_id] = {"path": tsv_path,
+                                "description":"Parsed demuxEM results for " +\
+                                library_id,
+                                "format":"tsv"}
+
+    x = api.api("dehash")
+
+    x.define_dataset(analysis_name="demuxEM",
+              data_subset="filtered",
+              file_set=file_set,
+              analysis_description="per library tables of demuxEM results")
+
+    x.register_dataset()
+
 
 
 # ########################################################################### #

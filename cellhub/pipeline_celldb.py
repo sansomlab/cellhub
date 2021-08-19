@@ -185,11 +185,28 @@ def load_gmm_demux(outfile):
             index = x["index"],
             outfile=outfile)
 
+@active_if(PARAMS["table_demuxEM"]["active"])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("celldb.dir/demuxEM.load")
+def load_demuxEM(outfile):
+    '''load the demuxEM dehashing calls into the database '''
+
+    x = PARAMS["table_demuxEM"]
+
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
+
 
 @follows(load_samples,
          load_gex_qcmetrics,
          load_gex_scrublet,
-         load_gmm_demux)
+         load_gmm_demux,
+         load_demuxEM)
          # load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")

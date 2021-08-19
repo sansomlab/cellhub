@@ -471,6 +471,88 @@ def mtxAPI(infile, outfile):
                 x.register_dataset()
 
 
+@transform(cellrangerMulti,
+           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
+           r"\1/out.dir/\2/register.h5.sentinel")
+def h5API(infile, outfile):
+    '''
+    Put the h5 files on the API
+
+    Cellranger inputs
+    -----------------
+
+    The input cellranger.multi.dir folder layout is:
+
+    unfiltered "outs": ::
+
+      library_id/outs/multi/count/raw_feature_bc_matrix/
+
+    filtered "outs": ::
+
+      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+
+    '''
+    x = api.api("cellranger.multi")
+
+    out_dir = os.path.dirname(outfile)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
+
+    h5_template = {"h5": {"path":"path/to/barcodes.tsv",
+                                 "format": "h5",
+                                 "description": "10X h5 count file"}
+                     }
+
+    # 1. deal with unfiltered count data
+    h5_location = os.path.join("cellranger.multi.dir", library_id,
+                                   "outs/multi/count/raw_feature_bc_matrix.h5")
+
+    h5_x = h5_template.copy()
+    h5_x["h5"]["path"] = h5_location
+
+    x.define_dataset(analysis_name="counts",
+                     data_subset="unfiltered",
+                     data_id=library_id,
+                     data_format="h5",
+                     file_set=h5_x,
+                     analysis_description="Cellranger h5 file")
+
+
+    x.register_dataset()
+
+
+    # 2. deal with per sample libraries
+    per_sample_loc = os.path.join("cellranger.multi.dir",
+                                  library_id,
+                                  "outs/per_sample_outs/")
+
+    per_sample_dirs = glob.glob(per_sample_loc + "*")
+
+    for per_sample_dir in per_sample_dirs:
+
+        h5_location = os.path.join(per_sample_dir,
+                                       "count/sample_feature_bc_matrix.h5")
+
+        h5_x = h5_template.copy()
+        h5_x["h5"]["path"] = h5_location
+
+        sample_id = os.path.basename(per_sample_dir)
+
+        x.define_dataset(analysis_name="counts",
+                         data_subset="filtered",
+                         data_id=sample_id,
+                         data_format="h5",
+                         file_set=h5_x,
+                         analysis_description="Cellranger h5 file")
+
+
+        x.register_dataset()
+
+    IOTools.touch_file(outfile)
+
 
 @transform(cellrangerMulti,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
