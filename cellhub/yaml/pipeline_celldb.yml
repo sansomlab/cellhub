@@ -73,7 +73,7 @@ table:
       final_fields: "*"
 
     # location of the gmm_demux results
-    # output of the pipeline_dehasj.py
+    # output of the pipeline_dehash.py
     gmm_demux:
       active: False
       name: gmm_demux
@@ -83,6 +83,16 @@ table:
       index: barcode_id
       final_fields: "*"
 
+    # location of the demuxEM results
+    # output of the pipeline_dehash.py
+    demuxEM:
+      active: False
+      name: demuxEM
+      path: api/dehash/demuxEM/filtered
+      glob: "*.tsv.gz"
+      id_type: library_id
+      index: barcode_id
+      final_fields: "*"
 
     # location for ADT qc metric
     # output of the pipeline_cell_qc.py
