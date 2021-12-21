@@ -50,7 +50,7 @@ cells <- read.table(gzfile(opt$cells),stringsAsFactors=FALSE)$V1
 message("number of cells to extract")
 message(length(cells))
 
-x <- x[, cells]
+x <- x[, colnames(x) %in% cells]
 out_folder = opt$outdir
 message("matrix dimensions after subsetting")
 message(dim(x))

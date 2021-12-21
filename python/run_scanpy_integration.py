@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('Agg')  # plotting backend compatible with screen
 import sys
 import os
+import re
 import scanpy as sc
 import anndata
 import bbknn
@@ -179,7 +180,10 @@ adata_full.write(results_file_logn)
 
 del adata_full
 
-## Identify highly variable genes
+##############################################################################
+######################## Identify highly variable genes ######################
+##############################################################################
+
 if 'hv_genes' in opt.keys():
     L.warning("Use hv genes from input list")
     gene_list = pd.read_csv(opt["hv_genes"], header=None, sep="\t")
@@ -201,20 +205,56 @@ else:
         L.warning("The anndata object has %s rows after excluding genes.", adata.shape[0])
         L.warning("The anndata object has %s columns after excluding genes.", adata.shape[1])
     if opt["merge_hvg"] == "merged":
-        sc.pp.highly_variable_genes(adata, n_top_genes=opt["ngenes"])
+        sc.pp.highly_variable_genes(adata, n_top_genes=int(opt["ngenes"]))
+        hvgenes = adata.var[["highly_variable", "gene_ids"]]
+        hvgenes = pd.DataFrame(hvgenes)
     else:
-        sc.pp.highly_variable_genes(adata, batch_key=opt["split_var"],
-                                    n_top_genes=opt["ngenes"])
-    # extract hv genes and store them
-    hvgenes = adata.var[["highly_variable", "gene_ids"]]
-    hvgenes = pd.DataFrame(hvgenes)
+        if ',' in opt["batch_var"]:
+            split_vars = opt["batch_var"].split(',')
+            hvgenes = adata.var["gene_ids"]
+            hvgenes = pd.DataFrame(hvgenes)
+            split_vars_cols = []
+            for split_var in split_vars:
+                split_var_levels = adata.obs[split_var].unique()
+                for var_level in split_var_levels:
+                    sub_adata = adata[adata.obs[split_var] == var_level].copy()
+                    if opt["ngenes"] == "None":
+                        sc.pp.highly_variable_genes(sub_adata, batch_key=opt["split_var"])
+                        if opt["vote_count"]:
+                            maxvotes = sub_adata.obs[opt["split_var"]].nunique()
+                            minvotes = round(maxvotes*opt["majority_fraction"])
+                            hvgenes.loc[:, 'highly_variable' + '_' + split_var + '_' + var_level] = np.where(sub_adata.var["highly_variable_nbatches"] >= minvotes, True, False)
+                            hvgenes.loc[:, 'highly_variable_nbatches' + '_' + split_var + '_' + var_level] = sub_adata.var['highly_variable_nbatches'].copy()
+                    else:
+                        sc.pp.highly_variable_genes(sub_adata, batch_key=opt["split_var"], n_top_genes=int(opt["ngenes"]))
+                        hvgenes.loc[:, 'highly_variable_nbatches' + '_' + split_var + '_' + var_level] = sub_adata.var['highly_variable_nbatches'].copy()
+                        hvgenes.loc[:, 'highly_variable' + '_' + split_var + '_' + var_level] = sub_adata.var['highly_variable'].copy()
+                    split_vars_cols.append('highly_variable' + '_' + split_var + '_' + var_level)
+            hvgenes['highly_variable'] = hvgenes.loc[:, split_vars_cols].transpose().any()
+            sc.pp.highly_variable_genes(adata, batch_key=opt["split_var"])
+            adata.var.loc[:, 'highly_variable'] = hvgenes['highly_variable'].copy()
+        else:
+            if opt["ngenes"] == "None":
+                sc.pp.highly_variable_genes(adata, batch_key=opt["split_var"])
+            else:
+                sc.pp.highly_variable_genes(adata, batch_key=opt["split_var"], n_top_genes=int(opt["ngenes"]))
+            # extract hv genes and store them
+            hvgenes = adata.var[["highly_variable", "gene_ids", "highly_variable_nbatches"]]
+            hvgenes = pd.DataFrame(hvgenes)
+    
+    L.warning("hvg: " + str(hvgenes))
+    L.warning("hvg colummns: " + str(hvgenes.columns))
+    L.warning(str(adata.var.index))
+    L.warning(str(adata.var.columns))
+ 
+    hvgenes.loc[:, "gene_name"] = hvgenes.index.copy()
     hvgenes = hvgenes.loc[hvgenes['highly_variable'] == True]
     hvgenes.reset_index(inplace=True)
-    hvgenes.columns = ["gene_name", "highly_variable", "gene_id"]
-    del hvgenes["highly_variable"]
+    #hvgenes.columns = ["gene_name", "highly_variable", "gene_id"]
+    #del hvgenes["highly_variable"]
     hvgenes.to_csv(os.path.join(opt["outdir"], "hv_genes.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
-
+    
 sc.pl.highly_variable_genes(adata, save = "_hvg.pdf", show=False)
 
 # make log-norm layer for later use
@@ -222,7 +262,7 @@ adata.layers['log1p'] = adata.X.copy()
 
 # add hvg back to full object
 full_adata = anndata.read_h5ad(results_file_logn, backed="r+")
-full_adata.var['highly_variable'] = full_adata.var['gene_ids'].isin(hvgenes['gene_id'])
+full_adata.var['highly_variable'] = full_adata.var['gene_ids'].isin(hvgenes['gene_ids'])
 full_adata.write()
 
 
@@ -238,16 +278,29 @@ else:
 L.warning("The anndata object has %s rows after subsetting.", adata.shape[0])
 L.warning("The anndata object has %s columns after subsetting.", adata.shape[1])
 
-## Regression & scaling
-
-# convert comma-separate string to list
+##################################################################################
+################################## Regression & scaling ##########################
+##################################################################################
+# if more than one latent variable, convert comma-separate string to list
 if ',' in opt["regress_latentvars"]:
     regress_vars = opt["regress_latentvars"].split(',')
 else:
-    regress_vars = [opt["regress_latentvars"]]
+    if opt["regress_latentvars"] != 'none':
+        regress_vars = [opt["regress_latentvars"]]
 
 if opt["regress_latentvars"] == 'none':
     L.warning("No regression performed")
+    if opt["regress_cellcycle"] != 'none':
+        L.warning("Cell cycle scoring performed. It is set to " + str(opt["regress_cellcycle"]))
+        if opt["regress_cellcycle"] == "all":
+            regress_vars = ['S_score', 'G2M_score']
+        elif opt["regress_cellcycle"] == "difference":
+            regress_vars = ['CC.Difference']
+        else:
+            raise Exception('Cell cycle option not supported. Use all or difference.')
+        L.warning("Full list of variables for regression is: " + ",".join(regress_vars))
+        L.warning("Starting regression")
+        sc.pp.regress_out(adata, regress_vars)
 else:
     if opt["regress_cellcycle"] != 'none':
         L.warning("Cell cycle scoring performed. It is set to " + str(opt["regress_cellcycle"]))
@@ -257,7 +310,6 @@ else:
             regress_vars = regress_vars + ['CC.Difference']
         else:
             raise Exception('Cell cycle option not supported. Use all or difference.')
-
     L.warning("Full list of variables for regression is: " + ",".join(regress_vars))
     L.warning("Starting regression")
     sc.pp.regress_out(adata, regress_vars)
@@ -268,12 +320,17 @@ sc.pp.scale(adata, max_value=10)
 if opt["regress_cellcycle"] != 'none':
     L.warning("Check cell cycle effects post-regression")
     adata_cc_genes = adata[:, adata.var.index.isin(cell_cycle_genes)].copy()
+    L.warning("Check cell cycle effects adata %s columns. ", adata_cc_genes.shape[1])
     sc.tl.pca(adata_cc_genes)
     sc.pl.pca_scatter(adata_cc_genes, color='phase', show=False, save = "_cc_phase_postCorr.pdf")
     sc.pl.pca_scatter(adata_cc_genes, color='G2M_score', show=False, save = "_cc_G2Mscore_postCorr.pdf")
     sc.pl.pca_scatter(adata_cc_genes, color='S_score', show=False, save = "_cc_Sscore_postCorr.pdf")
     L.warning("Subset object to only hv genes")
-    adata = adata[:, adata.var.index.isin(hvgenes['gene_name'])]
+    L.warning("hvg: " + str(hvgenes))
+    L.warning("hvg colummns: " + str(hvgenes.columns))
+    L.warning(str(adata.var.index))
+    L.warning(str(adata.var.columns))
+    adata = adata[:, adata.var.index.isin(hvgenes["gene_name"])]
     L.warning("The anndata object has %s columns after subsetting for hv genes.", adata.shape[1])
 else:
     L.warning("Cell cycle scoring set to none.")
@@ -321,7 +378,10 @@ if opt["tool"] == 'harmony' :
 
     ho = hm.run_harmony(data_mat, meta_data, vars_use,
                         sigma = opt["sigma"],
-                        plot_convergence = True, max_iter_kmeans=30)
+                        #plot_convergence = True, # deprecated
+                        max_iter_kmeans=30,
+                        max_iter_harmony = opt["max_iter_harmony"])
+
 
     L.warning("Finished harmony")
     adjusted_pcs = pd.DataFrame(ho.Z_corr).T
@@ -337,6 +397,15 @@ if opt["tool"] == 'harmony' :
 
     harmony_out.to_csv(os.path.join(opt["outdir"], "harmony.tsv.gz"),
                        sep="\t", index=False, compression="gzip")
+
+    ## save harmony objective values (convergence visualization)
+    harmony_obj = pd.DataFrame(ho.objective_harmony.copy())
+    harmony_obj.index.name = "iteration"
+    harmony_obj.columns = ['objective']
+    harmony_obj.reset_index(inplace=True)
+    harmony_obj.to_csv(os.path.join(opt["outdir"], "harmony_objective.tsv.gz"),
+                       sep="\t", index=False, compression="gzip")
+
 elif opt["tool"] == "bbknn":
     L.warning("Running bbknn, no dim reduction will be stored")
     L.warning("Using %s PCA components for bbknn", opt["nPCs"])

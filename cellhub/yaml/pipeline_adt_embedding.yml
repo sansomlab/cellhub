@@ -1,0 +1,30 @@
+# UMAP plot color variable 
+# ------------------------
+cellmeta: "cell.table.tsv.gz"
+colorvar: "library_id"
+
+# ADT dimensionality (proteins to consider)
+# either "all" or a number <= of # proteins
+# ------------------------------------------
+nfeat: "all"
+
+# GEX adata file (output pipeline_integration.py)
+# -----------------------------------------------
+adata: "normalized_integrated_anndata.h5ad"
+lowdim: "harmony"
+ndim: 30
+
+# compute resource options
+# ------------------------
+resources:
+    # job memory for tasks; use this in combination with nslots
+    # if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+    # number of job threads/slots
+    threads: 1
+
+# python reticulate source 
+# adata module
+# ------------------------
+virtualenv: "cgat_venv"
+python: "cgat_venv/bin/python"

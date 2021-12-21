@@ -12,6 +12,14 @@ projectname: celldb-test
 # Author
 author: Samson lab
 
+# Features to remove before normalization
+# If more than one, separate by comma
+rm_feat: None
+
+# Cell barcodes to consider
+# Pass GEX-based QC thresholds
+qc_barcode: None
+
 # Background vs cell seq-depth thresholds
 # based on detected gene/feature depth 
 # log10 scale

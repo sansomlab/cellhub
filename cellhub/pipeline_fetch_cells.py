@@ -147,8 +147,36 @@ def fetchCells(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@follows(fetchCells)
+@transform(fetchCells,
+           regex(r"fetch.cells.dir/(.*).sentinel"),
+           r"fetch.cells.dir/\1_subsampled.sentinel")
+def subsamplecells(infile, outfile):
+    '''
+    Subset cell table. Remove samples without a minimum number
+    of cells.
+    '''
+    
+    cell_table = infile.replace(".sentinel", ".tsv.gz")
+    min_cell = PARAMS["mincell"]
+    sample_var = PARAMS["sampleid"]
+    excludelist = PARAMS["excludelist"]
+    log_filename = outfile.replace(".sentinel", ".log")
+
+    statement = '''Rscript %(cellhub_code_dir)s/R/subset_fetched_cells.R
+                   --celltable=%(cell_table)s
+                   --mincell=%(min_cell)s
+                   --samplevar=%(sample_var)s
+                   --exclude=%(excludelist)s
+                   --log_filename=%(log_filename)s
+                '''
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+
 @follows(mkdir("fetch.cells.dir/barcode.subsets.dir"))
-@subdivide(fetchCells,
+@subdivide(subsamplecells,
            formatter(),
            "fetch.cells.dir/barcode.subsets.dir/*.tsv.gz",
            "fetch.cells.dir/barcode.subsets.dir/subdivide.sentinel")
@@ -159,7 +187,7 @@ def barcodeSubsets(infile, output_files, sentinel):
     all of the specified modalities).
     '''
 
-    cell_tab = infile.replace(".sentinel",".tsv.gz")
+    cell_tab = infile.replace("_subsampled.sentinel",".tsv.gz")
 
     cells = pd.read_csv(cell_tab, sep="\t")
 
@@ -299,7 +327,7 @@ def ADTSubsets(infile, outfile):
                                 PARAMS=PARAMS,
                                 data_subset="filtered")
 
-
+@active_if(PARAMS["ADT_fetch"])
 @follows(mkdir("fetch.cells.dir/ADT.mtx.full.dir"))
 @merge(ADTSubsets,
        "fetch.cells.dir/ADT.mtx.full.dir/matrix.sentinel")
@@ -314,7 +342,7 @@ def mergeADTSubsets(infiles, outfile):
 
     IOTools.touch_file(outfile)
 
-
+@active_if(PARAMS["ADT_fetch"])
 @transform(mergeADTSubsets,
            regex(r"fetch.cells.dir/ADT.mtx.(.*).dir/.*.sentinel"),
            add_inputs(fetchCells),
@@ -356,9 +384,10 @@ def dsbADTSubsets(infile, outfile):
                                 modality="ADT",
                                 matrix_id=matrix_id,
                                 outdir=outdir,
-                                PARAMS=PARAMS)
+                                PARAMS=PARAMS,
+                                dsb=True)
 
-
+@active_if(PARAMS["ADT_fetch"])
 @follows(mkdir("fetch.cells.dir/ADT.mtx.dsb.full.dir"))
 @merge(dsbADTSubsets,
        "fetch.cells.dir/ADT.mtx.dsb.full.dir/matrix.sentinel")
@@ -373,7 +402,7 @@ def mergedsbADTSubsets(infiles, outfile):
 
     IOTools.touch_file(outfile)
 
-
+@active_if(PARAMS["ADT_fetch"])
 @transform(mergedsbADTSubsets,
            regex(r"fetch.cells.dir/ADT.mtx.dsb.(.*).dir/.*.sentinel"),
            add_inputs(fetchCells),

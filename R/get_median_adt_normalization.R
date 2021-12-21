@@ -1,0 +1,298 @@
+# ------------------------------------------------------------------------------
+# Median-base normalization if ADT counts 
+# Following https://bioconductor.org/books/release/OSCA/integrating-with-protein-abundance.html
+# UMAP embedding & visualization 
+# The input for this task is the fetch_cell pipeline output
+# ------------------------------------------------------------------------------
+
+# Libraries --------------------------------------------------------------------
+
+stopifnot(require(optparse),
+          require(futile.logger),
+          require(R.utils),
+          require(dplyr),
+          require(data.table),
+          require(Matrix),
+          require(BiocParallel),
+          require(Seurat),
+          require(harmony),
+          require(ggplot2),
+          require(cowplot),
+          require(matrixStats),
+          require(ggridges),
+          require(DropletUtils),
+          require(DESeq2),
+          require(scuttle)
+)
+
+# Global options ---------------------------------------------------------------
+
+options(stringsAsFactors = F)
+
+# Script arguments -------------------------------------------------------------
+
+option_list <- list(
+  make_option(c("--adt"), default="fetch.cells.dir/ADT.mtx.full.dir",
+              help="Folder with the filtered ADT UMI count market matrices."),
+  make_option(c("--nfeat"), default="all",
+              help="If not all, the number of top most variable proteins."),
+  make_option(c("--rm_feat"), default="None",
+              help="Comma separated string with features to remove from
+              analysis."),
+  make_option(c("--qc_bar"), default="None",
+              help="Single column .tsv.gz file with the cell-barcodes with high
+              GEX-based QC metrics. (Output fetch_cells pipeline.)"),
+  make_option(c("--numcores"), default=8,
+              help="Number of cores used to ..."),
+  make_option(c("--log_filename"), default="dsb_umap_embedding.log"),
+  make_option(c("--outfile"), default="matrix.mtx")
+)
+
+opt <- parse_args(OptionParser(option_list=option_list))
+
+# Logger -----------------------------------------------------------------------
+# Prepare the logger and the log file location 
+# the logger is by default writing to ROOT logger and the INFO threshold level -
+
+flog.threshold(INFO)
+
+# now set to append mode -------------------------------------------------------
+
+flog.appender(appender.file(opt$log_filename))
+flog.info("Running with parameters:", opt, capture = TRUE)
+
+multicoreParam <- MulticoreParam(workers = opt$numcores)
+
+# Aux function -----------------------------------------------------------------
+
+plot_adt_feat <- function(gene, adt, umap_clr) {
+  print(gene)
+  clr_exp <- data.frame(adt@assays$RNA@data[gene, ])
+  clr_exp[["barcode_id"]] <- rownames(clr_exp)
+  colnames(clr_exp)[1] <- gene
+  dim(clr_exp)
+  head(clr_exp)
+  umap_dat <- merge(umap_clr, clr_exp, by = "barcode_id")
+  head(umap_dat)
+  
+  gg_umap <- ggplot(umap_dat, aes(x = UMAP_1, y = UMAP_2)) +
+    geom_point(aes(color = !!rlang::sym(gene)), 
+               size = 0.01, lwd = 0.01) +
+    theme_void() +
+    theme(legend.position = "bottom") +
+    scale_colour_gradientn(colors = c("grey95",
+                                      "#49006a"), 
+                           limits = c(0, quantile(umap_dat[[gene]], .98)),
+                           na.value = "grey90") +
+    ggtitle(gene)
+  
+  return(gg_umap)
+}
+
+
+# Read in data -----------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Read UMI count ADT data ------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+flog.info("Reading DSB data object...")
+
+if(!dir.exists(opt$adt)) {
+  stop("No folder with market matrices exist.")
+}
+
+adt_mtx <- Read10X(file.path(opt$adt))
+
+flog.info("Number of barcodes in input: %s", format(ncol(adt_mtx), 
+                                                    big.mark=","))
+
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(adt_mtx))) {
+    stop("Features provided to be removed are not present.")
+  }
+  adt_mtx <- adt_mtx[!rownames(adt_mtx) %in% rmft, ]
+  flog.info("Number of barcodes in input: %s", format(dim(adt_mtx), 
+                                                      big.mark=","))
+}
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% colnames(adt_mtx))) == 0) {
+    #stop("QC barcodes are not present.")
+    flog.info("No QC barcodes present in this sample.")
+    quit("no")
+  }
+  adt_mtx <- adt_mtx[, colnames(adt_mtx) %in% qcbar]
+  flog.info("Number of barcodes in input: %s", format(dim(adt_mtx), 
+                                                      big.mark=","))
+  
+}
+
+# Feature selection ------------------------------------------------------------
+
+dsbmtx <- data.matrix(adt_mtx)
+
+prots <- data.frame('var' = rowVars(dsbmtx),
+                    'mean' = rowMeans(dsbmtx),
+                    'sum' = rowSums(dsbmtx),
+                    'pct' = rowSums(dsbmtx > 0)/ncol(dsbmtx)) %>%
+  arrange(desc(var), desc(pct), desc(mean))
+
+prots[["protein"]] <- rownames(prots)
+
+gg_feat <- ggplot(prots, aes(x = `mean`, 
+                             y = `var`, 
+                             color = pct,
+                             label = rownames(prots))) +
+  geom_point(alpha = 0.5) +
+  scale_color_gradient2(low = "grey80", high = "darkred") +
+  geom_text(check_overlap = TRUE, size = 1, nudge_x = 1, hjust = 0) +
+  theme_classic()
+
+gg_feat_rank <- ggplot(prots, aes(x = `protein`,
+                                  y = `var`, 
+                                  color = pct)) +
+  geom_point(alpha = 0.5) +
+  scale_x_discrete(limits = prots$protein) +
+  scale_color_gradient2(low = "grey80", high = "darkred") +
+  theme_classic() +
+  theme(legend.position = "none", 
+        axis.text.x = element_text(angle=90, vjust=0.5, 
+                                   hjust=1, size = 4))
+
+pdf(gsub("\\.mtx", paste0("_UMI_protein_variation.pdf"), opt$outfile),
+    height = 4, width = 8)
+
+  plot(
+    plot_grid(plotlist = list(gg_feat, gg_feat_rank), nrow = 1)
+  )
+
+dev.off()
+
+if(!opt$nfeat == "all") {
+  genes <- head(prots, opt$nfeat)[["protein"]]
+} else {
+  genes <- prots$protein
+}
+
+# Poorly seq cell barcodes ----
+# Remove barcodes where less than half of the features where detected ----------
+pos_barcodes <- which(colSums(dsbmtx > 0) > nrow(dsbmtx)/2)
+length(pos_barcodes)
+dim(adt_mtx)
+adt_mtx <- adt_mtx[, pos_barcodes]
+dim(adt_mtx)
+# -- Median-base normalization -------------------------------------------------
+baseline <- inferAmbience(adt_mtx)
+baseline
+
+adt_mtx[1:3, 1:4]
+
+adt_mtx_ext <- melt(data.matrix(adt_mtx))
+head(adt_mtx_ext)
+
+gg <- ggplot(data.frame(adt_mtx_ext), aes(x = Var1, y = value+1, fill = Var1)) +
+  geom_violin(scale = "width") +
+  theme_classic() +
+  geom_point(data=data.frame(Var1=names(baseline), y=baseline), 
+             mapping=aes(x=Var1, y=y), cex=2, color = "black") +
+  scale_x_discrete(limits = rev(prots[["protein"]])) +
+  theme(legend.position = "none") +#, axis.text.x = element_text(angle = 90)) +
+  scale_y_log10() +
+  coord_flip()
+
+gg_umi <- ggplot(data.frame(adt_mtx_ext), 
+                 aes(x = value+1, y = Var1, fill = Var1)) +
+    geom_density_ridges_gradient(scale = 3, 
+                                 rel_min_height = 0.01, 
+                                 gradient_lwd = .01,
+                                 alpha = .3) +
+    theme_ridges(font_size = 8, grid = TRUE) + 
+    theme(axis.title.y = element_blank()) +
+    scale_y_discrete(limits = rev(prots[["protein"]])) +
+    scale_x_log10() +
+    xlab("log10(UMI+1)") +
+    theme(legend.position = "none") +
+    ggtitle("Raw ADT UMI count")
+
+pdf(gsub("\\.mtx", "_UMI_density.pdf", opt$outfile), 
+    width = 6, height = 0.15*nrow(adt_mtx))
+
+  plot(
+    plot_grid(gg_umi, gg, nrow = 1)
+  )
+
+dev.off()
+
+sce <- SingleCellExperiment(list(counts = adt_mtx))
+sce
+
+sf.amb <- medianSizeFactors(sce, reference=baseline)
+sf.amb
+any(sf.amb == 0)
+
+summary(sf.amb)
+
+sizeFactors(sce) <- sf.amb
+sce <- logNormCounts(sce)
+
+norm_adt <- data.matrix(logcounts(sce))
+print(norm_adt[1:3, 1:4])
+
+# Write market matrices --------------------------------------------------------
+
+if(!is.null(norm_adt)) {
+  
+  flog.info("Writing output table")
+  
+  barcodes <- data.frame('f' = colnames(norm_adt))
+  bfile <- paste0(dirname(opt$outfile), '/barcodes.tsv')
+  write.table(barcodes, bfile, sep = "\t", quote = FALSE, 
+              row.names = FALSE, col.names = FALSE)
+  gzip(bfile)
+  
+  features <- data.frame('Id' = rownames(norm_adt))
+  features[['Name']] <- rownames(norm_adt)
+  features[["Class"]] <- "Antibody Capture"
+  ffile <- paste0(dirname(opt$outfile), '/features.tsv')
+  write.table(features, ffile, sep = "\t", quote = FALSE,
+              row.names = FALSE, col.names = FALSE)
+  gzip(ffile)
+  
+  sparse_adt_norm_tab <- Matrix(norm_adt, sparse = TRUE)
+  writeMM(obj = sparse_adt_norm_tab, file = opt$outfile)
+  gzip(opt$outfile)
+  
+  flog.info("ADT normalized matrix written.")
+  
+} else {
+  
+  flog.info("ADT normalization failed for this sample.")
+  
+}
+
+norm_adt_ext <- melt(norm_adt)
+print(head(norm_adt_ext))
+
+gg_median <- ggplot(data.frame(norm_adt_ext),
+                 aes(x = value, y = Var1, fill = Var1)) +
+  geom_density_ridges_gradient(scale = 3, 
+                               rel_min_height = 0.01, 
+                               gradient_lwd = .01,
+                               alpha = .3) +
+  theme_ridges(font_size = 8, grid = TRUE) + 
+  theme(axis.title.y = element_blank()) +
+  scale_y_discrete(limits = rev(prots[["protein"]])) +
+  xlab("log2(Median-base normalized)") +
+  theme(legend.position = "none") +
+  ggtitle("Median-base normalization")
+
+pdf(gsub("\\.mtx", "_median_base_norm_density.pdf", opt$outfile),
+    width = 6, height = 0.15*nrow(adt_mtx))
+
+  plot(
+    plot_grid(gg_median, gg_umi, nrow = 1)
+  )
+
+dev.off()

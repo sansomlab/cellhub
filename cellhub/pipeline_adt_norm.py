@@ -112,6 +112,9 @@ def gexdepth(infile, outfile):
     if ("G" in PARAMS["resources_job_memory"] or
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
+        
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
 
     log_file = outfile.replace(".sentinel", ".log")
 
@@ -121,6 +124,7 @@ def gexdepth(infile, outfile):
     statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
+                 --qc_bar=%(qc_barcode)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
@@ -183,7 +187,12 @@ def adtdepth(infile, outfile):
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
     unfiltered_dir = os.path.dirname(infile)
     filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
-
+    
+    # Features to remove
+    rm_feat = PARAMS["rm_feat"]
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
+    
     # Other settings
     job_threads = PARAMS["resources_threads"]
     if ("G" in PARAMS["resources_job_memory"] or
@@ -198,6 +207,8 @@ def adtdepth(infile, outfile):
     statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
+                 --rm_feat=%(rm_feat)s
+                 --qc_bar=%(qc_barcode)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
@@ -240,9 +251,9 @@ def adtdepthAPI(infiles, outfile):
     # Create sentinel file
     IOTools.touch_file(outfile)
 
-@follows(adtdepthAPI)
-@transform(glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+@follows(gexdepthAPI)
+@transform(adtdepthAPI, # glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz")
+           regex(r".*/.*/(.*)_adt.sentinel"), # adt_dsb.dir/\1/\1_gex.sentinel
            r"adt_dsb.dir/\1/\1_plot.sentinel")
 def plot_norm_adt(infile, outfile):
     '''This task will run R/plot_norm_adt.R,
@@ -258,7 +269,7 @@ def plot_norm_adt(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len("_plot.sentinel")]
-    unfiltered_dir = os.path.dirname(infile)
+    unfiltered_dir = "api/cellranger.multi/ADT/unfiltered/" + library_name +"/mtx" #os.path.dirname(infile)
 
     # Other settings
     job_threads = PARAMS["resources_threads"]
@@ -268,7 +279,12 @@ def plot_norm_adt(infile, outfile):
 
     gex_depth = "api/adt.norm/depth_metrics/gex/" + library_name + "_gex.tsv.gz"
     adt_depth = "api/adt.norm/depth_metrics/adt/" + library_name + "_adt.tsv.gz"
-
+    
+    # Features to remove
+    rm_feat = PARAMS["rm_feat"]
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
+    
     # Background & cell count/features threshold
     bcmin = PARAMS["dsb_background"]["counts"]["min"]
     bcmax = PARAMS["dsb_background"]["counts"]["max"]
@@ -280,7 +296,6 @@ def plot_norm_adt(infile, outfile):
     cfmax = PARAMS["dsb_cell"]["feats"]["max"]
 
     log_file = outfile.replace(".sentinel", ".log")
-
     out_file = outfile.replace(".sentinel", ".pdf")
 
     # Formulate and run statement
@@ -289,6 +304,8 @@ def plot_norm_adt(infile, outfile):
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
                  --adt_depth=%(adt_depth)s
+                 --rm_feat=%(rm_feat)s
+                 --qc_bar=%(qc_barcode)s
                  --bcmin=%(bcmin)s
                  --bcmax=%(bcmax)s
                  --bfmin=%(bfmin)s
@@ -307,9 +324,13 @@ def plot_norm_adt(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(adtdepthAPI)
-@transform(glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+# ------------------------------------------------------------------------------
+# DSB normalization
+
+#@follows(adtdepthAPI)
+@follows(gexdepthAPI)
+@transform(gexdepthAPI, # glob.glob("api/cellranger.multi/ADT/unfiltered/*/mtx/matrix.mtx.gz")
+           regex(r".*/.*/(.*)_adt.sentinel"),
            r"adt_dsb.dir/\1/mtx/\1.sentinel")
 def dsb_norm(infile, outfile):
     '''This task will run R/normalize_adt.R,
@@ -325,7 +346,7 @@ def dsb_norm(infile, outfile):
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
-    unfiltered_dir = os.path.dirname(infile)
+    unfiltered_dir = "api/cellranger.multi/ADT/unfiltered/" + library_name +"/mtx" #os.path.dirname(infile)
     filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
 
     # Other settings
@@ -337,6 +358,11 @@ def dsb_norm(infile, outfile):
     gex_depth = "api/adt.norm/depth_metrics/gex/" + library_name + "_gex.tsv.gz"
     adt_depth = "api/adt.norm/depth_metrics/adt/" + library_name + "_adt.tsv.gz"
 
+    # Features to remove
+    rm_feat = PARAMS["rm_feat"]
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
+    
     # Background & cell count/features threshold
     bcmin = PARAMS["dsb_background"]["counts"]["min"]
     bcmax = PARAMS["dsb_background"]["counts"]["max"]
@@ -358,6 +384,8 @@ def dsb_norm(infile, outfile):
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
                  --adt_depth=%(adt_depth)s
+                 --rm_feat=%(rm_feat)s
+                 --qc_bar=%(qc_barcode)s
                  --bcmin=%(bcmin)s
                  --bcmax=%(bcmax)s
                  --bfmin=%(bfmin)s
@@ -416,6 +444,203 @@ def dsbAPI(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+# ------------------------------------------------------------------------------
+# Median-based normalization
+
+@follows(mkdir("adt_median.dir"))
+@transform(glob.glob("api/cellranger.multi/ADT/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+           r"adt_median.dir/\1/mtx/\1.sentinel")
+def median_norm(infile, outfile):
+    '''This task will run R/get_median_adt_normalizationR,
+    It will read the filtered ADT count matrix and performed median-based 
+    normalization.
+    - Calculate median-based normalized ADT expression matrix
+    - Write market matrices per sample
+    '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        parentdir = os.path.dirname(outdir)
+        if not os.path.exists(parentdir):
+            os.mkdir(parentdir)
+            os.mkdir(outdir)
+
+    # Get cellranger directory and id
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    filtered_adt_dir = os.path.dirname(infile)
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    # Top highly variable features
+    nfeat = "all"
+    # Features to remove
+    rm_feat = PARAMS["rm_feat"]
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
+
+    log_file = outfile.replace(".sentinel", ".log")
+
+    out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/get_median_adt_normalization.R
+                 --adt=%(filtered_adt_dir)s
+                 --nfeat=%(nfeat)s
+                 --rm_feat=%(rm_feat)s
+                 --qc_bar=%(qc_barcode)s
+                 --numcores=%(job_threads)s
+                 --log_filename=%(log_file)s
+                 --outfile=%(out_file)s
+              '''
+    P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+@transform(median_norm,
+           regex(r"adt_median.dir/.*/mtx/(.*).sentinel"),
+           r"adt_median.dir/\1/mtx/\1_api_load.sentinel")
+def medianAPI(infile, outfile):
+    '''
+    Register the ADT normalized mtx files on the API endpoint
+    '''
+    x = api.api("adt_norm")
+
+    mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
+                                 "format": "tsv",
+                                 "description": "cell barcode file"},
+                    "features": {"path":"path/to/features.tsv",
+                                  "format": "tsv",
+                                  "description": "features file"},
+                     "matrix": {"path":"path/to/matrix.mtx",
+                                 "format": "market-matrix",
+                                 "description": "Market matrix file"}
+                     }
+
+    library_id = os.path.basename(outfile)[:-len("_api_load.sentinel")]
+    mtx_loc = os.path.dirname(infile)
+
+    mtx_x = mtx_template.copy()
+    mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+    mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+    mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+    x.define_dataset(analysis_name="median_norm",
+                     data_subset="mtx",
+                     data_id=library_id,
+                     data_format="mtx",
+                     file_set=mtx_x,
+                     analysis_description="ADT median-based normalized mtx matrices.")
+
+    x.register_dataset()
+    
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+# ------------------------------------------------------------------------------
+# CLR normalization
+
+@follows(mkdir("adt_clr.dir"))
+@transform(glob.glob("api/cellranger.multi/ADT/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+           r"adt_clr.dir/\1/mtx/\1.sentinel")
+def clr_norm(infile, outfile):
+    '''This task will run R/get_median_clr_normalizationR,
+    It will read the filtered ADT count matrix and performed CLR 
+    normalization.
+    - Calculate median-based normalized ADT expression matrix
+    - Write market matrices per sample
+    '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+        parentdir = os.path.dirname(outdir)
+        if not os.path.exists(parentdir):
+            os.mkdir(parentdir)
+            os.mkdir(outdir)
+
+    # Get cellranger directory and id
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    filtered_adt_dir = os.path.dirname(infile)
+
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    # Top highly variable features
+    nfeat = "all"
+    # Features to remove
+    rm_feat = PARAMS["rm_feat"]
+    # High qualiity cell-barcodes
+    qc_barcode = PARAMS["qc_barcode"]
+
+    log_file = outfile.replace(".sentinel", ".log")
+
+    out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/get_clr_adt_normalization.R
+                 --adt=%(filtered_adt_dir)s
+                 --nfeat=%(nfeat)s
+                 --rm_feat=%(rm_feat)s
+                 --qc_bar=%(qc_barcode)s
+                 --numcores=%(job_threads)s
+                 --log_filename=%(log_file)s
+                 --outfile=%(out_file)s
+              '''
+    P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+@transform(clr_norm,
+           regex(r"adt_clr.dir/.*/mtx/(.*).sentinel"),
+           r"adt_clr.dir/\1/mtx/\1_api_load.sentinel")
+def clrAPI(infile, outfile):
+    '''
+    Register the CLR-normalized ADT mtx files on the API endpoint
+    '''
+    x = api.api("adt_norm")
+
+    mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
+                                 "format": "tsv",
+                                 "description": "cell barcode file"},
+                    "features": {"path":"path/to/features.tsv",
+                                  "format": "tsv",
+                                  "description": "features file"},
+                     "matrix": {"path":"path/to/matrix.mtx",
+                                 "format": "market-matrix",
+                                 "description": "Market matrix file"}
+                     }
+
+    library_id = os.path.basename(outfile)[:-len("_api_load.sentinel")]
+    mtx_loc = os.path.dirname(infile)
+
+    mtx_x = mtx_template.copy()
+    mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+    mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+    mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+    x.define_dataset(analysis_name="clr_norm",
+                     data_subset="mtx",
+                     data_id=library_id,
+                     data_format="mtx",
+                     file_set=mtx_x,
+                     analysis_description="ADT CLR-normalized mtx matrices.")
+
+    x.register_dataset()
+    
+    # Create sentinel file
+    IOTools.touch_file(outfile)
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
 
@@ -437,7 +662,8 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, dsbAPI, plot)
+@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, dsbAPI, median_norm, 
+         medianAPI, clr_norm, clrAPI, plot)
 def full():
     '''
     Run the full pipeline.

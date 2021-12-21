@@ -2,6 +2,15 @@ database:
     # database location and name
     url: sqlite:///./celldb.dir/csvdb
 
+# compute resource options
+# ------------------------
+resources:
+    # job memory for tasks; use this in combination with nslots
+    # if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: None
+    # number of job threads/slots
+    threads: 1
+
 table:
 
     # The location of the library metadata table. It is
@@ -46,7 +55,7 @@ table:
     #     as/if needed for multiplexed experiments.
     sample:
       name: sample
-      path: samples.tsv
+      path: sample_metadata_authors.tsv
       index: library_id,sample_id
       final_fields: "*"
 
@@ -83,13 +92,22 @@ table:
       index: barcode_id
       final_fields: "*"
 
-
     # location for ADT qc metric
     # output of the pipeline_cell_qc.py
     adt_qcmetrics:
       active: False
       name: gex_scrublet
       path: scrublet.dir
+      glob: "*.tsv.gz"
+      id_type: library_id
+      index: barcode_id
+      final_fields: "*"
+
+    # location of external cell-metadata
+    cell_meta:
+      active: False
+      name: cell_meta
+      path: cell_metadata_authors.tsv.gz
       glob: "*.tsv.gz"
       id_type: library_id
       index: barcode_id
@@ -105,6 +123,18 @@ table:
         LEFT JOIN gex_scrublet scrub
         ON qc.barcode_id = scrub.barcode_id;
 
+     #final:
+     # sql_query: >-
+     #   CREATE VIEW final AS
+     #   SELECT s.*, qc.*, scrub.*, cm.*
+     #   FROM gex_qcmetrics qc
+     #   LEFT JOIN sample s
+     #   on qc.library_id = s.library_id
+     #   LEFT JOIN gex_scrublet scrub
+     #   ON qc.barcode_id = scrub.barcode_id
+     #   LEFT JOIN cell_meta cm
+     #   ON scrub.barcode_id = cm.barcode_id;
+
       # Query example for a hashed dataset.
       # *** note that the sample table is joined
       #     on library_id AND hto_id ***
@@ -119,8 +149,6 @@ table:
       #   ON qc.barcode_id = gd.barcode_id
       #   LEFT JOIN sample s
       #   on qc.library_id = s.library_id AND gd.gmm_call = s.hto_id;
-
-
 
 virtual:
     # Build the database using virtual tables, if 0 then it will generate a non-virtual database

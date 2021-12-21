@@ -8,7 +8,9 @@ stopifnot(require(optparse),
           require(Matrix),
           require(BiocParallel),
           require(Seurat),
-          require(dsb)
+          require(dsb),
+          require(ggplot2),
+          require(ggridges)
 )
 
 # Global options ---------------------------------------------------------------
@@ -26,12 +28,21 @@ option_list <- list(
               barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz"),
   make_option(c("--library_id"), default=NULL,
               help="library or channel id"),
+  make_option(c("--rm_feat"), default="None",
+              help="Comma separated string with features to remove from
+              analysis."),
+  make_option(c("--qc_bar"), default="None",
+              help="Single column .tsv.gz file with the cell-barcodes with high
+              GEX-based QC metrics. (Output fetch_cells pipeline.)"),
   make_option(c("--gex_depth"), default=NULL,
               help="Table with the automatic prediction of GEX bacground and 
               cell-containig barcodes"),
   make_option(c("--adt_depth"), default=NULL,
               help="Table with the automatic prediction of GEX bacground and 
               cell-containig barcodes"),
+  make_option(c("--cap_thr"), default=0.02,
+              help="Top fraction of most & last cell-barcodes to remove from 
+              analysis. (Number of genes, Number of UMI.)"),
   make_option(c("--bcmin"), default=NULL,
               help="ADT UMI count mininum limit of the background interval"),
   make_option(c("--bcmax"), default=NULL,
@@ -77,14 +88,37 @@ multicoreParam <- MulticoreParam(workers = opt$numcores)
 
 flog.info("Reading unfiltered data object...")
 raw_adt_mtx <- Read10X(file.path(opt$unfiltered_dir))
-flog.info("Number of barcodes in input: %s", format(ncol(raw_adt_mtx), 
+flog.info("Number of barcodes in input: %s", format(dim(raw_adt_mtx), 
                                                     big.mark=","))
 
-flog.info("Reading unfiltered data object...")
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(raw_adt_mtx))) {
+    stop("Features provided to be removed are not present.")
+  }
+  raw_adt_mtx <- raw_adt_mtx[!rownames(raw_adt_mtx) %in% rmft, ]
+}
+
+flog.info("Number of barcodes in input: %s", format(dim(raw_adt_mtx), 
+                                                    big.mark=","))
+
+flog.info("Reading filtered data object...")
 filt_adt_mtx <- Read10X(file.path(opt$filtered_dir))
-flog.info("Number of barcodes in input: %s", format(ncol(filt_adt_mtx), 
+flog.info("Number of barcodes in input: %s", format(dim(filt_adt_mtx), 
                                                     big.mark=","))
 
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(filt_adt_mtx))) {
+    stop("Features provided to be removed are not present.")
+  }
+  filt_adt_mtx <- filt_adt_mtx[!rownames(filt_adt_mtx) %in% rmft, ]
+}
+
+flog.info("Number of barcodes in input: %s", format(dim(filt_adt_mtx), 
+                                                    big.mark=","))
+
+# Reading GEX seq-depth metrics ------------------------------------------------
 if(!file.exists(opt$gex_depth)) {
 	stop("Non gex depth metrics")
 }
@@ -93,6 +127,17 @@ gex_depth <- fread(opt$gex_depth)
 flog.info("Head gex-depth QC table:", head(gex_depth), capture = TRUE) 
 flog.info("Groups gex-depth QC table:", table(gex_depth$group), capture = TRUE)
 
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% gex_depth$barcode_id)) == 0) {
+    stop("QC barcodes are not present.")
+  }
+  gex_depth <- filter(gex_depth, `group` == "background" | barcode_id %in% qcbar)
+}
+flog.info("Head gex-depth QC table:", head(gex_depth), capture = TRUE) 
+flog.info("Groups gex-depth QC table:", table(gex_depth$group), capture = TRUE)
+
+# Reading ADT seq-depth metrics  -----------------------------------------------
 if(!file.exists(opt$adt_depth)) {
 	stop("Non adt depth metrics")
 }
@@ -100,6 +145,18 @@ if(!file.exists(opt$adt_depth)) {
 adt_depth <- fread(opt$adt_depth)
 flog.info("Head adt-depth QC table:", head(adt_depth), capture = TRUE) 
 flog.info("Groups adt-depth QC table:", table(adt_depth$group), capture = TRUE)
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% adt_depth$barcode_id)) == 0) {
+    stop("QC barcodes are not present.")
+  }
+  adt_depth <- filter(adt_depth, `group` == "background" | barcode_id %in% qcbar)
+}
+
+flog.info("Head adt-depth QC table:", head(adt_depth), capture = TRUE) 
+flog.info("Groups adt-depth QC table:", table(adt_depth$group), capture = TRUE)
+
 
 # Split unfiltered ADT count matrix into bacground & cell containing matrices --
 
@@ -129,9 +186,10 @@ if(opt$bcmin == "None") {
                  by = "barcode_id")
   head(depth)
   flog.info("Dim depth:", dim(depth), capture = TRUE)
+  
   depth %>%
-    filter(log_total_UMI_adt >= 1) %>%
-    filter(log_nfeat_gex >= 1) -> sub_depth
+    filter(log_total_UMI_adt >= 0.5) -> sub_depth
+    #filter(log_nfeat_gex >= 1) 
   
   flog.info("Dims sub depth:", dim(sub_depth), 
             capture = TRUE)
@@ -144,8 +202,8 @@ if(opt$bcmin == "None") {
             10 adt UMIs is less than 100.")
     
     depth %>%
-      filter(log_total_UMI_adt >= 0.2) %>%
-      filter(log_nfeat_gex >= 0.2) -> sub_depth
+      filter(log_total_UMI_adt >= 0.2) -> sub_depth
+      #filter(log_nfeat_gex >= 0.2) 
     dim(sub_depth)
     
     back <- filter(sub_depth, group == "background")
@@ -153,20 +211,60 @@ if(opt$bcmin == "None") {
   }
   
   back$log_total_UMI_adt[is.infinite(back$log_total_UMI_adt)] <- 0
-  max_adt <- mean(back$log_total_UMI_adt)+(3*sd(back$log_total_UMI_adt))
+  max_adt <- mean(back$log_total_UMI_adt)+(2*sd(back$log_total_UMI_adt))
+  quantile(filter(adt_depth, `group` == "cell")[["log_total_UMI"]], 
+           opt$cap_thr, na.rm = TRUE) -> ccmin
+  
+  if(ccmin == 0) {
+    quantile(filter(adt_depth, `group` == "cell")[["log_total_UMI"]], 
+             opt$cap_thr + .02, na.rm = TRUE) -> ccmin
+  }
+  if(max_adt >= ccmin) {
+    max_adt <- ccmin-0.2
+  }
+  
   min_adt <- mean(back$log_total_UMI_adt)-(3*sd(back$log_total_UMI_adt))
-  if(min_adt < 0) {
-    min_adt <- 0
+  if(min_adt > 0.5) {
+    min_adt <- 0.5
+  } else if(min_adt < 0) {
+    min_adt <- 0.5
   }
   
   back$log_nfeat_gex[is.infinite(back$log_nfeat_gex)] <- 0
   head(back)
-  max_gen <- mean(back$log_nfeat_gex)+(3*sd(back$log_nfeat_gex))
+  max_gen <- mean(back$log_nfeat_gex)+(2*sd(back$log_nfeat_gex))
+  
+  if(max_gen > 80) {
+    max_gen <- log10(80)
+  }
+  
+  quantile(filter(gex_depth, `group` == "cell")[["nfeat"]], opt$cap_thr, 
+           na.rm = TRUE) -> cfmin
+  
+  if(cfmin < 200) {
+    flog.info("WARNING!: Minimum number of genes in cell is less than 200", 
+              cfmin, capture = TRUE)
+  } 
+  
   min_gen <- mean(back$log_nfeat_gex)-(3*sd(back$log_nfeat_gex))
-  if(min_gen < 0) {
+  if(min_gen > 0) {
+    min_gen <- 0
+  } else if(min_gen < 0) {
     min_gen <- 0
   }
   
+  # Filtering out lowly & highly seq cell-barcodes -----------------------------
+  quantile(filter(gex_depth, `group` == "cell")[["nfeat"]], 1-opt$cap_thr,
+           na.rm = TRUE) -> cfmax
+  
+  cell <- filter(sub_depth, group == "cell") %>%
+    filter(log_total_UMI_adt >= max_adt) %>%
+    filter(log_nfeat_gex >= log10(200)) %>%
+    filter(log_nfeat_gex <= log10(cfmax))
+  
+  cell_barcodes <- cell_barcodes[cell_barcodes%in%cell[["barcode_id"]]]
+  
+  # Filtering out lowly & highly seq background-barcodes -----------------------
   back %>%
     filter(log_total_UMI_adt > min_adt &
              log_total_UMI_adt < max_adt &
@@ -237,6 +335,30 @@ adt_norm <- tryCatch({
 
 if(!is.null(adt_norm)) {
   
+  norm_adt_ext <- melt(adt_norm)
+  print(head(norm_adt_ext))
+  
+  gg_dsb <- ggplot(data.frame(norm_adt_ext),
+                      aes(x = value, y = Var1, fill = Var1)) +
+    geom_density_ridges_gradient(scale = 3, 
+                                 rel_min_height = 0.01, 
+                                 gradient_lwd = .01,
+                                 alpha = .3) +
+    theme_ridges(font_size = 8, grid = TRUE) + 
+    theme(axis.title.y = element_blank()) +
+    xlab("DSB normalized expression") +
+    theme(legend.position = "none") +
+    ggtitle("DSB normalization")
+  
+  pdf(gsub("\\.mtx", "_dsb_norm_density.pdf", opt$outfile),
+      width = 6, height = 0.15*nrow(adt_norm))
+  
+  plot(
+    gg_dsb
+  )
+  
+  dev.off()
+  
   flog.info("Writing output table")
   
   barcodes <- data.frame('f' = colnames(adt_norm))
@@ -245,7 +367,9 @@ if(!is.null(adt_norm)) {
               row.names = FALSE, col.names = FALSE)
   gzip(bfile)
   
-  features <- data.frame('f' = rownames(adt_norm))
+  features <- data.frame('Id' = rownames(adt_norm))
+  features[['Name']] <- rownames(adt_norm)
+  features[["Class"]] <- "Antibody Capture"
   ffile <- paste0(dirname(opt$outfile), '/features.tsv')
   write.table(features, ffile, sep = "\t", quote = FALSE,
               row.names = FALSE, col.names = FALSE)

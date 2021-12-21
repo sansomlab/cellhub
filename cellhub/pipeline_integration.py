@@ -264,7 +264,12 @@ def runScanpyIntegration(infile, outfile):
     options["matrixdir"] = infolder
     options["tool"] = tool
     options["split_var"] = PARAMS["integration_split_factor"]
-    options["ngenes"] = int(run_options.split("_")[0])
+    options["batch_var"] = PARAMS["integration_feat_factor"]
+    options["vote_count"] = PARAMS["integration_vote_count"]
+    if PARAMS["integration_vote_count"]:
+        options["majority_fraction"] = PARAMS["integration_majority_fraction"]
+    options["max_iter_harmony"] = PARAMS["harmony_iter_harmony"]
+    options["ngenes"] = run_options.split("_")[0]
     options["merge_hvg"] = run_options.split("_")[1]
 
     options["regress_latentvars"] = str(PARAMS["regress_latentvars"])
@@ -606,6 +611,7 @@ def runLISIpy(infile, outfile):
 
     options = {}
     options["split_var"] = PARAMS["integration_split_factor"]
+    options["batch_var"] = PARAMS["integration_feat_factor"]
     options["code_dir"] = os.fspath(PARAMS["code_dir"])
     options["outdir"] = outdir
 

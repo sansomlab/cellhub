@@ -60,7 +60,12 @@ print("genes object:")
 print(genes)
 
 ## save harmony components
-dim = "X_" + opt["dim_name"]
+if opt["dim_name"] == "bbknn":
+    dim = "X_" + "pca"
+else:
+    dim = "X_" + opt["dim_name"]
+
+print(adata.obsm)
 comp_out = adata.obsm[dim].copy()
 #harmony_out.columns = ["harmony_" + str(i) for i in range(1,harmony_out.shape[1]+1)]
 

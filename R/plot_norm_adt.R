@@ -27,6 +27,15 @@ option_list <- list(
   make_option(c("--adt_depth"), default=NULL,
               help="Table with the cellranger prediction of GEX bacground and 
               cell-containig barcodes"),
+  make_option(c("--cap_thr"), default=0.02,
+              help="Top fraction of most & last cell-barcodes to remove from 
+              analysis. (Number of genes, Number of UMI.)"),
+  make_option(c("--rm_feat"), default="None",
+              help="Comma separated string with features to remove from
+              analysis."),
+  make_option(c("--qc_bar"), default="None",
+              help="Single column .tsv.gz file with the cell-barcodes with high
+              GEX-based QC metrics. (Output fetch_cells pipeline.)"),
   make_option(c("--bcmin"), default=NULL,
               help="ADT UMI count mininum limit of the background interval"),
   make_option(c("--bcmax"), default=NULL,
@@ -74,13 +83,41 @@ flog.info("Running with parameters:", opt, capture = TRUE)
 
 flog.info("Reading data object...")
 raw_adt_mtx <- Read10X(file.path(opt$unfiltered_dir))
-flog.info("Number of barcodes in input: %s", format(ncol(raw_adt_mtx), 
+flog.info("Number of barcodes in input: %s", format(dim(raw_adt_mtx), 
+                                                    big.mark=","))
+
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(raw_adt_mtx))) {
+    stop("Features provided to be removed are not present.")
+  }
+  raw_adt_mtx <- raw_adt_mtx[!rownames(raw_adt_mtx) %in% rmft, ]
+}
+
+flog.info("Number of barcodes in input: %s", format(dim(raw_adt_mtx), 
                                                     big.mark=","))
 
 gex_depth <- fread(opt$gex_depth)
 flog.info("GEX depth:", head(gex_depth), capture = TRUE)
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% gex_depth$barcode_id)) == 0) {
+    stop("QC barcodes are not present.")
+  }
+  gex_depth <- filter(gex_depth, `group` == "background" | barcode_id %in% qcbar)
+}
+
 adt_depth <- fread(opt$adt_depth)
 flog.info("ADT depth:", head(adt_depth), capture = TRUE)
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% adt_depth$barcode_id)) == 0) {
+    stop("QC barcodes are not present.")
+  }
+  adt_depth <- filter(adt_depth, `group` == "background" | barcode_id %in% qcbar)
+}
 
 # Visualize unfiltered ADT count matrix into background & cell containing 
 # matrices ---------------------------------------------------------------------
@@ -103,35 +140,61 @@ get_dens <- function(x, v="log_total_UMI", g="group") {
 flog.info("Defining background and cell containing barcodes based on \
             cellranger procedure.")
   
-# ADT background vs cell plots with no filter ----------------------------------
+# ADT background vs cells. Plots with no filter --------------------------------
 
-filter(adt_depth, `group` == "background")[["log_total_UMI"]] %>%
-  min -> bcmin
-filter(adt_depth, `group` == "background")[["log_total_UMI"]] %>%
-  max -> bcmax
-  
+quantile(filter(adt_depth, `group` == "cell")[["log_total_UMI"]], 
+         opt$cap_thr, na.rm = TRUE) -> ccmin
+quantile(filter(adt_depth, `group` == "cell")[["log_total_UMI"]], 
+         1-opt$cap_thr, na.rm = TRUE) -> ccmax
+
+if(ccmin == 0) {
+  quantile(filter(adt_depth, `group` == "cell")[["log_total_UMI"]], 
+           opt$cap_thr + .02, na.rm = TRUE) -> ccmin
+}
+
+flog.info("Cell ADT limits (ccmin: cell-count min value):", ccmin, 
+          capture = TRUE)
+flog.info("Cell ADT limits (ccmin: cell-count max value):", ccmax, 
+          capture = TRUE)
+
 gg_adt_den <- get_den(adt_depth, "log_total_UMI") +
-  geom_vline(xintercept = c(bcmin, bcmax)) +
-  ggtitle("ADT background cellranger")
+  geom_vline(xintercept = c(ccmin, ccmax)) +
+  ggtitle("ADT background cellranger",
+          subtitle = "Cell limits (96% of barcodes)")
   
 sub_adt_depth <- filter(adt_depth,
                         group %in% c("cell",
                                      "background"))
   
 gg_adt_dens <- get_dens(sub_adt_depth) +
-  ggtitle(paste("# Back_Cell barcodes:", table(sub_adt_depth$group), 
-          collapse = "_"))
-  
-# GEX background vs cell plots 
-filter(gex_depth, `group` == "background")[["nfeat"]] %>%
-  min -> bfmin
-  
-filter(gex_depth, `group` == "background")[["nfeat"]] %>%
-  max -> bfmax
-  
+  ggtitle("ADT background vs cell (cellranger)",
+          subtitle = paste(table(sub_adt_depth$group),
+                           collapse = "_")) +
+  xlab("ADT log10(UMI)")
+
+# GEX background vs cell plots -------------------------------------------------
+
+quantile(filter(gex_depth, `group` == "cell")[["nfeat"]], opt$cap_thr, 
+         na.rm = TRUE) -> cfmin
+quantile(filter(gex_depth, `group` == "cell")[["nfeat"]], 1-opt$cap_thr,
+         na.rm = TRUE) -> cfmax
+
+if(cfmin < 200) {
+  flog.info("WARNING!: Minimum number of genes in cell is less than 200", cfmin, 
+            capture = TRUE)
+} 
+
+flog.info("Cell GEX limits (cfmin: cell-feature min value):", cfmin, 
+          capture = TRUE)
+flog.info("Cell GEX limits (cfmin: cell-feature max value):", cfmax, 
+          capture = TRUE)
+
 gg_gex_den <- get_den(gex_depth, "nfeat") +
-  geom_vline(xintercept = c(bfmin, bfmax)) +
-  ggtitle("GEX background cellranger") +
+  geom_vline(xintercept = c(cfmin, cfmax)) +
+  ggtitle("GEX background cellranger",
+          subtitle = paste0("Cell limits (", ceiling((1-(opt$cap_thr)*2)*100), 
+                            "% of barcodes)")) +
+  xlab("# genes") +
   scale_x_log10() 
   
 sub_gex_depth <- filter(gex_depth,
@@ -140,36 +203,12 @@ sub_gex_depth <- filter(gex_depth,
   
 gg_gex_dens <- get_dens(sub_gex_depth, "nfeat") +
   facet_wrap(~group, scale = "free") +
-  ggtitle(paste("# Back_Cell barcodes:", table(sub_gex_depth$group), 
-          collapse = "_"))
+  ggtitle("GEX background vs cell (cellranger)",
+          subtitle = paste(table(sub_gex_depth$group), 
+                           collapse = " ")) +
+  xlab("# genes")
 
-# Intersection
-gex_cell_barcodes <- filter(gex_depth, group == "cell")[["barcode_id"]]
-adt_cell_barcodes <- filter(adt_depth, group == "cell")[["barcode_id"]]
-cell_barcodes <- intersect(gex_cell_barcodes, adt_cell_barcodes)
-
-flog.info("Number of cell barcodes:", length(cell_barcodes), 
-          capture = TRUE)
-
-gex_back_barcodes <- filter(gex_depth, group == "background")[["barcode_id"]]
-back_barcodes <- gex_back_barcodes[!gex_back_barcodes %in% cell_barcodes]
-
-# ADT final background vs cell plots
-inter_adt_depth <- filter(adt_depth, 
-                            barcode_id %in% cell_barcodes |
-                            barcode_id %in% back_barcodes) %>%
-    mutate('group' = ifelse(barcode_id %in% cell_barcodes, "cell",
-                            ifelse(barcode_id %in% back_barcodes, "background",
-                                   "???")))
-  
-gg_int_adt_den <- get_den(inter_adt_depth, "log_total_UMI") +
-  ggtitle("ADT background vs cell cellranger")
-  
-gg_int_adt_dens <- get_dens(inter_adt_depth) +
-  ggtitle(paste(table(inter_adt_depth$group), 
-                collapse = "_"))
-
-# Plots filtering background ---------------------------------------------------
+# Plots trimming background ---------------------------------------------------
 
 sub_gex_depth <- gex_depth[, c(1, 6, 7)]
 colnames(sub_gex_depth)[2] <- "log_nfeat_gex"
@@ -184,81 +223,114 @@ depth <- merge(sub_gex_depth,
                by = "barcode_id")
 
 head(depth)
-dim(depth)
-depth %>%
-  filter(log_total_UMI_adt >= 1) %>%
-  filter(log_nfeat_gex >= 1) -> sub_depth
-dim(sub_depth)
+flog.info("Dim depth:", dim(depth), capture = TRUE)
+flog.info("Depth classes:", table(depth$group), capture = TRUE)
 
-gg_dsb_back <- ggplot(depth, aes(x = log_nfeat_gex, y = log_total_UMI_adt)) +
-  geom_bin2d(bins = 100) +
-  facet_wrap(~group) +
-  ggtitle(paste(table(depth$group), collapse = " ")) +
-  xlim(0, NA) +
-  ylim(0, NA) +
-  scale_fill_gradient(low = "grey90", high = "darkred") +
-  theme_bw()
+depth %>%
+  filter(log_total_UMI_adt >= 0.5) -> sub_depth
+  #filter(log_nfeat_gex >= 0.5) 
+
+flog.info("Dim sub-depth:", dim(sub_depth), capture = TRUE)
 
 back <- filter(sub_depth, group == "background")
+flog.info("Barcode dimensions:", dim(back), capture = TRUE)
 
 if(nrow(back) < 100) {
+  
   flog.info("WARNING: Number of background barcodes with more than
             10 adt UMIs is less than 100.")
   
   depth %>%
-    filter(log_total_UMI_adt >= 0.2) %>%
-    filter(log_nfeat_gex >= 0.2) -> sub_depth
+    filter(log_total_UMI_adt >= 0.2) -> sub_depth
+    #filter(log_nfeat_gex >= 0.2) 
   dim(sub_depth)
   
-  gg_dsb_back <- ggplot(depth, aes(x = log_nfeat_gex, y = log_total_UMI_adt)) +
-    geom_bin2d(bins = 100) +
-    facet_wrap(~group) +
-    ggtitle(paste(table(depth$group), collapse = " ")) +
-    xlim(0, NA) +
-    ylim(0, NA) +
-    scale_fill_gradient(low = "grey90", high = "darkred") +
-    theme_bw()
-  
   back <- filter(sub_depth, group == "background")
+  flog.info("Barcode dimensions:", dim(back), capture = TRUE)
   
 }
 
+# ADT UMIs
 back$log_total_UMI_adt[is.infinite(back$log_total_UMI_adt)] <- 0
-max_adt <- mean(back$log_total_UMI_adt)+(3*sd(back$log_total_UMI_adt))
+max_adt <- mean(back$log_total_UMI_adt)+(2*sd(back$log_total_UMI_adt))
+
+if(max_adt >= ccmin) {
+  max_adt <- ccmin-0.2
+}
 min_adt <- mean(back$log_total_UMI_adt)-(3*sd(back$log_total_UMI_adt))
-if(min_adt < 0) {
-  min_adt <- 0
+
+if(min_adt > 0.5) {
+  min_adt <- 0.5
+} else if(min_adt < 0) {
+  min_adt <- 0.5
 }
 
+# GEX genes
 back$log_nfeat_gex[is.infinite(back$log_nfeat_gex)] <- 0
 head(back)
-max_gen <- mean(back$log_nfeat_gex)+(3*sd(back$log_nfeat_gex))
+max_gen <- mean(back$log_nfeat_gex)+(2*sd(back$log_nfeat_gex))
+
+if(max_gen > 80) {
+  max_gen <- log10(80)
+}
+
 min_gen <- mean(back$log_nfeat_gex)-(3*sd(back$log_nfeat_gex))
-if(min_gen < 0) {
+flog.info("Mean(#genes) - 3sd(#genes):", min_gen, capture = TRUE)
+
+if(min_gen > 0) {
+  min_gen <- 0
+} else if(min_gen < 0) {
   min_gen <- 0
 }
 
+gg_dsb_back <- ggplot(depth, aes(x = log_nfeat_gex, y = log_total_UMI_adt)) +
+  geom_bin2d(bins = 100) +
+  facet_wrap(~group) +
+  ggtitle("Background vs cells based on ADT & GEX",
+          subtitle = paste(table(depth$group), collapse = " ")) +
+  geom_vline(xintercept = c(min_gen, max_gen), linetype = "dashed", 
+             alpha = .4, color = "blue") +
+  geom_hline(yintercept = c(min_adt, max_adt), linetype = "dashed", 
+             alpha = .4, color = "blue") +
+  xlim(0, NA) +
+  ylim(0, NA) +
+  scale_fill_gradient(low = "grey90", high = "darkred") +
+  theme_bw() +
+  xlab("# genes (GEX)") +
+  ylab("# UMIs (ADT)")
+
+# Filtering out lowly & highly seq background-barcodes -------------------------
 back %>%
   filter(log_total_UMI_adt > min_adt &
            log_total_UMI_adt < max_adt &
            log_nfeat_gex > min_gen &
            log_nfeat_gex < max_gen) -> sub_back
   
-sub_depth <- rbind(sub_back, filter(depth, group == "cell"))
+flog.info("Final background dimensions:", dim(sub_back), capture = TRUE)
+
+# Filtering out lowly & highly seq cell-barcodes -------------------------------
+sub_cell <- filter(sub_depth, group == "cell") %>%
+  filter(log_total_UMI_adt > max_adt) %>%
+  filter(log_nfeat_gex >= log10(200)) %>%
+  filter(log_nfeat_gex <= log10(cfmax))
+
+# Assembling combined filtered background & cell seq metrics -------------------
+sub_depth <- rbind(sub_back, sub_cell)
 
 gg_dsb_sub_back <- ggplot(sub_depth, aes(x = log_nfeat_gex, 
                                      y = log_total_UMI_adt)) +
   geom_bin2d(bins = 100) +
   facet_wrap(~group) +
   scale_fill_gradient(low = "grey90", high = "darkred") +
-  ggtitle(paste(table(sub_depth$group), collapse = " ")) +
+  ggtitle("Background vs cells based on ADT & GEX (trimmed)",
+          subtitle = paste(table(sub_depth$group), collapse = " ")) +
   xlim(0, NA) +
   ylim(0,NA) +
   theme_bw()
 
-
 gg_sub_adt <- get_dens(sub_depth, v = "log_total_UMI_adt") +
-  ggtitle(paste(table(sub_back$group), 
+  ggtitle("DSB inputs:",
+          subtitle = paste(table(sub_depth$group),
                 collapse = " ")) +
   scale_fill_manual(values = c("grey", "darkblue"))
 
@@ -267,26 +339,21 @@ write.table(sub_depth, gsub("\\.pdf", ".tsv", opt$outfile),
 
 flog.info("Final barcodes:", table(sub_depth$group), capture = TRUE)
 
-
 pdf(opt$outfile, width = 8, height = 14)
 
-  plot_grid(plotlist = list(gg_adt_den,
-                            gg_adt_dens,
-                            gg_gex_den,
-                            gg_gex_dens,
-                            gg_int_adt_den,
-                            gg_int_adt_dens), 
-            ncol = 2)
+  plot_grid(
+    plot_grid(plotlist = list(gg_adt_den,
+                              gg_adt_dens,
+                              gg_gex_den,
+                              gg_gex_dens), 
+              ncol = 2),
+    gg_dsb_back, ncol = 1)
   
-  plot_grid(plotlist = list(gg_dsb_back,
-                            gg_dsb_sub_back,
+  plot_grid(plotlist = list(gg_dsb_sub_back,
                             gg_sub_adt),
             ncol = 1)
   
 dev.off()
-
-flog.info("Number of background barcodes:", length(back_barcodes), 
-          capture = TRUE)
 
 # If user provide limits for background and cell barcodes ----------------------
 

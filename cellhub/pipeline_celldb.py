@@ -66,6 +66,7 @@ import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
 import cgatcore.database as database
+from pathlib import Path
 
 import cellhub.tasks.control as C
 import cellhub.tasks.db as DB
@@ -74,13 +75,31 @@ import cellhub.tasks.celldb as celldb
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
+# -------------------------- < parse parameters > --------------------------- #
+
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__,__name__)
+parameter_file = C.get_parameter_file(__file__, __name__)
 PARAMS = P.get_parameters(parameter_file)
 
-print("-------------------_")
-print(PARAMS)
+# Set the location of the cellhub code directory
+if "code_dir" not in PARAMS.keys():
+    PARAMS["code_dir"] = Path(__file__).parents[1]
+else:
+    if PARAMS["code_dir"] != Path(__file__).parents[1]:
+        raise ValueError("Could not set the location of "
+                "the pipeline code directory")
 
+# ----------------------- < pipeline configuration > ------------------------ #
+
+# handle pipeline configuration
+
+if len(sys.argv) > 1:
+    if(sys.argv[1] == "config") and __name__ == "__main__":
+        sys.exit(P.main(sys.argv))
+
+# ########################################################################### #
+#                                   Create DB                                 #
+# ########################################################################### #
 
 def connect():
     '''connect to database.
@@ -98,6 +117,9 @@ def load_samples(outfile):
     ''' load the sample metadata table '''
 
     x = PARAMS["table_sample"]
+    if ("G" in PARAMS["resources_job_memory"] or
+    "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
 
     DB.load(x["name"],
             x["path"],
@@ -137,13 +159,17 @@ def load_samples(outfile):
 #             index = "library_id",
 #             outfile=outfile)
 
-
+@follows(load_samples)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gex_qcmetrics.load")
 def load_gex_qcmetrics(outfile):
     '''load the gex qcmetrics into the database '''
 
     x = PARAMS["table_gex_qcmetrics"]
+    if ("G" in PARAMS["resources_job_memory"] or
+    "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
 
     DB.load(x["name"],
             x["path"],
@@ -153,13 +179,17 @@ def load_gex_qcmetrics(outfile):
             index = x["index"],
             outfile=outfile)
 
-
+@follows(load_gex_qcmetrics)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/scrublet.load")
 def load_gex_scrublet(outfile):
     '''load the scrublet scores into database '''
 
     x = PARAMS["table_gex_scrublet"]
+    if ("G" in PARAMS["resources_job_memory"] or
+    "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
 
     DB.load(x["name"],
             x["path"],
@@ -169,6 +199,8 @@ def load_gex_scrublet(outfile):
             index = x["index"],
             outfile=outfile)
 
+
+@follows(load_gex_scrublet)
 @active_if(PARAMS["table_gmm_demux"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gmm.demux.load")
@@ -176,6 +208,31 @@ def load_gmm_demux(outfile):
     '''load the gmm demux dehashing calls into the database '''
 
     x = PARAMS["table_gmm_demux"]
+    if ("G" in PARAMS["resources_job_memory"] or
+    "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
+
+@follows(load_gmm_demux)
+@active_if(PARAMS["table_cell_meta"]["active"])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("celldb.dir/cellmeta.ext.load")
+def load_cell_meta(outfile):
+    '''load an external cell-metadata table into the database '''
+
+    x = PARAMS["table_cell_meta"]
+    if ("G" in PARAMS["resources_job_memory"] or
+    "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
 
     DB.load(x["name"],
             x["path"],
@@ -189,7 +246,8 @@ def load_gmm_demux(outfile):
 @follows(load_samples,
          load_gex_qcmetrics,
          load_gex_scrublet,
-         load_gmm_demux)
+         load_gmm_demux,
+         load_cell_meta)
          # load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")

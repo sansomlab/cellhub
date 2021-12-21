@@ -6,6 +6,7 @@ stopifnot(require(optparse),
           require(tibble),
           require(Seurat),
           require(Matrix),
+          require(data.table),
 	        require(BiocParallel)
 )
 
@@ -38,6 +39,12 @@ option_list <- list(
               help="Folder with the filtered cellranger output. 
               Must include barcodes.tsv.gz, features.tsv.gz, 
               and matrix.mtx.gz"),
+  make_option(c("--rm_feat"), default="None",
+              help="Comma separated string with features to remove from
+              analysis."),
+  make_option(c("--qc_bar"), default="None",
+              help="Single column .tsv.gz file with the cell-barcodes with high
+              GEX-based QC metrics. (Output fetch_cells pipeline.)"),
   make_option(c("--library_id"), default=NULL,
               help="library or channel id"),
   make_option(c("--numcores"), default=2,
@@ -64,11 +71,61 @@ multicoreParam <- MulticoreParam(workers = opt$numcores)
 
 flog.info("Reading unfiltered data...")
 s <- Read10X(opt$unfiltered_dir)
-flog.info("Number of cells in input: %s", format(ncol(s), big.mark=","))
+flog.info("Number of cells in input: %s", format(dim(s), big.mark=","))
+flog.info("All cells names: %s", format(head(colnames((s))), big.mark=","))
+flog.info("Features names: %s", format(rownames(s), big.mark=","))
+
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(s))) {
+    stop(paste("Features provided to be removed are not present:",
+               rmft[which(!rmft %in% rownames(s))]))
+  }
+  s <- s[!rownames(s) %in% rmft, ]
+}
+
+flog.info("Number of cells in input: %s", format(dim(s), big.mark=","))
+flog.info("All cells names: %s", format(head(colnames((s))), big.mark=","))
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% colnames(s))) == 0) {
+    flog.info(paste0("This sample:", opt$library_id, 
+                     "does not contain QC barcodes."))
+    #stop("QC barcodes are not present.")
+    quit("no")
+  }
+}
 
 flog.info("Reading filtered data...")
 f <- Read10X(file.path(opt$filtered_dir))
-flog.info("Number of cells in input: %s", format(ncol(f), big.mark=","))
+flog.info("Number of cells in input: %s", format(dim(f), big.mark=","))
+flog.info("Filtered cells names: %s", format(head(colnames((f))), big.mark=","))
+flog.info("Features names: %s", format(rownames(f), big.mark=","))
+
+if(opt$rm_feat != "None") {
+  rmft <- unlist(strsplit(opt$rm_feat, ","))
+  if(any(!rmft %in% rownames(f))) {
+    stop(paste("Features provided to be removed are not present:", 
+               rmft[which(!rmft %in% rownames(f))]))
+  }
+  f <- f[!rownames(f) %in% rmft, ]
+}
+
+if(opt$qc_bar != "None") {
+  qcbar <- fread(opt$qc_bar, h = F)[[1]]
+  if(length(which(qcbar %in% colnames(f))) == 0) {
+    flog.info(paste0("This sample:", opt$library_id, 
+                     "does not contain QC barcodes."))
+    #stop("QC barcodes are not present.")
+    quit("no")
+  } else{
+    f <- f[, colnames(f) %in% qcbar]
+  }
+}
+
+flog.info("Number of cells in input: %s", format(dim(f), big.mark=","))
+flog.info("Filtered cells names: %s", format(head(colnames((f))), big.mark=","))
 
 # Compute basic QC metrics -----------------------------------------------------
 
@@ -85,8 +142,8 @@ cell_qc <- data.frame(barcode_id = colnames(s),
                       library_id = opt$library_id,
                       nfeat = nfeat,
                       total_UMI = total_UMI,
-                      log_total_UMI = log10(total_UMI),
-                      log_nfeat = log10(nfeat)) %>%
+                      log_total_UMI = log10(total_UMI+1),
+                      log_nfeat = log10(nfeat+1)) %>%
   mutate('group' = ifelse(barcode_id %in% colnames(f), "cell", "background"))
 
 
@@ -160,6 +217,7 @@ if(length(limits) == 2) {
 
 # Write table ------------------------------------------------------------------
 flog.info("Writing output table")
+flog.info("Head:", head(cell_qc), capture = TRUE)
 write.table(cell_qc, file = gzfile(opt$outfile),
             quote=FALSE, row.names = FALSE, sep="\t")
 

@@ -7,8 +7,11 @@ def load(table_name,
          glob="*.tsv.gz",
          id_type="library_id",
          index="library_id",
-         outfile="celldb.dir/out.load"):
+         outfile="celldb.dir/out.load",
+         mem="8G"):
     '''load a table or set of tables into the celldb database'''
+
+    job_memory = mem
 
     # 1. concatenate separate tables if
     #    a directory has been passed
