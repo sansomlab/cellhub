@@ -1,0 +1,49 @@
+# pipeline_adt_norm.py configuration file
+# =========================================
+
+# General options
+# ---------------
+
+# Cell barcodes to consider
+# Pass GEX-based QC thresholds [Required]
+qc_barcode: fetch.cells.dir/GEX.mtx.full.dir/barcodes.tsv.gz
+
+# Features to remove before normalization
+# If more than one, separate by comma [Optional]
+rm_feat: None
+
+# Background vs cell seq-depth thresholds
+# based on detected gene/feature depth 
+# log10 scale             [Optional]  
+dsb:
+    background:
+        # log10 ADT count threshold
+        # (e.g. min=1.2, max=2.2)
+        counts:
+            min:
+            max:
+        # number of GEX genes detected 
+        # (e.g. min=10, max=190) 
+        feats:
+            min:
+            max:
+    cell:
+        # log10 ADT count thresholds
+        # (e.g. min=2.5, max=5)
+        counts:
+            min:
+            max:
+        # number of GEX genes detected
+        # (e.g. min=200, max=8000)
+        feats:
+            min:
+            max:
+
+# compute resource options
+# ------------------------
+resources:
+# job memory for tasks; use this in combination with nslots
+# if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+# number of job threads/slots
+    threads: 1
