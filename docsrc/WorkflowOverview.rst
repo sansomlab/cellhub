@@ -58,9 +58,9 @@ The pipeline supports fetching of velocity information.
 
 .. note:: The retrieved metadata will include a "sample_id" column. From this point onwards it is natural to think of the "sample_id" as the unit of interest. The "library_ids" remain in the metadata along with all the qc statistics to facilitate downstream investigation of batch effects and cell quality.
 
-6. ADT normalization [optinal]
-------------------------------
-If samples included the ADT modality, doc:`pipeline_adt_norm.py<pipelines/pipeline_adt_norm>` normalizes the antibody counts for the high-quality fetched cells in the previous step. Normalized ADT can be then used for downstream integration. The pipeline implements 3 normalization methodologies: DSB, median-based, and CLR. The user can specify the feature space.
+6. ADT normalization [optional]
+-------------------------------
+If samples included the ADT modality, :doc:`pipeline_adt_norm.py<pipelines/pipeline_adt_norm>` normalizes the antibody counts for the high-quality fetched cells in the previous step. Normalized ADT can be then used for downstream integration. The pipeline implements 3 normalization methodologies: DSB, median-based, and CLR. The user can specify the feature space.
 
 7. Integration
 --------------

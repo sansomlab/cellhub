@@ -1,6 +1,6 @@
 '''
 ================
-Pipeline performs ADT normalization for single-cell datsets
+Pipeline ADT normalization
 ================
 
 Overview
@@ -31,7 +31,8 @@ via the pipeline_fetch_cells.py.
 
 This pipeline will look for the unfiltered matrix in the api:
   
-  ./api/cellranger.multi/ADT/unfiltered/*/mtx/*.gz 
+  ./api/cellranger.multi/ADT/unfiltered/*/mtx/*.gz
+
   ./api/cellranger.multi/GEX/unfiltered/*/mtx/*.gz 
 
 Dependencies
@@ -106,7 +107,7 @@ def gexdepth(infile, outfile):
     This task will run R/calculate_depth_dist.R,
     It will describe the GEX UMI distribution of the background and cell-containing 
     barcodes. This will help to assess the quality of the ADT data and will inform
-    the definition of the background barcodes.
+    about the definition of the background barcodes.
     '''
 
     outdir = os.path.dirname(outfile)
@@ -277,8 +278,8 @@ def adtdepthAPI(infiles, outfile):
 def plot_norm_adt(infile, outfile):
     '''
     This task will run R/plot_norm_adt.R,
-    It will create a visual report on the cell vs background dataset split and
-    iff user provided thresholds, those will be included. 
+    It will create a visual report on the cell vs background dataset split and,
+    if the user provided GEX and ADT UMI thresholds, those will be included. 
     '''
 
     outdir = os.path.dirname(outfile)
@@ -355,8 +356,8 @@ def plot_norm_adt(infile, outfile):
 def dsb_norm(infile, outfile):
     '''
     This task runs R/normalize_adt.R.
-    It reads the infiltered ADT count matrix and calculates DSB normalized ADT 
-    expression matrix which is saved like market matrices per sample.
+    It reads the unfiltered ADT count matrix and calculates DSB normalized ADT 
+    expression matrix which is then saved like market matrices per sample.
     '''
 
     outdir = os.path.dirname(outfile)
@@ -476,7 +477,7 @@ def dsbAPI(infile, outfile):
 def median_norm(infile, outfile):
     '''This task runs R/get_median_adt_normalization.R,
     It reads the filtered ADT count matrix and performed median-based 
-    normalization. Calculatea median-based normalized ADT expression matrix and
+    normalization. Calculates median-based normalized ADT expression matrix and
     writes market matrices per sample.
     '''
 
@@ -575,8 +576,8 @@ def medianAPI(infile, outfile):
            r"adt_norm.dir/adt_clr.dir/\1/mtx/\1.sentinel")
 def clr_norm(infile, outfile):
     '''This task runs R/get_median_clr_normalization.R,
-    It reads the filtered ADT count matrix and performed CLR 
-    normalization. Writesmarket matrices per sample.
+    It reads the filtered ADT count matrix and performes CLR 
+    normalization. Writes market matrices per sample.
     '''
 
     outdir = os.path.dirname(outfile)
