@@ -6,7 +6,7 @@ Philosophy
 
 Cellhub is designed to efficiently parallelise the processing of large datasets. Once processed different data slices can be easily extracted directly from the original matrices, aligned and exported for downstream analysis. At the heart of operations is an sqlite database which warehouses the experiment metadata and per-cell statistics.
 
-The workflow can be divided into seven main steps.
+The workflow can be divided into eight main steps.
 
 
 1. Quantitation of per-channel libraries
@@ -58,8 +58,11 @@ The pipeline supports fetching of velocity information.
 
 .. note:: The retrieved metadata will include a "sample_id" column. From this point onwards it is natural to think of the "sample_id" as the unit of interest. The "library_ids" remain in the metadata along with all the qc statistics to facilitate downstream investigation of batch effects and cell quality.
 
+6. ADT normalization [optinal]
+------------------------------
+If samples included the ADT modality, doc:`pipeline_adt_norm.py<pipelines/pipeline_adt_norm>` normalizes the antibody counts for the high-quality fetched cells in the previous step. Normalized ADT can be then used for downstream integration. The pipeline implements 3 normalization methodologies: DSB, median-based, and CLR. The user can specify the feature space.
 
-6. Integration
+7. Integration
 --------------
 
 Alignment of samples is performed with :doc:`pipeline_integration.py <pipelines/pipeline_integration>`. Currently the pipeline supports harmony, bbknn and scanorama. It will produce UMAPs summarising the alignments and will compute the LISI statistic.
@@ -69,7 +72,7 @@ Alignment of samples is performed with :doc:`pipeline_integration.py <pipelines/
 .. warning:: pipeline_integration.py will be moving to a new sansomlab/scxl repository (along with pipeline_scxl from sansomlab/tenx).
 
 
-7. Export for seurat [optional]
+8. Export for seurat [optional]
 -------------------------------
 
 The integration pipeline outputs an anndata object suitable for analysis with scanpy. A Seurat object can be prepared using :doc:`pipeline_export.py <pipelines/pipeline_export>`.

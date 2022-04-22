@@ -65,6 +65,7 @@ Pipeline documentation
    pipelines/pipeline_velocity.rst
    pipelines/pipeline_celldb.rst
    pipelines/pipeline_fetch_cells.rst
+   pipelines/pipeline_adt_norm.rst
    pipelines/pipeline_integration.rst
    pipelines/pipeline_export.rst
 
