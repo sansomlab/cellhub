@@ -49,6 +49,10 @@ GEX:
   downsample_group_var: sample_id
   downsample_function: median
 
+# If ADT included, set True to create an ADT independent dataset
+ADT:
+  fetch: False
+
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True
   fetch: False
