@@ -151,6 +151,46 @@ def cellbender(infile, outfile):
     # Create sentinel file
     IOTools.touch_file(outfile)
 
+@transform(cellbender,
+           regex(r".*/(.*)/.*_cellbender.sentinel"), 
+           r"clean_ambient.dir/\1/mtx/\1_mtx.sentinel"")
+def h5tomtx(infile, outfile):
+    '''
+    This task will run R/h5_to_mtx.R,
+    It will export an .h5 object (e.g. cellbender results) and export mtx market
+    matrices.
+    '''
+
+    outdir = os.path.dirname(outfile)
+    if not os.path.exists(outdir):
+      os.mkdir(outdir)
+
+    # Get cellranger directory and id
+    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    
+    # Other settings
+    job_threads = PARAMS["resources_threads"]
+    if ("G" in PARAMS["resources_job_memory"] or
+        "M" in PARAMS["resources_job_memory"] ):
+        job_memory = PARAMS["resources_job_memory"]
+
+    log_file = outfile.replace(".sentinel", ".log")
+
+    out_file = outfile.replace(".sentinel", ".tsv.gz")
+
+    # Formulate and run statement
+    statement = '''Rscript %(code_dir)s/R/h5_to_mtx.R
+                 --h5_file=%(h5input)s
+                 --features=%(feat_file)s
+                 --sample_id=%(library_name)s
+                 --numcores=%(job_threads)s
+                 --log_filename=%(log_file)s
+                 --output_dir=%(out_dir)s
+              '''
+    P.run(statement)
+
+    # Create sentinel file
+    IOTools.touch_file(outfile)
 
 # ---------------------------------------------------
 # Generic pipeline tasks
@@ -174,7 +214,7 @@ def plot(infile, outfile):
 
 
 
-@follows(cellbender, plot)
+@follows(cellbender, h5tomtx, plot)
 def full():
     '''
     Run the full pipeline.
