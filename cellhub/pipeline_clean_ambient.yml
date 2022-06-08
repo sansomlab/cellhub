@@ -1,0 +1,24 @@
+# pipeline_clean_ambient.py configuration file
+# =========================================
+
+# General options
+# ---------------
+
+# Number of expected cells is defined based on the number of barcodes in cellranger filtered umi matrix
+
+# FDR [Required]
+FDR: 0.01
+
+# Number of epochs [Required]
+number_epochs: 150 
+
+# compute resource options
+# ------------------------
+resources:
+# job memory for tasks; use this in combination with nslots
+# if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+# number of job threads/slots
+    threads: 5
+# use_cuda
+use_cuda: True
