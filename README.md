@@ -8,4 +8,4 @@ For installation and usage please see the [cellhub docs](docs/cellhub.pdf)
 
 ## General schema
 
-![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/blob/cellranger/docs/cellhub-devel-schema.png?raw=true)
+![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/blob/cleanambient_cp/docsrc/images/cellhub-devel-schema.png?raw=true)
