@@ -222,6 +222,42 @@ def mergeGEXSubsets(infiles, outfile):
 
     IOTools.touch_file(outfile)
 
+@active_if(PARAMS["GEX_cleaned"])
+@follows(mkdir("fetch.cells.dir/GEX.mtx.cleaned.dir"))
+@transform(barcodeSubsets,
+           regex(r"fetch.cells.dir/barcode.subsets.dir/(.*).tsv.gz"),
+           r"fetch.cells.dir/GEX.mtx.cleaned.dir/\1/matrix.mtx.gz")
+def cleanGEXSubsets(infile, outfile):
+    '''
+    Extract the GEX cell subsets from the parent mtx.
+    '''
+
+    matrix_subset_dir = os.path.dirname(infile)
+    matrix_id = os.path.basename(infile).replace(".tsv.gz","")
+
+    outdir = os.path.dirname(outfile)
+
+    fetch_cells.get_cell_subset(barcodes=infile,
+                                modality="GEX",
+                                matrix_id=matrix_id,
+                                outdir=outdir,
+                                PARAMS=PARAMS,
+                                data_subset="cleaned")
+
+
+@follows(mkdir("fetch.cells.dir/GEX.cleaned.mtx.full.dir"))
+@merge(cleanGEXSubsets,
+       "fetch.cells.dir/GEX.cleaned.mtx.full.dir/matrix.sentinel")
+def mergecleanGEXSubsets(infiles, outfile):
+    '''
+    Merge the clean GEX cell subsets into a single mtx.
+    '''
+
+    out_mtx_file = outfile.replace(".sentinel",".mtx.gz")
+
+    fetch_cells.merge_subsets(infiles, out_mtx_file, PARAMS)
+
+    IOTools.touch_file(outfile)
 
 @active_if(PARAMS["GEX_downsample"])
 @follows(mkdir("fetch.cells.dir/GEX.mtx.subsampled.dir"))
@@ -250,7 +286,7 @@ def downsampleGEX(infiles, outfile):
     IOTools.touch_file(outfile)
 
 
-@transform([mergeGEXSubsets, downsampleGEX],
+@transform([mergeGEXSubsets, mergecleanGEXSubsets, downsampleGEX],
            regex(r"fetch.cells.dir/GEX.mtx.(.*).dir/.*.sentinel"),
            add_inputs(fetchCells),
            r"fetch.cells.dir/GEX.anndata.\1.dir/matrix.sentinel")

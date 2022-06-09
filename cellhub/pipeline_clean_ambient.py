@@ -106,8 +106,7 @@ def cellbender(infile, outfile):
           os.mkdir(parentdir)
           os.mkdir(outdir)
 
-    # Get cellranger directory and id
-    library_name = os.path.basename(outfile)[:-len(".sentinel")]
+    # UMI count matrices
     unfiltered_dir = os.path.dirname(infile)
     filtered_dir = unfiltered_dir.replace("unfiltered", "filtered")
 
@@ -153,11 +152,11 @@ def cellbender(infile, outfile):
 
 @transform(cellbender,
            regex(r".*/(.*)/.*_cellbender.sentinel"), 
-           r"clean_ambient.dir/\1/mtx/\1_mtx.sentinel"")
+           r"clean_ambient.dir/\1/mtx/\1_mtx.sentinel")
 def h5tomtx(infile, outfile):
     '''
-    This task will run R/h5_to_mtx.R,
-    It will export an .h5 object (e.g. cellbender results) and export mtx market
+    This task runs R/h5_to_mtx.R,
+    It exports an .h5 object (e.g. cellbender results) into mtx market
     matrices.
     '''
 
@@ -165,11 +164,16 @@ def h5tomtx(infile, outfile):
     if not os.path.exists(outdir):
       os.mkdir(outdir)
 
-    # Get cellranger directory and id
-    library_name = os.path.basename(outfile)[:-len(".sentinel")]
-    
+    # .h5 
+    h5input = infile.replace(".sentinel", "_filtered.h5")
+    # Get library id
+    library_name = os.path.basename(outfile)[:-len("_mtx.sentinel")]
+    # Feature metadata
+    feat_file = os.path.join("api/cellranger.multi/GEX/filtered/", 
+                             library_name, "mtx/features.tsv.gz")
+
     # Other settings
-    job_threads = PARAMS["resources_threads"]
+    job_threads = PARAMS["resources_threads_export"]
     if ("G" in PARAMS["resources_job_memory"] or
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
@@ -185,7 +189,7 @@ def h5tomtx(infile, outfile):
                  --sample_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
-                 --output_dir=%(out_dir)s
+                 --output_dir=%(outdir)s
               '''
     P.run(statement)
 

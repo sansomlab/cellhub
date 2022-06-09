@@ -47,10 +47,12 @@ message(dim(x))
 
 ## Read in the list of cells to extract
 cells <- read.table(gzfile(opt$cells),stringsAsFactors=FALSE)$V1
-message("number of cells to extract")
+message("\n number of cells to extract \n")
 message(length(cells))
+message("\nnumber of cells to extract present in ref mtx \n")
+message(length(which( colnames(x)%in%cells)))
 
-x <- x[, cells]
+x <- x[, colnames(x)%in%cells]
 out_folder = opt$outdir
 message("matrix dimensions after subsetting")
 message(dim(x))

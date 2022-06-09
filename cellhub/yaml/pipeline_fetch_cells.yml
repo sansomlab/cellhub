@@ -45,9 +45,10 @@ matrix:
   out_type: filtered
 
 GEX:
-  downsample: True
+  downsample: False
   downsample_group_var: sample_id
   downsample_function: median
+  cleaned: True
 
 # If ADT included, set True to create an ADT independent dataset
 ADT:
