@@ -327,6 +327,7 @@ def cellrangerMulti(infile, outfile):
                     --jobmode=%(cellranger_job_template)s
                     --maxjobs=%(max_jobs)s
 		            --nopreflight
+                    --disable-ui
                     %(mempercore_stat)s
                     &> %(log_file)s
                  '''
