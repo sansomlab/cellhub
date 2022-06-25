@@ -46,6 +46,18 @@ cellranger:
    # e.g. for mouse: /gfs/mirror/genomes/10x/refdata-cellranger-mm10-1.2.0
    transcriptome:
 
+    # Sort out the job mode/template
+
+    # for SLURM (e.g. Oxford KGen cluster)
+    # - we just need to specify the "slurm" mode
+    # job_template: slurm
+
+    # for SGE/UGE (e.g. Oxford BMRC cluster)
+    # - a customised template file is required
+    job_template: /well/sansom/shared/cellranger/job.templates/sge.template
+
+
+
 # Running parameters
 # -------------------------
 running:

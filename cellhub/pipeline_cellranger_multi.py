@@ -317,7 +317,7 @@ def cellrangerMulti(infile, outfile):
                     cellranger multi
 	    	    --id %(id_tag)s
                     --csv=%(config_path)s
-                    --jobmode=slurm
+                    --jobmode=%(cellranger_job_template)s
                     --maxjobs=%(max_jobs)s
 		    --nopreflight
                     &> %(log_file)s

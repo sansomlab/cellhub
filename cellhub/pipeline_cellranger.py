@@ -312,7 +312,7 @@ def cellrangerCount(infile, outfile):
                     --transcriptome %(transcriptome)s
                     --expect-cells %(cellnumber)s
                     --chemistry %(cellranger_chemistry)s
-                    --jobmode=slurm
+                    --jobmode=%(cellranger_jobmode)s
                     --maxjobs=%(max_jobs)s
                     --nopreflight
                 &> %(log_file)s

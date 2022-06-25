@@ -27,6 +27,15 @@ cellranger:
     # Max jobs is passed to slurm as the maximum number of jobs
     maxjobs: 64
 
+    # Sort out the job mode/template
+
+    # for SLURM (e.g. Oxford KGen cluster)
+    # - we just need to specify the "slurm" mode
+    # job_template: slurm
+
+    # for SGE/UGE (e.g. Oxford BMRC cluster)
+    # - a customised template file is required
+    job_template: /well/sansom/shared/cellranger/job.templates/sge.template
 
 # Chose whether to run the optional tasks
 # ---------------------------------------
