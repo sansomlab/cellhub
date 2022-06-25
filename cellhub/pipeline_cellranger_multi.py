@@ -348,7 +348,7 @@ def postProcessMtx(infile, outfile):
 
     filtered "outs": ::
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+      library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
     Post-processed outputs
     ----------------------
@@ -393,7 +393,7 @@ def postProcessMtx(infile, outfile):
     for per_sample_dir in per_sample_dirs:
 
         matrix_location = os.path.join(per_sample_dir,
-                                       "count/sample_feature_bc_matrix")
+                                       "count/sample_filtered_feature_bc_matrix")
 
         sample_id = os.path.basename(per_sample_dir)
 
@@ -489,7 +489,7 @@ def h5API(infile, outfile):
 
     filtered "outs": ::
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+      library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
     '''
     x = api.api("cellranger.multi")
@@ -534,7 +534,7 @@ def h5API(infile, outfile):
     for per_sample_dir in per_sample_dirs:
 
         h5_location = os.path.join(per_sample_dir,
-                                       "count/sample_feature_bc_matrix.h5")
+                                       "count/sample_filtered_feature_bc_matrix.h5")
 
         h5_x = h5_template.copy()
         h5_x["h5"]["path"] = h5_location
