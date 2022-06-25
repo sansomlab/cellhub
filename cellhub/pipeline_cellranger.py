@@ -299,6 +299,12 @@ def cellrangerCount(infile, outfile):
     id_tag = library_id + "-count"
     log_file = id_tag + ".log"
 
+    mempercore = PARAMS["cellranger_mempercore"]
+    if mempercore:
+        mempercore_stat="--mempercore " + str(mempercore)
+    else:
+        mempercore_stat = ""
+
     ## send one job script to slurm queue which arranges cellranger run
     ## hard-coded to ensure enough resources
     libfile = os.path.abspath(infile)
@@ -312,9 +318,10 @@ def cellrangerCount(infile, outfile):
                     --transcriptome %(transcriptome)s
                     --expect-cells %(cellnumber)s
                     --chemistry %(cellranger_chemistry)s
-                    --jobmode=%(cellranger_jobmode)s
+                    --jobmode=%(cellranger_job_template)s
                     --maxjobs=%(max_jobs)s
                     --nopreflight
+                    %(mempercore_stat)s
                 &> %(log_file)s
             ''')
 
