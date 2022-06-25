@@ -18,7 +18,7 @@ import numpy as np
 # ########################################################################### #
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-L = logging.getLogger("extract_cells_from_loom.py")
+L = logging.getLogger("extract_cells_from_h5.py")
 
 
 # ########################################################################### #
@@ -50,32 +50,54 @@ cell_table.index = cell_table["barcode_id"].values
 
 libraries = set(cell_table["library_id"].values)
 
-anndata_slices = []
+anndata_slices = {}
 
+first = True
 for library_id in libraries:
+
+    L.info("Slicing " + library_id)
 
     # get the barcodes to slice out
     barcodes = cell_table["barcode_id"].values[cell_table["library_id"]==library_id]
-    barcodes = [ x.split("_")[0] for x in barcodes ]
+    barcodes = [ x.split("-")[0] + "-1" for x in barcodes ]
 
-    # read h5
-    # cellranger.multi/GEX/filtered/${library_id}/h5/sample_feature_bc_matrix.h5
-    h5_path = os.path.join(args.apidir,
-                           "cellranger.multi","GEX","filtered",
+    h5_path = os.path.join(args.api,
+                           "cellranger.multi","counts","filtered",
                            library_id,
-                           "h5","sample_feature_bc_matrix.h5")
+                           "h5","sample_filtered_feature_bc_matrix.h5")
 
     x = sc.read_10x_h5(h5_path)
+
+    # use unique identifiers for the index 
+    x.var["gene_name"] = [x for x in x.var.index.values]
+    x.var.index = [x for x in x.var.gene_ids.values]
+
+    if first:
+        var_frame = x.var.copy()
+        var_index = x.var.index.copy()
+        first = False
+    else:
+        if not np.array_equal(x.var.index, var_index):
+            raise ValueError("var index mismatch")
+
     x = x[barcodes]
-    x.obs.index = [ y + "_" + library_id for y in x.obs.index.values ]
+    x.obs.index = [ y.split("-")[0] + "-" + library_id 
+                    for y in x.obs.index.values ]
     x.obs["barcode_id"] = x.obs.index
     x.obs["library_id"] = library_id
 
-    anndata_slices.append(x.copy())
+    anndata_slices[library_id] = x.copy()
 
-
+L.info("Stitching the slices together")
 anndata = ad.concat(anndata_slices)
-anndata.obs = cell_table.ix[anndata.obs.index,]
+
+
+L.info("Adding the metadata")
+anndata.obs = cell_table.loc[anndata.obs.index,]
+
+# not sure why this is necessary...
+L.info("Adding the var")
+anndata.var = var_frame.loc[anndata.var.index]
 
 anndata.write_h5ad(os.path.join(args.outdir,
 "anndata.h5ad"))
