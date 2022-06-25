@@ -57,9 +57,9 @@ cellranger:
     job_template: /well/sansom/shared/cellranger/job.templates/sge.template
 
     # specify memory per core
-    # either False or the amount of memory avaliable per core
+    # either False or the amount of memory avaliable per core (in GB)
     # here this is set for the Oxford BMRC cluster
-    mempercore: 16GB
+    mempercore: 16
 
 # Running parameters
 # -------------------------
