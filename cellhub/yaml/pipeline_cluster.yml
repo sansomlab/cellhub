@@ -264,7 +264,7 @@ summaries:
     # subgroup: stim
     # subgrouplevels: CTRL,STIM
     stat: ngenes
-    replicate: barcode
+    replicate: barcode_id
     geom: boxplot
     facet: True
     freey: False
@@ -280,7 +280,7 @@ summaries:
     group: cluster
     subgroup: None
     stat: total_UMI
-    replicate: barcode
+    replicate: barcode_id
     geom: boxplot
     facet: True
     freey: False
@@ -314,7 +314,7 @@ plot:
   # Note that it also visualised in t-SNE plots and marker heatmaps
   subgroup:
   # QC variable to be visualised on the tSNE plot
-  qcvars: nCount_RNA,percent.mito
+  qcvars: total_UMI,pct_mitochondrial,ngenes
   # Column in metadata.tsv represented by the shape of data points
   shape:
   # Opacity of data points

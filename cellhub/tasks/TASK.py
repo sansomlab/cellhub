@@ -93,7 +93,7 @@ def get_vars(infile, outfile, PARAMS, make_outdir=True):
                                     "neighbour.graph.h5ad")
 
         if os.path.exists(neighbour_graph_path):
-            SPEC["anndata"] = neighbour_graph_path
+            SPEC["neighbour_graph_anndata"] = neighbour_graph_path
 
     # if we are in the cluster directory
     if nparts >= 2 and parts[1].startswith("cluster."):

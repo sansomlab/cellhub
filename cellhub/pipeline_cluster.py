@@ -60,6 +60,8 @@ from shutil import copyfile
 
 from pathlib import Path
 import pandas as pd
+import yaml
+import textwrap
 from ruffus import *
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
@@ -67,7 +69,7 @@ import cgatcore.iotools as IOTools
 import cellhub.tasks.control as C
 import cellhub.tasks.fetch_cells as fetch_cells
 import cellhub.tasks.TASK as TASK
-
+import cellhub.tasks.templates as templates
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -115,9 +117,29 @@ def taskSummary(infile, outfile):
     tab.to_latex(buf=outfile, index=False)
 
 
-@files(None,None)
-def exportMetadata(infile, outfile):
-    pass
+@files(PARAMS["source_anndata"],
+       "metadata.dir/metadata.sentinel")
+def metadata(infile, outfile):
+    '''
+       Export the metadata (obs) from the source anndata
+       for use in the plotting tasks
+    '''
+
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
+
+    outfile_name = outfile.replace(".sentinel", ".tsv.gz")
+
+    statement = '''python %(cellhub_code_dir)s/python/cluster_metadata.py
+                   --source_anndata=%(infile)s
+                   --outfile=%(outfile_name)s
+                   &> %(log_file)s
+                ''' % dict(PARAMS, **SPEC, **locals())
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
 
 # ########################################################################### #
 # ###################### Compute the neighbor graph ######################### #
@@ -367,9 +389,9 @@ def clustree(infile, outfile):
 
 @active_if(PARAMS["run_paga"])
 @follows(neighbourGraph)
-@transform(scanpyCluster,
-           regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
-           r"\1/\2/\3/paga.dir/paga.sentinel")
+@transform(cluster,
+           regex(r"(.*)/(.*)/cluster.sentinel"),
+           r"\1/\2/paga.dir/paga.sentinel")
 def paga(infile, outfile):
     '''
        Run partition-based graph abstraction (PAGA)
@@ -382,10 +404,10 @@ def paga(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_high"])
 
-    statement = '''python %(cellhub_code_dir)s/python/run_paga.py
-                   --anndata=%(neighbourGraph)s
+    statement = '''python %(cellhub_code_dir)s/python/cluster_paga.py
+                   --anndata=%(neighbour_graph_anndata)s
                    --outdir=%(outdir)s
-                   --cluster_assignments=%(cluster_ids)s
+                   --cluster_ids=%(cluster_ids)s
                    --cluster_colors=%(cluster_colors)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
@@ -399,7 +421,7 @@ def paga(infile, outfile):
 # ########################################################################### #
 
 @transform(neighbourGraph,
-           regex(r"(.*)/(.*)/anndata.sentinel"),
+           regex(r"(.*)/neighbour.graph.sentinel"),
            r"\1/umap.dir/umap.sentinel")
 def UMAP(infile, outfile):
     '''
@@ -421,8 +443,8 @@ def UMAP(infile, outfile):
         mindist_log_file = outfile.replace(".sentinel",
                                            "." + mindist + ".log")
 
-        statement = '''python %(cellhub_code_dir)s/python/run_umap.py
-                             --anndata=%(neighbourGraph)s
+        statement = '''python %(cellhub_code_dir)s/python/cluster_umap.py
+                             --anndata=%(neighbour_graph_anndata)s
                              --mindist=%(mindist)s
                              --outdir=%(outdir)s
                              &> %(mindist_log_file)s
@@ -438,38 +460,42 @@ def UMAP(infile, outfile):
 # ####################### Known gene violin plots ########################### #
 # ########################################################################### #
 
-@active_if(PARAMS["run_knownmarkers"])
-@transform(scanpyCluster,
-           regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
-           r"\1/\2/\3/known.markers.dir/known.markers.sentinel")
+@files(None,None)
 def knownMarkerViolins(infile, outfile):
-    '''
-       Make per-cluster violin plots from a given set of known marker genes.
-    '''
+    pass
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+# @active_if(PARAMS["run_knownmarkers"])
+# @transform(scanpyCluster,
+#            regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
+#            r"\1/\2/\3/known.markers.dir/known.markers.sentinel")
+# def knownMarkerViolins(infile, outfile):
+#     '''
+#        Make per-cluster violin plots from a given set of known marker genes.
+#     '''
 
-    if not os.path.exists(PARAMS["knownmarkers_file"]):
-        raise ValueError("The specified known markers file does not exist")
+#     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
-    outprefix = outfile.replace(".sentinel", "")
+#     if not os.path.exists(PARAMS["knownmarkers_file"]):
+#         raise ValueError("The specified known markers file does not exist")
 
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
+#     outprefix = outfile.replace(".sentinel", "")
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/plot_violins.R
-                       --genetable=%(knownmarkers_file)s
-                       --seuratobject=%(seurat_object)s
-                       --seuratassay=RNA
-                       --clusterids=%(cluster_ids)s
-                       --outprefix=%(outprefix)s
-                       --plotdirvar=knownmarkersDir
-                       &> %(log_file)s
-        ''' % dict(PARAMS, **SPEC, **locals())
+#     # set the job threads and memory
+#     job_threads, job_memory, r_memory = TASK.get_resources(
+#         memory=PARAMS["resources_memory_low"])
 
-    P.run(statement)
-    IOTools.touch_file(outfile)
+#     statement = '''Rscript %(cellhub_code_dir)s/R/plot_violins.R
+#                        --genetable=%(knownmarkers_file)s
+#                        --seuratobject=%(seurat_object)s
+#                        --seuratassay=RNA
+#                        --clusterids=%(cluster_ids)s
+#                        --outprefix=%(outprefix)s
+#                        --plotdirvar=knownmarkersDir
+#                        &> %(log_file)s
+#         ''' % dict(PARAMS, **SPEC, **locals())
+
+#     P.run(statement)
+#     IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
@@ -484,18 +510,15 @@ RDIMS_VIS_METHOD = "umap"
 RDIMS_VIS_COMP_1 = "UMAP_1"
 RDIMS_VIS_COMP_2 = "UMAP_2"
 
-# else:
-#     raise ValueError('dimreduction_visualisation must be either "tsne" or "umap"')
-
 
 # ########################################################################### #
 # ###### Visualise gene expression across cells in reduced dimensions ####### #
 # ########################################################################### #
 
 @transform(RDIMS_VIS_TASK,
-           regex(r"(.*)/(.*)/(.*)/(.*).sentinel"),
-           add_inputs(exportMetadata),
-           r"\1/\2/rdims.visualisation.dir/plot.rdims.factor.sentinel")
+           regex(r"(.*)/(.*)/(.*).sentinel"),
+           add_inputs(metadata),
+           r"\1/rdims.visualisation.dir/plot.rdims.factor.sentinel")
 def plotRdimsFactors(infiles, outfile):
     '''
     Visualise factors of interest on the projection.
@@ -546,7 +569,7 @@ def plotRdimsFactors(infiles, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_rdims_factor.R
                    --method=%(rdims_vis_method)s
                    --table=%(rdims_table)s
                    --metadata=%(metadata_table)s
@@ -574,19 +597,21 @@ def plotRdimsFactors(infiles, outfile):
 
 
 @follows(RDIMS_VIS_TASK)
-@transform(scanpyCluster,
-           regex(r"(.*)/(.*).dir/(.*).dir/(.*).sentinel"),
-           r"\1/\2.dir/\3.dir/rdims.visualisation.dir/plot.rdims.cluster.sentinel")
+@transform(cluster,
+           regex(r"(.*)/(.*)/(.*).sentinel"),
+           r"\1/\2/rdims.visualisation.dir/plot.rdims.cluster.sentinel")
 def plotRdimsClusters(infile, outfile):
     '''
     Visualise the clusters on the chosen projection
     '''
 
     metadata_table = os.path.join(os.path.dirname(infile),
-                                  "cluster_assignments.tsv.gz")
+                                  "cluster_ids.tsv.gz")
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
+    print("******")
+    print(spec)
 
     color_factors = "--colorfactors=cluster_id"
 
@@ -619,7 +644,7 @@ def plotRdimsClusters(infile, outfile):
         mindist_log_file = outfile.replace(".sentinel",
                                            "." + mindist + ".log")
 
-        statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
+        statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_rdims_factor.R
                    --method=%(umap_spec)s
                    --table=%(rdims_table)s
                    --metadata=%(metadata_table)s
@@ -909,26 +934,27 @@ def plotRdimsGenes(infile, outfile):
 # ################# plot per-cluster summary statistics ##################### #
 # ########################################################################### #
 
-@follows(exportMetadata)
-@transform(scanpyCluster,
+@transform(cluster,
            regex(r"(.*)/cluster.sentinel"),
+           add_inputs(metadata),
            r"\1/group.numbers.dir/plot.group.numbers.sentinel")
-def plotGroupNumbers(infile, outfile):
+def plotGroupNumbers(infiles, outfile):
     '''
     Plot statistics on cells by group, e.g. numbers of cells per cluster.
 
     Plots are defined on a case-by-case basis in the yaml.
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    cluster_outfile, metadata_outfile = infiles
 
-    metadata_table = os.path.join(spec.sample_dir,
-                                  "metadata.tsv.gz")
+    spec, SPEC = TASK.get_vars(cluster_outfile, outfile, PARAMS)
+
+    metadata_table = metadata_outfile.replace(".sentinel", ".tsv.gz")
 
     # we need the yaml as a dict, so...
-    config_file = "pipeline.yml"
+    config_file = "pipeline_cluster.yml"
     if not os.path.exists(config_file):
-        config_file = "%s/pipeline.yml" % os.path.splitext(__file__)[0]
+        config_file = "%s/pipeline_cluster.yml" % os.path.splitext(__file__)[0]
         if not os.path.exists(config_file):
             raise ValueError("Config file not found in plot group numbers")
 
@@ -962,11 +988,9 @@ def plotGroupNumbers(infile, outfile):
         job_threads, job_memory, r_memory = TASK.get_resources(
             memory=PARAMS["resources_memory_min"])
 
-        statement = '''Rscript %(cellhub_code_dir)s/R/plot_group_numbers.R
+        statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_group_numbers.R
                    --metadata=%(metadata_table)s
-                   --clusters=%(cluster_assignments)s
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
+                   --clusters=%(cluster_ids)s
                    --title=%(summary_key)s
                    %(options)s
                    --outdir=%(outdir)s
@@ -1012,7 +1036,7 @@ def plotGroupNumbers(infile, outfile):
 # ########################################################################### #
 
 # @follows(getGenesetAnnotations)
-@transform(scanpyCluster,
+@transform(cluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/cluster.markers.dir/findMarkers.sentinel")
 def findMarkers(infile, outfile):
@@ -1023,8 +1047,6 @@ def findMarkers(infile, outfile):
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    #cluster_ids = infile.replace(".sentinel","_ids.rds")
 
     if PARAMS["findmarkers_conserved"]:
         conservedfactor = PARAMS["findmarkers_conserved_factor"]
@@ -2850,7 +2872,7 @@ def export(infile, outfile):
 
 
 # ########################################################################### #
-# ############## Generate cellbrowser output for sharing #################### #
+# ##################'## Generate cellxgene output ########################### #
 # ########################################################################### #
 
 @active_if(PARAMS["run_cellbrowser"])
