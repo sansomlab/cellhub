@@ -70,3 +70,4 @@ docs/*.out
 docs/._index.html
 docs/.buildinfo
 docs/*.png
+.Rproj.user

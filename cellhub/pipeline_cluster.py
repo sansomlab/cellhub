@@ -66,6 +66,8 @@ import cgatcore.iotools as IOTools
 
 import cellhub.tasks.control as C
 import cellhub.tasks.fetch_cells as fetch_cells
+import cellhub.tasks.TASK as TASK
+
 
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
@@ -112,41 +114,33 @@ def taskSummary(infile, outfile):
 
     tab.to_latex(buf=outfile, index=False)
 
-# Fix
-@active_if(PARAMS["run_singleR"])
-@transform(singleR,
-           formatter("(.sentinel)$"),
-           "{path[0]}/"
-           "{basename[0]}.plot.sentinel")
-def plotSingleR(infile, outfile):
-    '''Make the singleR heatmap'''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    predictions = os.path.join(spec.indir,
-                               "predictions.rds")
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"])
-
-    statement = '''Rscript %(tenx_dir)s/R/singleR_plots.R
-                       --seuratobject=%(seurat_object)s
-                       --predictions=%(predictions)s
-                       --outdir=%(outdir)s
-                       --pdf=%(plot_pdf)s
-                       &> %(log_file)s
-                       ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
+@files(None,None)
+def exportMetadata(infile, outfile):
+    pass
 
 # ########################################################################### #
-# ############################# pipeline tasks ############################## #
+# ###################### Compute the neighbor graph ######################### #
 # ########################################################################### #
 
-@follows(exportForPython)
-@files(genAnndata)
+def genNeighbourGraphs():
+
+    components_str = str(PARAMS["runspecs_n_components"])
+    components = components_str.strip().replace(" ", "").split(",")
+
+    outname = "neighbour.graph.sentinel"
+
+    infile = PARAMS["source_anndata"]
+
+    for comps in components:
+
+        outdir = "out." + comps + ".comp.dir"
+
+        outfile = os.path.join(outdir, outname)
+        yield [infile, outfile]
+
+
+@files(genNeighbourGraphs)
 def neighbourGraph(infile, outfile):
     '''
        Compute the neighbor graph.
@@ -156,15 +150,11 @@ def neighbourGraph(infile, outfile):
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
+    print(SPEC)
+
     reductiontype = PARAMS["dimreduction_method"]
 
-    #reduced_dims_matrix_file = os.path.join(spec.sample_dir,
-    #                                        "embedding." + reductiontype + ".tsv.gz")
-
-    #barcode_file = os.path.join(spec.sample_dir,
-    #                            "barcodes.tsv.gz")
-
-    SPEC["components"] = outfile.split("/")[1][len("components."):-len(".dir")]
+    #SPEC["components"] = outfile.split("/")[1][len("components."):-len(".dir")]
 
     ncomps = spec.components
 
@@ -175,11 +165,14 @@ def neighbourGraph(infile, outfile):
         full_speed = ""
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_extreme"])
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
-    statement = '''python %(tenx_dir)s/python/compute_neighbor_graph.py
-                   --rdim_name=%(rdim_name)s
-                   --outdir=%(outdir)s
+    outfile_name = outfile.replace(".sentinel", ".h5ad")
+
+    statement = '''python %(cellhub_code_dir)s/python/cluster_neighbor_graph.py
+                   --source_anndata=%(infile)s
+                   --reduced_dims_name=%(source_rdim_name)s
+                   --outfile=%(outfile_name)s
                    --ncomps=%(ncomps)s
                    --method=%(neighbors_method)s
                    --threads=%(neighbors_threads)s
@@ -192,11 +185,15 @@ def neighbourGraph(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
+
+# ########################################################################### #
+# ############################ Clustering ################################### #
+# ########################################################################### #
+
 def genScanpyClusterJobs():
 
     components_str = str(PARAMS["runspecs_n_components"])
     components = components_str.strip().replace(" ", "").split(",")
-    samples = glob.glob("*.seurat.dir")
 
     if PARAMS["runspecs_cluster_resolutions"]:
         resolutions = [ x.strip() for x in
@@ -204,29 +201,27 @@ def genScanpyClusterJobs():
 
     outname = "scanpy.clusters.sentinel"
 
-    for sample in samples:
+    for comps in components:
 
-        infile = os.path.join(sample, "begin.rds")
+        outdir = "out." + comps + ".comp.dir"
+        infile = os.path.join(outdir,
+        "neighbour.graph.h5ad")
 
-        for comps in components:
+        if PARAMS["runspecs_predefined_clusters"] :
 
-            outdir = "components." + comps + ".dir"
+            subdir = "cluster.predefined.dir"
+            outfile = os.path.join(outdir, subdir, outname)
+            yield [infile, outfile]
 
-            if PARAMS["runspecs_predefined_clusters"] :
+        if PARAMS["runspecs_cluster_resolutions"]:
+            for resolution in resolutions:
 
-                subdir = "cluster.predefined.dir"
-                outfile = os.path.join(sample, outdir, subdir, outname)
+                subdir = "cluster." + resolution + ".dir"
+                outfile = os.path.join(outdir, subdir, outname)
                 yield [infile, outfile]
 
-            if PARAMS["runspecs_cluster_resolutions"]:
-                for resolution in resolutions:
 
-                    subdir = "cluster." + resolution + ".dir"
-                    outfile = os.path.join(sample, outdir, subdir, outname)
-                    yield [infile, outfile]
-
-
-@follows(anndata)
+@follows(neighbourGraph)
 @files(genScanpyClusterJobs)
 def scanpyCluster(infile, outfile):
     '''
@@ -240,8 +235,8 @@ def scanpyCluster(infile, outfile):
 
     if not "cluster.predefined.dir" in spec.outdir:
 
-        statement = '''python %(tenx_dir)s/python/run_cluster.py
-                   --anndata=%(anndata)s
+        statement = '''python %(cellhub_code_dir)s/python/cluster_cluster.py
+                   --anndata=%(infile)s
                    --algorithm=%(cluster_algorithm)s
                    --resolution=%(resolution)s
                    --outdir=%(outdir)s
@@ -273,10 +268,8 @@ def cluster(infile, outfile):
     else:
         predefined=""
 
-    statement = '''Rscript %(tenx_dir)s/R/scanpy_post_process_clusters.R
-                   --seuratobject=%(seurat_object)s
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_post_process.R
                    --clusters=%(scanpy_cluster_tsv)s
-                   --algorithm=%(cluster_algorithm)s
                    %(predefined)s
                    --mincells=10
                    --outdir=%(outdir)s
@@ -289,25 +282,15 @@ def cluster(infile, outfile):
 
 @active_if(PARAMS["run_compare_clusters"])
 @transform(cluster,
-           regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
-           r"\1/\2/\3/compare.clusters.sentinel")
+           regex(r"(.*)/(.*)/cluster.sentinel"),
+           r"\1/\2/compare.clusters.sentinel")
 def compareClusters(infile, outfile):
-    '''Perform clustering on a saved seurat object.
-
-       The single-cells are clustered using the given number of PCA components,
-       resolution and alogorithm.
-
-       Clusters are written to "cluster_ids.tsv".
+    '''Draw a dendrogram showing the relationship between the clusters
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
-    reductiontype = PARAMS["dimreduction_method"]
-
-    if(spec.components=="sig"):
-        comp="--usesigcomponents=TRUE"
-    else:
-        comp="--components=%(components)s" % SPEC
+    reductiontype = PARAMS["source_rdim_name"]
 
     if spec.resolution == "predefined":
 
@@ -327,12 +310,12 @@ def compareClusters(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"])
 
-    statement = '''Rscript %(tenx_dir)s/R/seurat_compare_clusters.R
-                   --seuratobject=%(seurat_object)s
+    statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
+                   --source_anndata=%(source_anndata)s
                    --clusterids=%(cluster_ids)s
-                   %(comp)s
+                   --ncomp=%(components)s
                    --outdir=%(outdir)s
-                   --reductiontype=%(reductiontype)s
+                   --reduced_dims_name=%(reductiontype)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
 
@@ -349,9 +332,9 @@ nresolutions = len(str(PARAMS["runspecs_cluster_resolutions"]).split(","))
 @active_if(nresolutions > 1)
 
 @follows(cluster)
-@transform(anndata,
-           regex(r"(.*)/(.*)/anndata.dir/anndata.sentinel"),
-           r"\1/\2/clustree.sentinel")
+@transform(neighbourGraph,
+           regex(r"(.*)/neighbour.graph.sentinel"),
+           r"\1/clustree.sentinel")
 def clustree(infile, outfile):
     '''
        Run clustree.
@@ -361,7 +344,7 @@ def clustree(infile, outfile):
 
     id_files = [ os.path.join(spec.outdir,
                               "cluster." + r + ".dir",
-                              "cluster_ids.rds")
+                              "cluster_ids.tsv.gz")
                  for r in spec.resolutions ]
 
     res_str = ",".join(spec.resolutions)
@@ -371,7 +354,7 @@ def clustree(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"])
 
-    statement = '''Rscript %(tenx_dir)s/R/seurat_clustree.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_clustree.R
                    --resolutions=%(res_str)s
                    --clusteridfiles=%(id_files_str)s
                    --outdir=%(outdir)s
@@ -382,10 +365,9 @@ def clustree(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-
 @active_if(PARAMS["run_paga"])
-@follows(anndata)
-@transform(cluster,
+@follows(neighbourGraph)
+@transform(scanpyCluster,
            regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
            r"\1/\2/\3/paga.dir/paga.sentinel")
 def paga(infile, outfile):
@@ -400,10 +382,10 @@ def paga(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_high"])
 
-    statement = '''python %(tenx_dir)s/python/run_paga.py
-                   --anndata=%(anndata)s
+    statement = '''python %(cellhub_code_dir)s/python/run_paga.py
+                   --anndata=%(neighbourGraph)s
                    --outdir=%(outdir)s
-                   --cluster_assignments=%(cluster_assignments)s
+                   --cluster_assignments=%(cluster_ids)s
                    --cluster_colors=%(cluster_colors)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
@@ -416,7 +398,7 @@ def paga(infile, outfile):
 # ############### UMAP analysis and related plots ########################### #
 # ########################################################################### #
 
-@transform(anndata,
+@transform(neighbourGraph,
            regex(r"(.*)/(.*)/anndata.sentinel"),
            r"\1/umap.dir/umap.sentinel")
 def UMAP(infile, outfile):
@@ -439,8 +421,8 @@ def UMAP(infile, outfile):
         mindist_log_file = outfile.replace(".sentinel",
                                            "." + mindist + ".log")
 
-        statement = '''python %(tenx_dir)s/python/run_umap.py
-                             --anndata=%(anndata)s
+        statement = '''python %(cellhub_code_dir)s/python/run_umap.py
+                             --anndata=%(neighbourGraph)s
                              --mindist=%(mindist)s
                              --outdir=%(outdir)s
                              &> %(mindist_log_file)s
@@ -457,7 +439,7 @@ def UMAP(infile, outfile):
 # ########################################################################### #
 
 @active_if(PARAMS["run_knownmarkers"])
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
            r"\1/\2/\3/known.markers.dir/known.markers.sentinel")
 def knownMarkerViolins(infile, outfile):
@@ -476,7 +458,7 @@ def knownMarkerViolins(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"])
 
-    statement = '''Rscript %(tenx_dir)s/R/plot_violins.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/plot_violins.R
                        --genetable=%(knownmarkers_file)s
                        --seuratobject=%(seurat_object)s
                        --seuratassay=RNA
@@ -512,7 +494,7 @@ RDIMS_VIS_COMP_2 = "UMAP_2"
 
 @transform(RDIMS_VIS_TASK,
            regex(r"(.*)/(.*)/(.*)/(.*).sentinel"),
-           add_inputs(exportForPython),
+           add_inputs(exportMetadata),
            r"\1/\2/rdims.visualisation.dir/plot.rdims.factor.sentinel")
 def plotRdimsFactors(infiles, outfile):
     '''
@@ -564,7 +546,7 @@ def plotRdimsFactors(infiles, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(tenx_dir)s/R/plot_rdims_factor.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
                    --method=%(rdims_vis_method)s
                    --table=%(rdims_table)s
                    --metadata=%(metadata_table)s
@@ -592,7 +574,7 @@ def plotRdimsFactors(infiles, outfile):
 
 
 @follows(RDIMS_VIS_TASK)
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/(.*).dir/(.*).dir/(.*).sentinel"),
            r"\1/\2.dir/\3.dir/rdims.visualisation.dir/plot.rdims.cluster.sentinel")
 def plotRdimsClusters(infile, outfile):
@@ -637,7 +619,7 @@ def plotRdimsClusters(infile, outfile):
         mindist_log_file = outfile.replace(".sentinel",
                                            "." + mindist + ".log")
 
-        statement = '''Rscript %(tenx_dir)s/R/plot_rdims_factor.R
+        statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
                    --method=%(umap_spec)s
                    --table=%(rdims_table)s
                    --metadata=%(metadata_table)s
@@ -666,17 +648,51 @@ def plotRdimsClusters(infile, outfile):
     IOTools.touch_file(outfile)
 
 
+@files(None, None)
+def singleR(infile, outfile):
+    '''dummy function while refactoring'''
+    pass
+
+# Fix
+@active_if(PARAMS["run_singleR"])
+@transform(singleR,
+           formatter("(.sentinel)$"),
+           "{path[0]}/"
+           "{basename[0]}.plot.sentinel")
+def plotSingleR(infile, outfile):
+    '''Make the singleR heatmap'''
+
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
+    predictions = os.path.join(spec.indir,
+                               "predictions.rds")
+
+    # set the job threads and memory
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"])
+
+    statement = '''Rscript %(cellhub_code_dir)s/R/singleR_plots.R
+                       --seuratobject=%(seurat_object)s
+                       --predictions=%(predictions)s
+                       --outdir=%(outdir)s
+                       --pdf=%(plot_pdf)s
+                       &> %(log_file)s
+                       ''' % dict(PARAMS, **SPEC, **locals())
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
 
 #@follows(UMAP)
 @active_if(PARAMS["run_singleR"])
-@product(UMAP,
-         formatter("(.sentinel)$"),
-         singleR,
-         formatter("(.sentinel)$"),
-         "{subpath[0][0][1]}/"         #  cluster files, first file  seurat.dir/comp.dir/cluster.dir/clusters
-         "singleR.dir/"
-         "{subdir[1][0][0]}/"
-         "singleR.umap.sentinel")
+# @product(UMAP,
+#          formatter("(.sentinel)$"),
+#          singleR,
+#          formatter("(.sentinel)$"),
+#          "{subpath[0][0][1]}/"         #  cluster files, first file  seurat.dir/comp.dir/cluster.dir/clusters
+#          "singleR.dir/"
+#          "{subdir[1][0][0]}/"
+#          "singleR.umap.sentinel")
+@files(None, None)
 def plotUmapSingleR(infiles, outfile):
     '''Plot the SingleR primary identity assignments on a UMAP'''
 
@@ -705,7 +721,7 @@ def plotUmapSingleR(infiles, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"])
 
-    statement  = '''Rscript %(tenx_dir)s/R/plot_rdims_factor.R
+    statement  = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
                         --method=%(rdims_vis_method)s
                         --table=%(rdims_table)s
                         --metadata=%(metadata)s
@@ -787,7 +803,7 @@ def summariseSingleR(infile, outfile):
 
 @follows(RDIMS_VIS_TASK)
 @active_if(PARAMS["run_exprsreport"] and not PARAMS["run_marker_report"])
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/genelists.dir/plot.rdims.genes.sentinel")
 def plotRdimsGenes(infile, outfile):
@@ -837,7 +853,7 @@ def plotRdimsGenes(infile, outfile):
             else:
                 shape = ""
 
-            statement = '''Rscript %(tenx_dir)s/R/plot_rdims_gene.R
+            statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_gene.R
                            --method=%(rdims_vis_method)s
                            --table=%(rdims_table)s
                            --seuratobject=%(seurat_object)s
@@ -893,8 +909,8 @@ def plotRdimsGenes(infile, outfile):
 # ################# plot per-cluster summary statistics ##################### #
 # ########################################################################### #
 
-@follows(exportForPython)
-@transform(cluster,
+@follows(exportMetadata)
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/group.numbers.dir/plot.group.numbers.sentinel")
 def plotGroupNumbers(infile, outfile):
@@ -946,7 +962,7 @@ def plotGroupNumbers(infile, outfile):
         job_threads, job_memory, r_memory = TASK.get_resources(
             memory=PARAMS["resources_memory_min"])
 
-        statement = '''Rscript %(tenx_dir)s/R/plot_group_numbers.R
+        statement = '''Rscript %(cellhub_code_dir)s/R/plot_group_numbers.R
                    --metadata=%(metadata_table)s
                    --clusters=%(cluster_assignments)s
                    --seuratobject=%(seurat_object)s
@@ -995,8 +1011,8 @@ def plotGroupNumbers(infile, outfile):
 # ############# Cluster marker identification and visualisation ############# #
 # ########################################################################### #
 
-@follows(getGenesetAnnotations)
-@transform(cluster,
+# @follows(getGenesetAnnotations)
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/cluster.markers.dir/findMarkers.sentinel")
 def findMarkers(infile, outfile):
@@ -1033,7 +1049,7 @@ def findMarkers(infile, outfile):
 
         SPEC["log_file"] = outfile.replace(".sentinel", "." + str(i) + ".log")
 
-        statements.append('''Rscript %(tenx_dir)s/R/seurat_FindMarkers.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_FindMarkers.R
                    --seuratobject=%(seurat_object)s
                    --seuratassay=RNA
                    --clusterids=%(cluster_ids)s
@@ -1054,7 +1070,7 @@ def findMarkers(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/cluster.markers.dir/cluster.stats.sentinel")
 def clusterStats(infile, outfile):
@@ -1087,7 +1103,7 @@ def clusterStats(infile, outfile):
 
         SPEC["log_file"] = outfile.replace(".sentinel", "." + str(i) + ".log")
 
-        statements.append('''Rscript %(tenx_dir)s/R/seurat_clusterStats.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_clusterStats.R
                    --seuratobject=%(seurat_object)s
                    --seuratassay=RNA
                    --clusterids=%(cluster_ids)s
@@ -1118,7 +1134,7 @@ def summariseClusterStats(infile, outfile):
         cpu=1)
 
     # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(tenx_dir)s/R/summarise_clusterStats.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/summarise_clusterStats.R
                    --clusterids=%(cluster_ids)s
                    --outdir=%(outdir)s
                    &> %(log_file)s
@@ -1152,7 +1168,7 @@ def summariseMarkers(infile, outfile):
         cpu=1)
 
     # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(tenx_dir)s/R/seurat_summariseMarkers.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkers.R
                    --seuratobject=%(seurat_object)s
                    --statstable=%(cluster_stats_table)s
                    --clusterids=%(cluster_ids)s
@@ -1195,7 +1211,7 @@ def topMarkerHeatmap(infile, outfile):
         subgroup = ""
 
     statement = '''
-    Rscript %(tenx_dir)s/R/seurat_topMarkerHeatmap.R
+    Rscript %(cellhub_code_dir)s/R/seurat_topMarkerHeatmap.R
                    --seuratobject=%(seurat_object)s
                    --seuratassay=RNA
                    --slot=%(findmarkers_heatmap_slot)s
@@ -1248,7 +1264,7 @@ def characteriseClusterMarkers(infile, outfile):
         SPEC["log_file"] = outfile[:-len(".tex")] + "." + str(i) + ".log"
 
         statement = '''
-                    Rscript %(tenx_dir)s/R/seurat_characteriseClusterDEGenes.R
+                    Rscript %(cellhub_code_dir)s/R/seurat_characteriseClusterDEGenes.R
                     --degenes=%(marker_table)s
                     --seuratobject=%(seurat_object)s
                     --seuratassay=RNA
@@ -1321,7 +1337,7 @@ def extraClusterMarkerPlots(infile, outfile):
         SPEC["log_file"] = outfile[:-len(".sentinel")] + "." + str(i) + ".log"
 
         statement = '''
-                    Rscript %(tenx_dir)s/R/seurat_cluster_marker_plots.R
+                    Rscript %(cellhub_code_dir)s/R/seurat_cluster_marker_plots.R
                     --markers=%(marker_table)s
                     --seuratobject=%(seurat_object)s
                     --seuratassay=RNA
@@ -1361,7 +1377,7 @@ def plotMarkerNumbers(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(tenx_dir)s/R/seurat_summariseMarkerNumbers.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkerNumbers.R
                    --degenes=%(marker_table)s
                    --clusterids=%(cluster_ids)s
                    --outdir=%(outdir)s
@@ -1378,7 +1394,7 @@ def plotMarkerNumbers(infile, outfile):
 
 @active_if(PARAMS["run_exprsreport"])
 @follows(summariseMarkers)
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/cluster.marker.rdims.plots.dir/top.cluster.markers.sentinel")
 def topClusterMarkers(infile, outfile):
@@ -1471,7 +1487,7 @@ def topClusterMarkers(infile, outfile):
                 memory=PARAMS["resources_memory_standard"])
 
 
-            statement = '''Rscript %(tenx_dir)s/R/seurat_get_assay_data.R
+            statement = '''Rscript %(cellhub_code_dir)s/R/seurat_get_assay_data.R
                            --seuratobject=%(seurat_object)s
                            --seuratassay=RNA
                            --slot=data
@@ -1563,7 +1579,7 @@ def plotRdimsMarkers(infile, outfile):
             clog_file = spec.log_file.replace(".log",
                                               "." + name + "." + str(cluster) + ".log")
 
-            statement = '''Rscript %(tenx_dir)s/R/plot_rdims_cluster_genes.R
+            statement = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_cluster_genes.R
                            --method=%(rdims_vis_method)s
                            --table=%(rdims_table)s
                            --assaydata=%(assay_data)s
@@ -1671,8 +1687,8 @@ def plotRdimsMarkers(infile, outfile):
 # It is only run on samples prefixed with "all.", "agg." or "aligned."
 
 @active_if(PARAMS["findmarkers_between"])
-@follows(getGenesetAnnotations)
-@transform(cluster,
+#@follows(getGenesetAnnotations)
+@transform(scanpyCluster,
            regex(r"(all.*|agg.*|aligned.*|integrated.*)/cluster.sentinel"),
            r"\1/condition.markers.dir/findMarkersBetweenConditions.sentinel")
 def findMarkersBetweenConditions(infile, outfile):
@@ -1707,7 +1723,7 @@ def findMarkersBetweenConditions(infile, outfile):
             continue
 
         cluster_log_file = outfile.replace(".sentinel", "." + str(i) + ".log")
-        statements.append('''Rscript %(tenx_dir)s/R/seurat_FindMarkers.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_FindMarkers.R
                    --seuratobject=%(seurat_object)s
                    --seuratassay=RNA
                    --clusterids=%(cluster_ids)s
@@ -1752,7 +1768,7 @@ def summariseMarkersBetweenConditions(infile, outfile):
         memory=PARAMS["resources_memory_standard"])
 
     # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(tenx_dir)s/R/seurat_summariseMarkersBetween.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkersBetween.R
                    --seuratobject=%(seurat_object)s
                    --seuratassay=RNA
                    --testfactor=%(findmarkers_between_testfactor)s
@@ -1807,7 +1823,7 @@ def characteriseClusterMarkersBetweenConditions(infile, outfile):
         cluster_log_file = outfile[:-len(".tex")] + "." + str(i) + ".log"
 
         statement = '''
-                    Rscript %(tenx_dir)s/R/seurat_characteriseClusterDEGenes.R
+                    Rscript %(cellhub_code_dir)s/R/seurat_characteriseClusterDEGenes.R
                     --degenes=%(marker_table)s
                     --seuratobject=%(seurat_object)s
                     --seuratassay=RNA
@@ -1855,7 +1871,7 @@ def plotMarkerNumbersBetweenConditions(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"])
 
-    statement = '''Rscript %(tenx_dir)s/R/seurat_summariseMarkerNumbers.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkerNumbers.R
                    --degenes=%(marker_table)s
                    --clusterids=%(cluster_ids)s
                    --testfactor=%(findmarkers_between_testfactor)s
@@ -1928,7 +1944,7 @@ def parseGMTs(param_keys=["gmt_pathway_files_"]):
 @follows(summariseMarkers)
 @transform(findMarkers,
            regex(r"(.*)/cluster.markers.dir/.*.sentinel"),
-           add_inputs(getGenesetAnnotations),
+      #     add_inputs(getGenesetAnnotations),
            r"\1/cluster.genesets.dir/geneset.analysis.sentinel")
 def genesetAnalysis(infiles, outfile):
     '''
@@ -1978,7 +1994,7 @@ def genesetAnalysis(infiles, outfile):
             E.warn("Skipping geneset analysis: %s does not exist" % universe)
             continue
 
-        statements.append('''Rscript %(tenx_dir)s/R/genesetAnalysis.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/genesetAnalysis.R
                             --markers=%(markers)s
                             --universe=%(universe)s
                             --species=%(annotation_species)s
@@ -2028,7 +2044,7 @@ def summariseGenesetAnalysis(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(tenx_dir)s/R/summariseGenesets.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/summariseGenesets.R
                          --genesetdir=%(genesetdir)s
                          --gmt_names=%(gmt_names)s
                          --show_detailed=%(show_detailed)s
@@ -2057,7 +2073,7 @@ def summariseGenesetAnalysis(infile, outfile):
 @follows(summariseMarkersBetweenConditions)
 @transform(findMarkersBetweenConditions,
            regex(r"(.*)/condition.markers.dir/.*.sentinel"),
-           add_inputs(getGenesetAnnotations),
+       #    add_inputs(getGenesetAnnotations),
            r"\1/condition.genesets.dir/geneset.analysis.between.conditions.sentinel")
 def genesetAnalysisBetweenConditions(infiles, outfile):
     '''
@@ -2111,7 +2127,7 @@ def genesetAnalysisBetweenConditions(infiles, outfile):
             E.warn("Skipping geneset analysis: %s does not exist" % universe)
             continue
 
-        statements.append('''Rscript %(tenx_dir)s/R/genesetAnalysis.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/genesetAnalysis.R
                             --markers=%(markers)s
                             --universe=%(universe)s
                             --species=%(annotation_species)s
@@ -2158,7 +2174,7 @@ def summariseGenesetAnalysisBetweenConditions(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(tenx_dir)s/R/summariseGenesets.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/summariseGenesets.R
                          --genesetdir=%(genesetdir)s
                          --gmt_names=%(gmt_names)s
                          --show_detailed=%(show_detailed)s
@@ -2206,7 +2222,6 @@ def genesets(infile, outfile):
          plotRdimsClusters,
          plotRdimsGenes,
          plotRdimsMarkers,
-         plotDiffusionMap,
          plotGroupNumbers,
          extraClusterMarkerPlots,
          knownMarkerViolins], "plots.sentinel")
@@ -2383,7 +2398,7 @@ def latexVars(infiles, outfile):
             "phateDir": "%(phateDir)s" % locals(),
             "runName": "%(runName)s" % locals(),
             "runDetails": "%(runDetails)s" % locals(),
-            "tenxDir": "%(tenx_dir)s" % PARAMS,
+            "tenxDir": "%(cellhub_code_dir)s" % PARAMS,
             "nPCs": "%(nPCs)s" % locals(),
             "normalizationMethod": "%(normalization_method)s" % PARAMS,
             "reductionType": "%(reductionType)s" % locals(),
@@ -2447,8 +2462,8 @@ def geneExpressionReport(infile, outfile):
                             %(draft_mode)s
       '\\def\\latexVars{%(latexVars)s}
        \\def\\reportTitle{pipeline\\_seurat.py: gene expression report}
-       \\input %(tenx_dir)s/pipelines/pipeline_scxl/geneExpressionReport.tex
-       \\input %(tenx_dir)s/latex/endmatter.tex'
+       \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/geneExpressionReport.tex
+       \\input %(cellhub_code_dir)s/latex/endmatter.tex'
        '''
 
     # Deliberately run twice - necessary for LaTeX compilation..
@@ -2588,9 +2603,9 @@ def markerReport(infile, outfile):
                             %(draft_mode)s
       '\\def\\latexVars{%(latexVars)s}
        \\def\\reportTitle{pipeline\\_seurat.py: cluster marker report}
-       \\input %(tenx_dir)s/pipelines/pipeline_scxl/clusterMarkerReport.tex
+       \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/clusterMarkerReport.tex
        \\input %(tex_file)s
-       \\input %(tenx_dir)s/latex/endmatter.tex'
+       \\input %(cellhub_code_dir)s/latex/endmatter.tex'
        '''
 
     print(statement)
@@ -2640,23 +2655,23 @@ def summaryReport(infile, outfile):
                 '''
     # get the intro
     statement += '''
-      \\input %(tenx_dir)s/pipelines/pipeline_scxl/introReport.tex
+      \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/introReport.tex
       '''
 
     # begin the report (qc, hvg, pca dimension reduction)
     if(os.path.exists("data.dir")):
         statement += '''
-          \\input %(tenx_dir)s/pipelines/pipeline_scxl/beginReport.tex
+          \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/beginReport.tex
           '''
         if PARAMS["run_explore_hvg_and_cell_cycle"]:
             statement += '''
-            \\input %(tenx_dir)s/pipelines/pipeline_scxl/hvgAndCellCycle.tex
+            \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/hvgAndCellCycle.tex
             '''
 
         if PARAMS["normalization_method"] != "sctransform" and +\
            PARAMS["run_jackstraw"] == True:
             statement += '''
-            \\input %(tenx_dir)s/pipelines/pipeline_scxl/jackstrawSection.tex
+            \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/jackstrawSection.tex
             '''
 
 
@@ -2664,85 +2679,85 @@ def summaryReport(infile, outfile):
     # add the section to visualise clusters and factors in reduced dimensions
     # (plots made by tsne or umap)
     statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/rdimsVisSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/rdimsVisSection.tex
         '''
 
     # singleR section
     if(PARAMS["run_singleR"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/singleRSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/singleRSection.tex
         '''
 
     # add the section with plots of cell and gene numbers etc.
     statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/numbersSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/numbersSection.tex
         '''
 
     if(PARAMS["run_compare_clusters"]):
        statement += '''
-       \\input %(tenx_dir)s/pipelines/pipeline_scxl/clusteringSection.tex
+       \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/clusteringSection.tex
        '''
 
     nresolutions = len(str(PARAMS["runspecs_cluster_resolutions"]).split(","))
 
     if(nresolutions > 1):
        statement += '''
-       \\input %(tenx_dir)s/pipelines/pipeline_scxl/clustree.tex
+       \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/clustree.tex
        '''
 
 
     if(PARAMS["run_diffusionmap"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/diffusionSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/diffusionSection.tex
         '''
 
     if(PARAMS["run_phate"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/phateSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/phateSection.tex
         '''
 
     if(PARAMS["run_paga"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/pagaSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/pagaSection.tex
         '''
 
     if(PARAMS["run_velocity"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/scveloSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/scveloSection.tex
         '''
 
     if(PARAMS["run_velocity"] and PARAMS["run_paga"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/scveloForceDirectedGraphSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/scveloForceDirectedGraphSection.tex
         '''
 
     if(PARAMS["run_velocity"] and PARAMS["run_phate"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/scveloPhateSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/scveloPhateSection.tex
         '''
 
     if(PARAMS["run_knownmarkers"]):
         statement += '''
-         \\input %(tenx_dir)s/pipelines/pipeline_scxl/knownmarkersSection.tex
+         \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/knownmarkersSection.tex
         '''
 
     statement += '''
-      \\input %(tenx_dir)s/pipelines/pipeline_scxl/markerGenes.tex
+      \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/markerGenes.tex
       '''
 
     if(PARAMS["run_top_marker_heatmap"]):
         statement += '''
-        \\input %(tenx_dir)s/pipelines/pipeline_scxl/topMarkerHeatmap.tex
+        \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/topMarkerHeatmap.tex
         '''
 
     if(PARAMS["run_characterise_markers"]): # and not ...
         statement += '''
-        \\input %(tenx_dir)s/pipelines/pipeline_scxl/markerGenesByCluster.tex
+        \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/markerGenesByCluster.tex
         '''
 
     if(PARAMS["run_genesets"]):
         statement += '''
-        \\input %(tenx_dir)s/pipelines/pipeline_scxl/genesetSection.tex
+        \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/genesetSection.tex
                      '''
 
     # When relevant, add section that compares
@@ -2752,16 +2767,16 @@ def summaryReport(infile, outfile):
 
         wcc_section_name = "withinClusterComparisonSection.tex"
         statement += '''
-          \\input %(tenx_dir)s/pipelines/pipeline_scxl/%(wcc_section_name)s
+          \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/%(wcc_section_name)s
           '''
 
         if(PARAMS["run_genesets"]):
             statement += '''
-        \\input %(tenx_dir)s/pipelines/pipeline_scxl/genesetBetweenSection.tex
+        \\input %(cellhub_code_dir)s/pipelines/pipeline_scxl/genesetBetweenSection.tex
                          '''
 
 
-    statement += '''\\input %(tenx_dir)s/latex/endmatter.tex'
+    statement += '''\\input %(cellhub_code_dir)s/latex/endmatter.tex'
     '''
 
     # Deliberately run twice - necessary for LaTeX compilation..
@@ -2885,7 +2900,7 @@ def cellbrowser(infile, outfile):
             TASK.get_resources(memory=PARAMS["resources_memory_standard"]))
 
 
-        statement = '''Rscript %(tenx_dir)s/R/cellbrowser_prep.R
+        statement = '''Rscript %(cellhub_code_dir)s/R/cellbrowser_prep.R
                          --outdir=%(outdir_folder)s
                          --seurat_path=%(seurat_path)s
                          --runspecs=%(settings_use)s
@@ -2961,7 +2976,7 @@ def report():
 # ######################### Auxillary functions ############################# #
 # ########################################################################### #
 
-@transform(cluster,
+@transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
            r"\1/cluster_counts.rds")
 def aggregateUMIsPseudobulks(infile, outfile):
@@ -2986,7 +3001,7 @@ def aggregateUMIsPseudobulks(infile, outfile):
     locals().update(
         TASK.get_resources(memory=PARAMS["resources_memory_low"]))
 
-    statement = '''Rscript %(tenx_dir)s/R/aggregate_umis_pseudobulks.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/aggregate_umis_pseudobulks.R
                            --tenxdir=%(tenxdir)s
                            --clusterids=%(cluster_ids)s
                            --outfile=%(outfile)s

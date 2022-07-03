@@ -12,6 +12,17 @@ projectname: 10x single cell analysis
 # Author
 author: Sansom group
 
+# The source data
+# The pipeline starts from an anndata object
+source:
+  # The path to the anndata file
+  anndata: ../integrated.h5ad
+
+  # The name of the reduced dimension space
+  # this must exist in the source annadata obsm
+  # e.g. for source_anndata.obsm["X_pca"] set to "pca"
+  rdim_name: scVI
+
 # compute resource options
 # ------------------------
 resources:
@@ -27,14 +38,14 @@ resources:
   # aggregateUMIsPseudobulks
   memory_low: 10G
   # Memory_standard is used if not further specified
-  memory_standard: 20G
+  memory_standard: 16G
   # Memory_high is used for tasks: findMarkers, summariseMarkers,
   # diffusionMap
-  memory_high: 50G
+  memory_high: 32G
   # Memory_extreme is used for the scaleing and PCA tasks
   # this can require > 100G for large datasets.
   # diffusionMap
-  memory_extreme: 80G
+  memory_extreme: 64G
   #
   # Is memory allocated by core on the cluster?
   # If not, set to "False"
@@ -107,16 +118,8 @@ annotation:
 
 runspecs:
 
-  # The name of the reduced dimension space
-  # This must exist in the supplied anndata object
-  rdim_name: pca
-
   # Number(s) of components of the reduced dimension space to use 
-  n_components: 20,30,50
-
-  # Clustering algorithm (as supported by Scanpy)
-  # "leiden" | "louvain"
-  cluster_algorithm: leiden
+  n_components: 20
 
   # Clustering resolution(s)
   cluster_resolutions: 0.6,1
@@ -151,6 +154,12 @@ neighbors:
   # e.g. euclidean | cosine
   metric: euclidean
 
+# Clustering parameters
+# ---------------------
+cluster:
+  # Clustering algorithm (as supported by Scanpy)
+  # "leiden" | "louvain"
+  algorithm: leiden
 
 # SingleR
 # -------
