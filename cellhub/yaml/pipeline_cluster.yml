@@ -47,17 +47,12 @@ resources:
 # ---------------------------------------
 # True | False
 run:
-  explore_hvg_and_cell_cycle: True
   singleR: False
-  jackstraw: False
   compare_clusters: True
   characterise_markers: True
   top_marker_heatmap: True
   extra_cluster_marker_plots: True
-  diffusionmap: False
-  phate: True
   paga: True
-  velocity: False
   knownmarkers: False
   # If marker report is True then
   # (i) violin plots and DE plots are not shown

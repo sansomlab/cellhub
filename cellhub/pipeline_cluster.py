@@ -166,15 +166,7 @@ def neighbourGraph(infile, outfile):
 
     SPEC["components"] = outfile.split("/")[1][len("components."):-len(".dir")]
 
-    if SPEC["components"] == "sig":
-#        raise ValueError("Use of significant components not yet supported")
-        sigcomps = os.path.join(spec.sample_dir, "sig_comps.tsv")
-        comps = pd.read_table(sigcomps, header=None)
-        comps = comps[comps.columns[0]].tolist()
-        comps = ','.join([ str(item) for item in comps])
-    else :
-        comps = list(range (1, int(spec.components)+1))
-        comps = ','.join([ str(item) for item in comps])
+    ncomps = spec.components
 
     # set the job threads and memory
     if PARAMS["neighbors_full_speed"]:
@@ -188,7 +180,7 @@ def neighbourGraph(infile, outfile):
     statement = '''python %(tenx_dir)s/python/compute_neighbor_graph.py
                    --rdim_name=%(rdim_name)s
                    --outdir=%(outdir)s
-                   --comps=%(comps)s
+                   --ncomps=%(ncomps)s
                    --method=%(neighbors_method)s
                    --threads=%(neighbors_threads)s
                    --k=%(neighbors_n_neighbors)s
@@ -674,42 +666,6 @@ def plotRdimsClusters(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@active_if(PARAMS["run_diffusionmap"])
-@transform(cluster,
-           regex(r"(.*)/(.*).dir/(.*).dir/(.*).sentinel"),
-           add_inputs(diffusionMap),
-           r"\1/\2.dir/\3.dir/dm.visualisation.dir/plot.dm.cluster.sentinel")
-def plotDiffusionMap(infiles, outfile):
-    '''
-    Run the diffusion map analysis on a saved seurat object.
-    '''
-
-    ## TODO: fix plotting flow
-    infile, dmsentinel = infiles
-
-    diffusionmap = os.path.join(os.path.dirname(dmsentinel),
-                                "dm.tsv.gz")
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    SPEC["outname"] = outfile.replace(".sentinel", ".tsv.gz")
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"])
-
-    statement = '''Rscript %(tenx_dir)s/R/seurat_plot_dm.R
-                             --diffusionmap=%(diffusionmap)s
-                             --clusterassignments=%(cluster_assignments)s
-                             --outdir=%(outdir)s
-                             --plotdirvar=diffmapDir
-                             &> %(log_file)s
-                          ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-
 
 #@follows(UMAP)
 @active_if(PARAMS["run_singleR"])
@@ -1034,67 +990,6 @@ def plotGroupNumbers(infile, outfile):
                 tex.write("\n")
 
     IOTools.touch_file(outfile)
-
-
-# ########################################################################### #
-# #################### Retrieve geneset annoations ########################## #
-# ########################################################################### #
-
-# Retrieve gene annotations and KEGG pathways.
-#
-# The "ensembl.to.entrez.tsv.gz" table is needed for:
-# - adding ensembl gene_ids to the findMarkers results table if s@misc$gene
-#   is not set
-# - translating ensembl gene_ids to entrez gene_ids for the geneset
-#   analysis
-
-@files(None,
-       "annotation.dir/genesets.sentinel")
-def getGenesetAnnotations(infile, outfile):
-    '''Get mappings between Ensembl gene_ids and (i) Entrez ids
-       and (ii) KEGG pathways.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS,
-                               make_outdir = False)
-
-    if PARAMS["headstart_annotation"]:
-
-        source = os.path.join(PARAMS["headstart_path"],
-                                  "annotation.dir")
-
-        if os.path.exists(source):
-            os.symlink(os.path.relpath(source,
-                                       start="."),
-                       "annotation.dir")
-        else:
-            raise ValueError("Headstart annotation path not found: " + source)
-
-    else:
-
-        if PARAMS["annotation_ensembl_host"] == "default":
-            ensembl_host = ""
-        else:
-            ensembl_host = "--ensemblhost=%(annotation_ensembl_host)s" % PARAMS
-
-        # set the job threads and memory
-        job_threads, job_memory, r_memory = TASK.get_resources(
-            memory=PARAMS["resources_memory_low"])
-
-        if not os.path.exists(spec.outdir):
-            os.mkdir(spec.outdir)
-
-        statement = '''Rscript %(tenx_dir)s/R/fetch_geneset_annotations.R
-                     --ensemblversion=%(annotation_ensembl_release)s
-                     %(ensembl_host)s
-                     --species=%(annotation_species)s
-                     --outdir=%(outdir)s
-                     &> %(log_file)s
-                  ''' % dict(PARAMS, **SPEC, **locals())
-
-        P.run(statement)
-        IOTools.touch_file(outfile)
-
 
 # ########################################################################### #
 # ############# Cluster marker identification and visualisation ############# #
