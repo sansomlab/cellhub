@@ -210,14 +210,14 @@ parseBiomartAnnotation <- function(annotation_file)
   missing_names <- anno$gene_name==""
   anno$gene_name[missing_names] <- anno$ensembl_id[missing_names]
   
-  x <- anno$gene_name
+  # make the gene names unique
+  x <- make.unique(anno$gene_name)
   names(x) <- anno$ensembl_id
   x
 }
 
 #' Map ensembl_ids to gene_names with a given map
-getGeneNames <- function(anno_map, ensembl_ids,
-                         make_unique=TRUE)
+getGeneNames <- function(anno_map, ensembl_ids)
 {
   if(!all(ensembl_ids %in% names(anno_map)))
   {
@@ -230,9 +230,5 @@ getGeneNames <- function(anno_map, ensembl_ids,
     anno_map <- c(anno_map, extra)
   }
   x <- as.vector(anno_map[ensembl_ids])
-  if(make_unique)
-  {
-    x <- make.unique(x)
-  }
   x
 }

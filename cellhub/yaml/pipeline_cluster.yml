@@ -74,14 +74,8 @@ run:
   characterise_markers: True
   top_marker_heatmap: True
   extra_cluster_marker_plots: True
-  paga: True
+  paga: False
   knownmarkers: False
-  # If marker report is True then
-  # (i) violin plots and DE plots are not shown
-  #     in the summary report
-  # (ii) the gene expression report will not be made.
-  marker_report: True
-  exprsreport: False
   genesets: False
   cellbrowser: False
 
