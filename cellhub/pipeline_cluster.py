@@ -56,10 +56,12 @@ The pipeline produces the following outputs:
 import os
 import sys
 import gzip
+import glob
 from shutil import copyfile
 
 from pathlib import Path
 import pandas as pd
+
 import yaml
 import textwrap
 from ruffus import *
@@ -117,6 +119,46 @@ def taskSummary(infile, outfile):
     tab.to_latex(buf=outfile, index=False)
 
 
+
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--anndata", default="adata.h5ad", type=str,
+#                     help="path to the anndata object")
+# parser.add_argument("--reduced_dims_name", default="X_pca", type=str,
+#                     help="path to the anndata object")
+# parser.add_argument("--conserved_factor", default="None", type=str,
+#                     help="name of the conserved factor")    
+
+
+@files(PARAMS["source_anndata"],
+       "preflight.sentinel")
+def preflight(infile, outfile):
+    '''
+       Preflight sanity checks.
+    '''
+
+    log_file = outfile.replace(".sentinel", ".log")
+
+    if PARAMS["markers_conserved"]:
+        conserved = "--conserved"
+    else:
+        conserved = ""
+        
+    max_rdims = max(int(x.strip()) for x in 
+                    str(PARAMS["runspecs_n_components"]).strip().split(","))
+
+    statement = '''python %(cellhub_code_dir)s/python/cluster_preflight.py
+                   --anndata=%(infile)s
+                   --reduced_dims_name=%(source_rdim_name)s
+                   --max_reduced_dims=%(max_rdims)s
+                   %(conserved)s
+                   --conserved_factor=%(markers_conserved_factor)s
+                   &> %(log_file)s
+                ''' % dict(PARAMS, **locals())
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+@follows(preflight)
 @files(PARAMS["source_anndata"],
        "metadata.dir/metadata.sentinel")
 def metadata(infile, outfile):
@@ -141,9 +183,30 @@ def metadata(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
+@follows(preflight)
+@files(PARAMS["source_anndata"],
+       "loom.dir/data.loom")
+def loom(infile, outfile):
+    '''
+       Export the data to the loom file format. This is used
+       as an exchange format for plotting in R. 
+    '''
+
+    log_file = outfile.replace(".sentinel", ".log")
+
+    statement = '''python %(cellhub_code_dir)s/python/cluster_export_loom.py
+                   --anndata=%(infile)s
+                   --loom=%(outfile)s
+                   &> %(log_file)s
+                ''' % dict(PARAMS, **locals())
+
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
 # ########################################################################### #
 # ###################### Compute the neighbor graph ######################### #
 # ########################################################################### #
+
 
 def genNeighbourGraphs():
 
@@ -161,7 +224,7 @@ def genNeighbourGraphs():
         outfile = os.path.join(outdir, outname)
         yield [infile, outfile]
 
-
+@follows(preflight)
 @files(genNeighbourGraphs)
 def neighbourGraph(infile, outfile):
     '''
@@ -1035,193 +1098,203 @@ def plotGroupNumbers(infiles, outfile):
 # ############# Cluster marker identification and visualisation ############# #
 # ########################################################################### #
 
-# @follows(getGenesetAnnotations)
 @transform(cluster,
-           regex(r"(.*)/cluster.sentinel"),
-           r"\1/cluster.markers.dir/findMarkers.sentinel")
-def findMarkers(infile, outfile):
-    '''
-    Identification of cluster marker genes.
-
-    This analysis is run in parallel for each cluster.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    if PARAMS["findmarkers_conserved"]:
-        conservedfactor = PARAMS["findmarkers_conserved_factor"]
-        conservedpadj = PARAMS["findmarkers_conserved_padj"]
-        conserved_options = '''--conservedfactor=%(conservedfactor)s
-            --conservedpadj=%(conservedpadj)s
-        '''
-    else:
-        conserved_options = ""
-
-    statements = []
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"],
-        cpu=PARAMS["findmarkers_numcores"])
-
-    for i in spec.clusters:
-
-        if str(i) == "911":
-            continue
-
-        SPEC["log_file"] = outfile.replace(".sentinel", "." + str(i) + ".log")
-
-        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_FindMarkers.R
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
-                   --clusterids=%(cluster_ids)s
-                   --cluster=%(i)s
-                   --testuse=%(findmarkers_test)s
-                   --minpct=%(findmarkers_minpct)s
-                   --mindiffpct=-Inf
-                   --maxcellsperident=%(findmarkers_maxcellsperident)s
-                   --threshuse=%(findmarkers_threshuse)s
-                   %(conserved_options)s
-                   --annotation=annotation.dir/ensembl.to.entrez.tsv.gz
-                   --numcores=%(findmarkers_numcores)s
-                   --outdir=%(outdir)s
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals()))
-
-    P.run(statements)
-    IOTools.touch_file(outfile)
-
-
-@transform(scanpyCluster,
-           regex(r"(.*)/cluster.sentinel"),
-           r"\1/cluster.markers.dir/cluster.stats.sentinel")
+           regex(r"(.*)/(.*)/cluster.sentinel"),
+           r"\1/\2/stats.dir/cluster.stats.sentinel")
 def clusterStats(infile, outfile):
     '''
-    Computation of per-cluster statistics
-
-    This analysis is run in parallel for each cluster.
+    Compute per-cluster statistics (mean expression level).
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
-    if PARAMS["findmarkers_conserved"]:
-        conservedfactor = PARAMS["findmarkers_conserved_factor"]
-        conserved_options = '''--conservedfactor=%(conservedfactor)s
-        '''
+    if PARAMS["markers_conserved"]:
+
+        subset_factor = PARAMS["markers_conserved_factor"]
+        subset_stat="--subset_factor=" + subset_factor
+
+        if not anndata in sys.modules:
+            import anndata as ad
+
+        adata = ad.read_h5ad(PARAMS["source_anndata"])
+        subset_levels = [x for x in adata.obs[subset_factor].cat.categories]
+
     else:
-        conserved_options = ""
-
+        subset_stat=""
+        subset_levels = ["all"]
+    
     statements = []
+    for subset_level in subset_levels:
 
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"],
-        cpu=1)
+        outfile_name = os.path.join(spec.outdir, 
+                                    ".".join([subset_level, "stats.tsv.gz"]))
+        log_file_name = outfile_name.replace(".tsv.gz", ".log")
 
-    for i in spec.clusters:
-
-        if str(i) == "911":
-            continue
-
-        SPEC["log_file"] = outfile.replace(".sentinel", "." + str(i) + ".log")
-
-        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_clusterStats.R
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
-                   --clusterids=%(cluster_ids)s
-                   --cluster=%(i)s
-                   %(conserved_options)s
-                   --outdir=%(outdir)s
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals()))
+        stat = '''python %(cellhub_code_dir)s/python/cluster_stats.py
+                            --anndata=%(source_anndata)s
+                            %(subset_stat)s
+                            --subset_level=%(subset_level)s
+                            --clusterids=%(cluster_ids)s
+                            --outfile=%(outfile_name)s
+                            &> %(log_file_name)s
+                    ''' % dict(PARAMS, **SPEC, **locals())
+    
+        statements.append(stat)
 
     P.run(statements)
     IOTools.touch_file(outfile)
 
 
-@transform(clusterStats,
-           regex(r"(.*)/cluster.stats.sentinel"),
-           r"\1/summarise.stats.sentinel")
-def summariseClusterStats(infile, outfile):
+@follows(clusterStats)
+@transform(cluster,
+           regex(r"(.*)/(.*)/cluster.sentinel"),
+           r"\1/\2/markers.dir/markers.sentinel")
+def findMarkers(infile, outfile):
     '''
-    Make summary tables of the cluster stats.
-
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"],
-        cpu=1)
-
-    # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(cellhub_code_dir)s/R/summarise_clusterStats.R
-                   --clusterids=%(cluster_ids)s
-                   --outdir=%(outdir)s
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-
-@follows(summariseClusterStats)
-@transform(findMarkers,
-           regex(r"(.*)/findMarkers.sentinel"),
-           r"\1/summariseMarkers.sentinel")
-def summariseMarkers(infile, outfile):
-    '''
-    Make summary tables and plots of cluster marker genes.
-
-    The per-cluster results files are aggregated.  Asummary excel
-    file is generated. Tables for geneset enrichment testing
-    are prepared.
+    Find per-cluster marker genes. Just execute the rank_genes routine, no filtering here.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    statements = []
+    
+    for i in spec.clusters:
+    
+        if str(i) == "911":
+            continue
 
-    cluster_stats_table = os.path.join(spec.outdir,
-                                       "cluster.stats.summary.table.tsv.gz")
+        if PARAMS["markers_conserved"]:
 
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"],
-        cpu=1)
+            subset_factor = PARAMS["markers_conserved_factor"]
+            subset_stat="--subset_factor=" + subset_factor
 
-    # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkers.R
-                   --seuratobject=%(seurat_object)s
-                   --statstable=%(cluster_stats_table)s
+            if not anndata in sys.modules:
+                import anndata as ad
+
+            adata = ad.read_h5ad(PARAMS["source_anndata"])
+            subset_levels = [x for x in adata.obs[subset_factor].cat.categories]
+            
+        else:
+            subset_stat = ""
+            subset_levels = ["all"]
+            
+        
+        for subset_level in subset_levels:
+
+            #outdir = os.path.join(spec.outdir, subset_level + ".level.dir")
+
+            outfile_name = os.path.join(spec.outdir, 
+                                        ".".join([str(i), subset_level, "markers.tsv.gz"]))
+            
+            log_file_name = outfile_name.replace(".tsv.gz", ".log")
+            
+            stats_file = os.path.join(spec.cluster_dir,
+                                      "stats.dir",
+                                      subset_level + ".stats.tsv.gz")
+            
+            sizes_file = os.path.join(spec.cluster_dir,
+                                      "stats.dir",
+                                      subset_level + ".sizes.tsv.gz")
+
+            stat = '''python %(cellhub_code_dir)s/python/cluster_markers.py
+                            --anndata=%(source_anndata)s
+                            %(subset_stat)s
+                            --subset_level=%(subset_level)s
+                            --clusterids=%(cluster_ids)s
+                            --cluster=%(i)s
+                            --group_means=%(stats_file)s
+                            --group_sizes=%(sizes_file)s
+                            --method=%(markers_test)s
+                            --pseudocount=%(markers_pseudocount)s
+                            --outfile=%(outfile_name)s
+                            &> %(log_file_name)s
+                    ''' % dict(PARAMS, **SPEC, **locals())
+            
+
+            statements.append(stat)
+
+    P.run(statements)
+    IOTools.touch_file(outfile)
+
+
+@follows(findMarkers)
+@transform(cluster,
+           regex(r"(.*)/(.*)/cluster.sentinel"),
+           add_inputs(loom, metadata),
+           r"\1/\2/markers.dir/markers.summary.sentinel")
+def summariseMarkers(infiles, outfile):
+    # we want to
+    # concat all the marker tables for all the levels.
+    # need to do the p-adj
+
+    spec, SPEC = TASK.get_vars(infiles[0], outfile, PARAMS)
+    
+    cluster_sentinel, loom, metadata = infiles
+    
+    loom_file = loom.replace(".sentinel", ".loom")
+    metadata_file= metadata.replace(".sentinel", ".tsv.gz")
+    
+    marker_files = glob.glob(os.path.join(spec.outdir, "*.markers.tsv.gz"))
+    
+    print(marker_files)
+    marker_files = ",".join(marker_files)
+    
+    if PARAMS["source_heatmap_matrix"] == "X":
+        matrix_loc = "matrix"
+        scale= "FALSE"
+    elif PARAMS["source_heatmap_matrix"] == "log1p":
+        matrix_loc = "layers/log1p"
+        scale = "TRUE"
+    else:
+        raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
+    
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_summarise_markers.R
+                   --marker_files=%(marker_files)s
+                   --loom=%(loom_file)s
                    --clusterids=%(cluster_ids)s
+                   --metadata=%(metadata_file)s
+                   --annotation=%(annotation_ensembl)s
+                   --matrix_loc=%(matrix_loc)s
+                   --scale=%(scale)s
                    --outdir=%(outdir)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
-
+                
+    
     P.run(statement)
-
     IOTools.touch_file(outfile)
+
 
 
 @active_if(PARAMS["run_top_marker_heatmap"])
 @transform(summariseMarkers,
-           regex(r"(.*)/summariseMarkers.sentinel"),
-           r"\1/topMarkerHeatmap.sentinel")
-def topMarkerHeatmap(infile, outfile):
+           regex(r"(.*)/(.*)/(.*)/markers.summary.sentinel"),
+           add_inputs(loom, metadata),
+           r"\1/\2/\3/topMarkerHeatmap.sentinel")
+def topMarkerHeatmap(infiles, outfile):
     '''
-    Characterise cluster marker genes.
-
-    Diagnostic summary plots of differentially expressed genes
-    and violin plots of cluster marker gene expression are generated.
-
-    Parallelised per-cluster.
+    Make the top marker heatmap
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    markers, loom, metadata = infiles
+    
+    spec, SPEC = TASK.get_vars(markers, outfile, PARAMS)
 
-    marker_table = os.path.join(os.path.dirname(infile),
+    marker_table = os.path.join(os.path.dirname(markers),
                                 "markers.summary.table.tsv.gz")
-
+    
+    
+    loom_file = loom.replace(".sentinel", ".loom")
+    metadata_file= metadata.replace(".sentinel", ".tsv.gz")
+    
+    if PARAMS["source_heatmap_matrix"] == "X":
+        matrix_loc = "matrix"
+        scale= "FALSE"
+    elif PARAMS["source_heatmap_matrix"] == "log1p":
+        matrix_loc = "layers/log1p"
+        scale = "TRUE"
+    else:
+        raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"],
@@ -1233,12 +1306,13 @@ def topMarkerHeatmap(infile, outfile):
         subgroup = ""
 
     statement = '''
-    Rscript %(cellhub_code_dir)s/R/seurat_topMarkerHeatmap.R
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
-                   --slot=%(findmarkers_heatmap_slot)s
-                   --markers=%(marker_table)s
+    Rscript %(cellhub_code_dir)s/R/scripts/cluster_topMarkerHeatmap.R
+                   --loom=%(loom_file)s
                    --clusterids=%(cluster_ids)s
+                   --metadata=%(metadata_file)s
+                   --matrix_loc=%(matrix_loc)s
+                   --scale=%(scale)s
+                   --markers=%(marker_table)s
                    --pdf=%(plot_pdf)s
                    %(subgroup)s
                    --outdir=%(outdir)s
@@ -1251,16 +1325,12 @@ def topMarkerHeatmap(infile, outfile):
 
 @active_if(PARAMS["run_characterise_markers"])
 @transform(summariseMarkers,
-           regex(r"(.*)/cluster.markers.dir/summariseMarkers.sentinel"),
-           r"\1/cluster.marker.de.plots.dir/characteriseClusterMarkers.tex")
-def characteriseClusterMarkers(infile, outfile):
+           regex(r"(.*)/markers.dir/markers.summary.sentinel"),
+           r"\1/de.plots.dir/characteriseClusterMarkers.tex")
+def dePlots(infile, outfile):
     '''
-    Characterise cluster marker genes.
-
-    Diagnostic summary plots of differentially expressed genes
-    and violin plots of cluster marker gene expression are generated.
-
-    Parallelised per-cluster.
+        Make diagnoistic differential expression plots
+        (MA and volcano plots)
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1286,17 +1356,10 @@ def characteriseClusterMarkers(infile, outfile):
         SPEC["log_file"] = outfile[:-len(".tex")] + "." + str(i) + ".log"
 
         statement = '''
-                    Rscript %(cellhub_code_dir)s/R/seurat_characteriseClusterDEGenes.R
+                    Rscript %(cellhub_code_dir)s/R/scripts/cluster_de_plots.R
                     --degenes=%(marker_table)s
-                    --seuratobject=%(seurat_object)s
-                    --seuratassay=RNA
-                    --clusterids=%(cluster_ids)s
                     --cluster=%(i)s
                     --outdir=%(outdir)s
-                    --useminfc=TRUE
-                    --pointsize=%(plot_vpointsize)s
-                    --ncol=%(plot_vncol)s
-                    --nrow=%(plot_vnrow)s
                     --pdf=%(plot_pdf)s
                     --plotdirvar=clusterMarkerDEPlotsDir
                     &> %(log_file)s
@@ -1313,34 +1376,102 @@ def characteriseClusterMarkers(infile, outfile):
             out_tex.write(line + "\n")
 
 
+# @active_if(PARAMS["run_characterise_markers"])
+# @transform(summariseMarkers,
+#            regex(r"(.*)/markers.dir/markers.summary.sentinel"),
+#            r"\1/violin.plots.dir/characteriseClusterMarkers.tex")
+# def violinPlots(infile, outfile):
+#     '''
+#        Make violin plots of the top cluster genes
+#     '''
+
+#     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
+#     marker_table = os.path.join(os.path.dirname(infile),
+#                                 "markers.summary.table.tsv.gz")
+
+#     # not all clusters may have degenes
+#     degenes = pd.read_csv(marker_table, sep="\t")
+
+#     job_threads, job_memory, r_memory = TASK.get_resources(
+#         memory=PARAMS["resources_memory_low"],
+#         cpu=1)
+
+#     statements = []
+#     tex = []
+
+#     for i in spec.clusters:
+
+#         if str(i) == "911":
+#             continue
+
+#         SPEC["log_file"] = outfile[:-len(".tex")] + "." + str(i) + ".log"
+
+#         statement = '''
+#                     Rscript %(cellhub_code_dir)s/R/scripts/cluster_violins.R
+#                      --loom=%(loom_file)s
+#                      --clusterids=%(cluster_ids)s
+#                      --metadata=%(metadata_file)s
+#                      --matrix_loc=%(matrix_loc)s
+#                      --scale=%(scale)s
+#                      --degenes=%(marker_table)s
+#                      --cluster=%(i)s
+#                      --outdir=%(outdir)s
+#                      --pdf=%(plot_pdf)s
+#                      --plotdirvar=clusterMarkerDEPlotsDir
+#                     &> %(log_file)s
+#                     ''' % dict(PARAMS, **SPEC, **locals())
+
+#         cluster_tex_file = ".".join(["characterise.degenes", str(i), "tex"])
+#         tex.append("\\input{\\clusterMarkerDEPlotsDir/" + cluster_tex_file + "}")
+#         statements.append(statement)
+
+#     P.run(statements)
+
+#     with open(outfile, "w") as out_tex:
+#         for line in tex:
+#             out_tex.write(line + "\n")
+            
+
 @active_if(PARAMS["run_extra_cluster_marker_plots"])
 @transform(summariseMarkers,
-           regex(r"(.*)/cluster.markers.dir/summariseMarkers.sentinel"),
-           r"\1/cluster.marker.extra.plots.dir/cluster.marker.plots.sentinel")
-def extraClusterMarkerPlots(infile, outfile):
+           regex(r"(.*)/markers.dir/markers.summary.sentinel"),
+           add_inputs(loom, metadata),
+           r"\1/marker.plots.dir/marker.plots.sentinel")
+def markerPlots(infiles, outfile):
     '''
-       Make an additional set of per marker plots
+       Make the per-cluster marker plots
+       TODO: add some version of split dot plots back.. 
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    markers, loom, metadata = infiles
 
-    marker_table = os.path.join(os.path.dirname(infile),
+    spec, SPEC = TASK.get_vars(markers, outfile, PARAMS)
+
+    marker_table = os.path.join(os.path.dirname(markers),
                                 "markers.summary.table.tsv.gz")
 
     # not all clusters may have degenes
     markers = pd.read_csv(marker_table, sep="\t")
     clusters_with_markers = [x for x in markers.cluster.unique()]
+    
+    loom_file = loom.replace(".sentinel", ".loom")
+    metadata_file= metadata.replace(".sentinel", ".tsv.gz")
+    
+    if PARAMS["source_heatmap_matrix"] == "X":
+        scaled_matrix_loc = "matrix"
+        scale= "FALSE"
+    elif PARAMS["source_heatmap_matrix"] == "log1p":
+        scaled_matrix_loc = "layers/log1p"
+        scale = "TRUE"
+    else:
+        raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"],
         cpu=1)
 
     statements = []
-
-    # bring vars into local scope..
-    rdims_vis_method = RDIMS_VIS_METHOD
-    rdim1 = RDIMS_VIS_COMP_1
-    rdim2 = RDIMS_VIS_COMP_2
 
     rdims_table = os.path.join(spec.component_dir,
                                "umap.dir",
@@ -1359,14 +1490,16 @@ def extraClusterMarkerPlots(infile, outfile):
         SPEC["log_file"] = outfile[:-len(".sentinel")] + "." + str(i) + ".log"
 
         statement = '''
-                    Rscript %(cellhub_code_dir)s/R/seurat_cluster_marker_plots.R
+                    Rscript %(cellhub_code_dir)s/R/scripts/cluster_marker_plots.R
                     --markers=%(marker_table)s
-                    --seuratobject=%(seurat_object)s
-                    --seuratassay=RNA
+                    --loom=%(loom_file)s
+                    --scaled_matrix_loc="matrix"
+                    --data_matrix_loc="layers/log1p"
+                    --scale=%(scale)s
+                    --metadata=%(metadata_file)s
+                    --annotation=%(annotation_ensembl)s
                     --clusterids=%(cluster_ids)s
                     --rdimstable=%(rdims_table)s
-                    --rdim1=%(rdim1)s
-                    --rdim2=%(rdim2)s
                     --cluster=%(i)s
                     --outdir=%(outdir)s
                     %(group_opt)s
@@ -1381,10 +1514,9 @@ def extraClusterMarkerPlots(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-
 @transform(summariseMarkers,
-           regex(r"(.*)/cluster.markers.dir/(.*).sentinel"),
-           r"\1/cluster.marker.de.plots.dir/plotMarkerNumbers.sentinel")
+           regex(r"(.*)/markers.dir/(.*).sentinel"),
+           r"\1/marker.de.plots.dir/plotMarkerNumbers.sentinel")
 def plotMarkerNumbers(infile, outfile):
     '''
     Summarise the numbers of per-cluster marker genes.
@@ -1399,7 +1531,7 @@ def plotMarkerNumbers(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkerNumbers.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_marker_numbers.R
                    --degenes=%(marker_table)s
                    --clusterids=%(cluster_ids)s
                    --outdir=%(outdir)s
@@ -1418,7 +1550,7 @@ def plotMarkerNumbers(infile, outfile):
 @follows(summariseMarkers)
 @transform(scanpyCluster,
            regex(r"(.*)/cluster.sentinel"),
-           r"\1/cluster.marker.rdims.plots.dir/top.cluster.markers.sentinel")
+           r"\1/marker.rdims.plots.dir/top.cluster.markers.sentinel")
 def topClusterMarkers(infile, outfile):
     '''
     Identify the strongest cluster markers
@@ -1437,8 +1569,8 @@ def topClusterMarkers(infile, outfile):
     def _filterAndScore(data):
         # filter for strong cluster markers
         data = data[(data["p.adj"] < 0.01) &
-                    (data["avg_logFC"].abs() > np.log(2)) &
-                    (data["cluster_mean"] > 2) &
+                    (data["log2FC"].abs() > np.log(2)) &
+                    (data["mean_exprs"] > 2) &
                     (data["pct.1"] > 0.25)]
 
         # compute a score based on all factors of interest.
@@ -1446,8 +1578,8 @@ def topClusterMarkers(infile, outfile):
         # for fold change, expression level and adjusted p-value.
         # the aim is to give "better" markers higher scores.
         pscore = [1 - x for x in data["p.adj"].values]
-        fscore = [np.exp(np.abs(x)) for x in data["avg_logFC"].values]
-        escore = [np.log2(x) for x in data["cluster_mean"].values]
+        fscore = [np.exp(np.abs(x)) for x in data["log2FC"].values]
+        escore = [np.log2(x) for x in data["mean_exprs"].values]
 
         # construct a matrix of the scores and take the geometric mean.
         temp = np.matrix([pscore,
@@ -1529,7 +1661,7 @@ def topClusterMarkers(infile, outfile):
 
     # keep up to n entries per cluster
     # note that groupby preserves the ordering.
-    positive_markers = data[data["avg_logFC"] > 0]
+    positive_markers = data[data["log2FC"] > 0]
     positive_markers = _filterAndScore(positive_markers)
     positive_markers = _skimMarkers(positive_markers,
                                     PARAMS["exprsreport_n_positive"])
@@ -1541,7 +1673,7 @@ def topClusterMarkers(infile, outfile):
     if stat:
         statements.append(stat)
 
-    negative_markers = data[data["avg_logFC"] < 0]
+    negative_markers = data[data["log2FC"] < 0]
     negative_markers = _filterAndScore(negative_markers)
     negative_markers = _skimMarkers(negative_markers,
                                     PARAMS["exprsreport_n_negative"])
@@ -1559,7 +1691,6 @@ def topClusterMarkers(infile, outfile):
     P.run(statements)
 
     IOTools.touch_file(outfile)
-
 
 
 @active_if(PARAMS["run_exprsreport"])
@@ -1914,7 +2045,7 @@ def plotMarkerNumbersBetweenConditions(infile, outfile):
 # ########### marker gene (and within cluster DE) analysis ################## #
 # ########################################################################### #
 
-@follows(characteriseClusterMarkers,
+@follows(#characteriseClusterMarkers,
          topMarkerHeatmap,
          plotMarkerNumbers,
          characteriseClusterMarkersBetweenConditions,
@@ -2245,7 +2376,7 @@ def genesets(infile, outfile):
          plotRdimsGenes,
          plotRdimsMarkers,
          plotGroupNumbers,
-         extraClusterMarkerPlots,
+         markerPlots,
          knownMarkerViolins], "plots.sentinel")
 def plots(infile, outfile):
     '''
@@ -2500,8 +2631,8 @@ def geneExpressionReport(infile, outfile):
 
 
 @follows(summariseMarkers,
-         extraClusterMarkerPlots,
-         characteriseClusterMarkers)
+         markerPlots)
+#         characteriseClusterMarkers)
 @active_if(PARAMS["run_marker_report"])
 @transform(latexVars,
            regex("(.*)/report.vars.sty"),
@@ -2875,121 +3006,14 @@ def export(infile, outfile):
 # ##################'## Generate cellxgene output ########################### #
 # ########################################################################### #
 
-@active_if(PARAMS["run_cellbrowser"])
-@follows(mkdir("cellbrowser.dir"), summaryReport)
-@transform("*.seurat.dir",
-           regex(r"(.*).seurat.dir"),
-           r"cellbrowser.dir/\1/cellbrowser.sentinel")
-def cellbrowser(infile, outfile):
-    '''
-    Prepare cellbrowser instance for exploratory analysis or to share with
-    collaborators. A cellbrowser instance is only generated for a defined
-    runspecs configuration and only once per sample.'''
 
-    # read in yml entries
-    samples_specs = [s for s in PARAMS.keys()
-                     if s.startswith("cellbrowser_")]
-    samples_specs = [s for s in samples_specs if not "run" in s]
-
-    # only run if sample ID from job is listed in yml
-    sample_name = infile[:-len(".seurat.dir")]
-
-    log_file = outfile.replace(".sentinel", ".log")
-
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-
-    # make cellbrowser if sample is mentioned in yml file
-    if "cellbrowser_"+sample_name in samples_specs:
-        settings_use = PARAMS[str("".join([k for k in samples_specs
-                                           if str(sample_name) in k]))]
-        outdir_settings = os.path.join(outdir, str(settings_use))
-        # set up required subfolders
-        if not os.path.exists(outdir_settings):
-            os.makedirs(outdir_settings)
-        # cellbrowser input files written into following folder
-        outdir_folder = os.path.join(outdir_settings, "infiles")
-        if not os.path.exists(outdir_folder):
-            os.makedirs(outdir_folder)
-
-        seurat_path = sample_name + ".seurat.dir"
-
-        # Rscript to generate input files
-
-        # set the job threads and memory
-        locals().update(
-            TASK.get_resources(memory=PARAMS["resources_memory_standard"]))
-
-
-        statement = '''Rscript %(cellhub_code_dir)s/R/cellbrowser_prep.R
-                         --outdir=%(outdir_folder)s
-                         --seurat_path=%(seurat_path)s
-                         --runspecs=%(settings_use)s
-                       &> %(log_file)s
-                      '''
-        P.run(statement)
-
-        # python code to make configuration file
-        out = open(os.path.join(outdir_settings, "cellbrowser.conf"), "w")
-        conf = ""
-        # cannot use projectname from pipeline.yml here as only letters/digits
-        # allowed in name
-        conf += 'name = "seuratPipeline"\n'
-        conf += '''coords = [{"file":"infiles/UMAP.tsv","shortLabel":"UMAP"},
-                             {"file":"infiles/FA.tsv","shortLabel":
-                              "PAGA initiated force-directed graph"}]\n'''
-        conf += 'shortLabel = "%s"\n' %PARAMS["projectname"]
-        conf += 'exprMatrix = "infiles/exprMatrix.tsv.gz"\n'
-        conf += 'meta = "infiles/meta.tsv"\n'
-        conf += 'enumFields = ["cluster"]\n'
-        conf += 'clusterField = "cluster"\n'
-        conf += 'labelField = "cluster"\n'
-        conf += 'colors = "infiles/colors.tsv"\n'
-        conf += '''markers = [{"file": "infiles/markers.tsv",
-                              "shortLabel": "Cluster markers identified by Seurat"}]\n'''
-        out.write(conf)
-        out.close()
-
-
-        # python code to run cellbrowser
-        cellbrowser_log = os.path.join(outdir_settings,
-                                       "build_cb.log")
-        cellbrowser_conf = os.path.join(outdir_settings, "cellbrowser.conf")
-        outdir_cellbrowser = os.path.join(outdir_settings, "outfiles")
-        statement = '''cbBuild -i %(cellbrowser_conf)s
-                                -o %(outdir_cellbrowser)s
-                                &> %(cellbrowser_log)s '''
-        P.run(statement)
-
-    else:
-        # no cellbrowser for this sample
-        statement = ''' echo "Do not generate cellbrowser"
-                        > %(log_file)s '''
-        P.run(statement)
-
-
-    # add README to output folder
-    readme_file = "cellbrowser.dir/README"
-    if not os.path.exists(readme_file):
-        statement = ''' echo "# to run cellbrowser, go to the chosen sample "
-                        >> %(readme_file)s ;
-                        echo "# folder (e.g. wildtype/30_0.8_1_wilcox) and use the "
-                        >> %(readme_file)s ;
-                        echo "# following command to open it on a port of your choice: "
-                        >> %(readme_file)s ;
-                        echo "cbBuild -i cellbrowser.init -o outfiles/ -p 8888"
-                        >> %(readme_file)s  '''
-        P.run(statement)
-
-    IOTools.touch_file(outfile)
 
 
 # --------------------------- < report target > ----------------------------- #
 
 # This is the target normally used to execute the pipeline.
 
-@follows(export, cellbrowser)
+@follows(export)
 def report():
     pass
 

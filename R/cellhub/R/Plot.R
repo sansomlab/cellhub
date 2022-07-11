@@ -7,31 +7,37 @@
 #' @param a_col Column containing A value (log2 mean expression)
 #' @param p_col Column containing p-values.
 #' @param top_col Column indicating top rows to highlight.
-#' @param label_col Column containing labels for highlighted genes.
+#' @param label_col Column containing labels for highlighted gene_ids.
 plotMA <- function(data, xlab="xlab", ylab="ylab",
                    m_col="M", a_col="A", p_col="p.adj",
-                   top_col="top", label_col="gene")
+                   top_col="top", label_col="gene_name",
+                   p_threshold=0.05)
 {
-    data <- categoriseGenes(data)
+
+    data <- fix_p_values(data, p_col=p_col)
+    data <- categoriseGenes(data,  m_col=m_col, p_col=p_col,
+                            p_threshold=p_threshold)
 
     data <- data.frame(data)
-    print("====")
-    print(head(data))
-    top <- data[data[[top_col]] == TRUE & data[[p_col]] < 0.05,]
-    print(top)
 
-    midpoint=mean(range(-log10(data[[p_col]][data[[p_col]]>0])))
+    top <- data[data[[top_col]] == TRUE & data[[p_col]] < p_threshold,]
 
-    gp <- ggplot(data, aes(get(a_col), get(m_col), color=-log10(get(p_col))))
-    gp <- gp + geom_point(alpha=1, size=0.75)
-    gp <- gp + scale_color_gradient2(low="grey",mid="red",high="black",
-                                     midpoint=midpoint, guide=FALSE)
+    ns <- data[data[[p_col]]>p_threshold,]
+    sig <- data[data[[p_col]]<=p_threshold,]
+
+    gp <- ggplot(data, aes(get(a_col), get(m_col)))
+    
+    gp <- gp + geom_point(data=ns, alpha=0.6, size=0.75, color="grey")
+    gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
+
+    gp <- gp + scale_color_viridis_c(option="rocket", direction=-1)
     gp <- gp + geom_text_repel(data=top, aes_string(label=label_col), color="black",
                                min.segment.length=0, size=3)
     gp <- gp + geom_hline(yintercept=c(-1,1), linetype="dashed", color="grey")
     gp <- gp + geom_hline(yintercept=0, linetype="dashed")
 
-    gp <- gp + xlab(xlab) + ylab(ylab)
+    ltitle <- paste0("-log10\n(",p_col,")")
+    gp <- gp + xlab(xlab) + ylab(ylab) + labs(col = ltitle) 
 
     gp
 }
@@ -47,27 +53,34 @@ plotMA <- function(data, xlab="xlab", ylab="ylab",
 #' @param label_col Column containing labels for highlighted genes.
 plotVolcano <- function(data, xlab="xlab", ylab="ylab",
                         m_col="M", a_col="A", p_col="p.adj",
-                        top_col="top", label_col="gene")
+                        top_col="top", label_col="gene_name",
+                        p_threshold=0.05)
 {
 
-    data <- categoriseGenes(data)
+    data <- fix_p_values(data, p_col=p_col)
+    data <- categoriseGenes(data,  m_col=m_col, p_col=p_col)
+    
 
     data <- data.frame(data)
     top <- data[data[[top_col]] == TRUE & data[[p_col]] < 0.05,]
 
-    midpoint=mean(range(-log10(data[[p_col]][data[[p_col]]>0])))
+    ns <- data[data[[p_col]]>p_threshold,]
+    sig <- data[data[[p_col]]<=p_threshold,]
 
-    gp <- ggplot(data, aes(get(m_col), -log10(get(p_col)), color=-log10(get(p_col))))
-    gp <- gp + geom_point(alpha=1, size=0.75)
-    gp <- gp + scale_color_gradient2(low="grey",mid="red",high="black",
-                                     midpoint=midpoint, guide=FALSE)
+    gp <- ggplot(data, aes(get(m_col), -log10(get(p_col))))
+
+    gp <- gp + geom_point(data=ns, alpha=0.6, size=0.75, color="grey")
+    gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
+   
+    gp <- gp + scale_color_viridis_c(option="rocket", direction=-1)
     gp <- gp + geom_text_repel(data=top, aes_string(label=label_col), color="black",
                                min.segment.length=0,size=3)
     gp <- gp + geom_vline(xintercept=c(-1,1), linetype="dashed", color="grey")
     gp <- gp + geom_vline(xintercept=c(0), linetype="dashed", color="black")
     gp <- gp + geom_hline(yintercept=-log10(0.05), linetype="dashed", color="grey")
 
-    gp <- gp + ylab(ylab) + xlab(xlab)
+    ltitle <- paste0("-log10\n(",p_col,")")
+    gp <- gp + xlab(xlab) + ylab(ylab) + labs(col = ltitle) 
 
     gp
 }
@@ -80,12 +93,16 @@ plotVolcano <- function(data, xlab="xlab", ylab="ylab",
 #' @param freq_col Column containing L value (log2 freq ratio)
 #' @param p_col Column containing p-values.
 #' @param label_col Column containing labels for highlighted genes.
-plotFvE <- function(data, p_col="p.adj", label_col="gene",
+plotFvE <- function(data, p_col="p.adj", label_col="gene_name",
                     m_col="M",freq_col="L",
                     xlab="change in expression (log2)",
-                    ylab="change in frequency (log2)")
+                    ylab="change in frequency (log2)",
+                    p_threshold=0.05)
 {
-    data <- categoriseGenes(data, use_fc=FALSE, ngenes=12)
+    data <- fix_p_values(data, p_col=p_col)
+    data <- categoriseGenes(data, 
+                            m_col=m_col, p_col=p_col,
+                            use_fc=FALSE, ngenes=12)
 
     data$scolor <- "1"
 
@@ -95,19 +112,25 @@ plotFvE <- function(data, p_col="p.adj", label_col="gene",
     data <- data.frame(data)
     top <- data[data$top == TRUE & data$sig,]
 
-    midpoint=mean(range(-log10(data[[p_col]][data[[p_col]]>0])))
+   
+    ns <- data[data[[p_col]]>p_threshold,]
+    sig <- data[data[[p_col]]<=p_threshold,]
 
-    gp <- ggplot(data, aes(get(freq_col), get(m_col), color=-log10(get(p_col))))
-    gp <- gp + geom_point(alpha=1, size=0.75)
+    gp <- ggplot(data, aes(get(freq_col), get(m_col)))
+    gp <- gp + geom_point(data=ns, alpha=0.6, size=0.75, color="grey")
+    gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
+
 
     gp <- gp + geom_text_repel(data=top, aes_string(label=label_col),
                                color="black", min.segment.length=0, size=3)
 
     gp <- gp + geom_hline(yintercept=0, linetype="dashed", color="grey")
     gp <- gp + geom_vline(xintercept=0, linetype="dashed", color="grey")
-    gp <- gp + scale_color_gradient2(low="grey",mid="red",high="black",midpoint=midpoint)
-    gp <- gp + ylab(xlab)
-    gp <- gp + xlab(ylab)
+#   
+    gp <- gp + scale_color_viridis_c(option="rocket", direction=-1)
+
+    ltitle <- paste0("-log10\n(",p_col,")")
+    gp <- gp + xlab(xlab) + ylab(ylab) + labs(col = ltitle) 
 
     gp
 }
@@ -128,16 +151,22 @@ plotFvE <- function(data, p_col="p.adj", label_col="gene",
 #' @param avgfc_col Column containing the average foldchage
 #' @param p_col The column containing the p-value
 #' @param id_col The column containing unique gene identifiers
-plotViolins <- function(data, seurat_object,
-                        cluster_ids, type="positive",
+plotViolins <- function(data=NULL, 
+                        loom="loom.data",
+                        matrix_loc="matrix",
+                        barcode_id_loc="col_attrs/barcode_id",
+                        gene_id_loc="row_attrs/gene_ids",
+                        scale=FALSE,
+                        cluster_ids="cluster_ids.tsv.gz",
+                        type="positive",
                         group.by=NULL, ident.include=NULL,
                         vncol=4, vnrow=3,
                         use.minfc=FALSE,
-                        minfc_col="min_logFC", maxfc_col="max_logFC",
-                        avgfc_col="avg_logFC",
-                        m_col="avg_logFC", p_col="p.adj",
+                        minfc_col="min_log2FC", maxfc_col="max_logFC",
+                        avgfc_col="log2FC",
+                        m_col="log2FC", p_col="p.adj",
                         pt_size=0.1,
-                        id_col="gene")
+                        id_col="gene_name")
 {
 
     ## ensure the gene ids are unique.
@@ -197,7 +226,7 @@ plotViolins <- function(data, seurat_object,
         gpa <- FALSE
         nrow_a <- 0
     }
-
++2619495
     ## if n_a is less than n_show, there are no more genes to show.
     if(n_a == n_show)
     {
@@ -206,7 +235,7 @@ plotViolins <- function(data, seurat_object,
         tmp <- tmp[!tmp[[id_col]] %in% genes_a,]
 
         ## order by largest fold change
-        ## tmp <- tmp[rev(order(abs(tmp$avg_logFC))),]
+        ## tmp <- tmp[rev(order(abs(tmp$log2FC))),]
 
         ## subset to positive or negative markers
         if(type == "positive")
@@ -282,7 +311,14 @@ plotViolins <- function(data, seurat_object,
 #' @param outdir The directory for the output
 #' @param analysis_title Title for this section
 #' @param fc_type The metric by which the violin plots are ordered
-violinPlotSection <- function(data, seurat_object, cluster_ids, type="positive",
+violinPlotSection <- function(data=NULL, 
+                              loom="loom.data",
+                              matrix_loc="matrix",
+                              barcode_id_loc="col_attrs/barcode_id",
+                              gene_id_loc="row_attrs/gene_ids",
+                              cluster_ids="cluster_ids.tsv.gz",
+                              #   metadata_file="metadata.tsv.gz",
+                              type="positive",
                               group.by=opt$testfactor,
                               ident.include=opt$identinclude,
                               vncol=4,vnrow=3, pt_size=0.1,
@@ -294,9 +330,18 @@ violinPlotSection <- function(data, seurat_object, cluster_ids, type="positive",
 {
 
     ## get the violin plots
-    violin_plots <- plotViolins(data, seurat_object, cluster_ids, type=type,
-                                group.by=group.by, pt_size=pt_size,
-                                ident.include=ident.include, vncol=vncol, vnrow=vnrow,
+    violin_plots <- plotViolins(data=data, 
+                                loom=loom,
+                                matrix_loc=matrix_loc,
+                                barcode_id_loc=barcode_id_loc,
+                                gene_id_loc=gene_id_loc,
+                                cluster_ids=clusterids, 
+                                type=type,
+                                group.by=group.by, 
+                                pt_size=pt_size,
+                                ident.include=ident.include, 
+                                vncol=vncol, 
+                                vnrow=vnrow,
                                 use.minfc=use.minfc)
 
 
@@ -543,79 +588,124 @@ plotDownsampling <- function(matrixUMI, metadata, basename) {
 
 
 #' A function to draw a heatmap of top cluster marker genes with
-#' subgroup labels. The function uses the "scale.data" slot by default to make the heatmap.
-#' @param seurat_object A seurat objected with scaled data and cluster information
-#' @param marker_table A dataframe containing the marker information. Must contain "cluster", "gene" and "avg_logFC" columns
+#' subgroup labels. The function uses the "matrx" slot of the loom by default to make the heatmap.
+#' @param loom_path A path to the loom file containing the data to be plotted
+#' @param matrix_loc The location of the matrix in the loom file
+#' @param barcode_id_loc The location of the barcodes
+#' @param gene_id_loc The location of the genes
+#' @param cluster_ids The location of a gzipped tsv file with mapping of cluster_id to barcode_id
+#' @param marker_table A dataframe containing the marker information. Must contain "cluster", "gene" and "log2FC" columns
 #' @param n_markers The number of markers to plot
 #' @param cells_use The names of the cells to use. If NULL all cells will be used
 #' @param row_names_gp The font size for the gene names
 #' @param sub_group If given, the name of a variable in the metadata of the seurat object
 #' @param slot scale.data|data. If data, the rows will be scaled.
+#' @param scale If TRUE, rows will be scaled
 #' @param disp_min Disp floor, used to truncate the scaled data
 #' @param disp_max Disp ceiling, used to truncate the scaled data
-markerComplexHeatmap <- function(seurat_object,
+#' @param padj_threshold The max acceptable padj
+#' @param padj_col Name of the column with the adjusted p-values
+#' @param only_positive Should only the positive markers be plotted
+markerComplexHeatmap <- function(loom_path,
+                                 matrix_loc="matrix",
+                                 barcode_id_loc="col_attrs/barcode_id",
+                                 gene_id_loc="row_attrs/gene_ids",
+                                 scale=FALSE,
+                                 cluster_ids="cluster_ids.tsv.gz",
+                                 metadata_file="metadata.tsv.gz",
                                  marker_table=NULL,
                                  n_markers=20,
                                  cells_use=NULL,
-                                 slot="scale.data",
-                                 priority="avg_logFC",
+                                 padj_threshold=0.1,
+                                 padj_col="p.adj",
+                                 only_positive=TRUE,
+                                 priority=c("pval","log2FC","min_log2FC"),
                                  row_names_gp=10,
                                  sub_group=NULL,
                                  disp_min=-2.5,
                                  disp_max=2.5)
 {
 
+   # 1. Get the markers that we wish to plot
+   priority <- match.arg(priority)
+   rank_var <- sym(priority)
+   
+   # only plot significant markers
+   marker_table <- marker_table[marker_table[[padj_col]] < padj_threshold, ]
+   
+   # only plot positive markers
+   if(only_positive)
+   {
+        marker_table <- marker_table[marker_table$log2FC > 0, ]
+   }
+   
+   if(priority=="pval")
+   {
+       message("sorting by p val, fold change")
+       # sort by p val and then by fold change
+       # often top markers have p==0.
+   top_markers <- marker_table %>%
+         group_by(cluster) %>%
+         slice_min(n=n_markers, order_by = !!rank_var) #c(!!rank_var, desc(log2FC)))
+   } else {
+       message("sorting by ", priority)
+         top_markers <- marker_table %>%
+            group_by(cluster) %>%
+            slice_max(n=n_markers, order_by = !!rank_var)
+   }
+ 
+    message("top makers gene ids:")
+    print(data.frame(top_markers[,c("gene_id", "gene_name", "cluster", "pval", "log2FC")]))
+    #gene_ids_use <- top_markers$gene_id[top_markers$gene_id %in% valid_gene_ids]
+  
+  
+  # 2. Get the data slice
+    message("getting the loom data")
+    x <- getLoomData(loom_path = loom_path,
+                     matrix_loc = matrix_loc,
+                     genes = top_markers$gene_id,
+                     cells = cells_use,
+                     gene_id_loc = gene_id_loc,
+                     barcode_id_loc = barcode_id_loc
+                     )
 
+    if(scale) {  x <- t(scale(t(x))) }
+    
+    message("retrieved loom data:")
+    print(dim(x))
+    #print(rownames(x))
 
-  # we need the recently added vertical split functionality of ComplexHeatmap.
-  if(!packageVersion("ComplexHeatmap")>"1.99")
-  {
-    stop(paste("ComplexHeatmap version 1.99 or later is needed.",
-               "it is avaliable via devtools here: https://github.com/jokergoo/ComplexHeatmap"))
-  }
+    # SWITCH OFF FOR PRODUCTION.
+    # x <- x[,sample(1:ncol(x),5000)]
 
-  if(priority=="avg_logFC") {
-    top_markers <- marker_table %>%
-    group_by(cluster) %>%
-    top_n(n=n_markers,wt=avg_logFC)
-  } else if (priority=="min_logFC") {
-    top_markers <- marker_table %>%
-      group_by(cluster) %>%
-      top_n(n=n_markers,wt=min_logFC)
-} else { stop("ranking statistic not supported")}
+    # 3. sanity check the dimensions of the returned data
+    gene_ids_use <- rownames(x)
+    cells_use <- colnames(x)
+    #print(head(cells_use))
 
-
-  if(is.null(cells_use)) {cell_use <- colnames(
-    GetAssayData(s, slot=slot)) }
-
-  genes_use <- top_markers$gene[top_markers$gene %in%
-                                  rownames(GetAssayData(seurat_object,
-                                                        slot=slot))]
-
-  print(length(genes_use))
-
-  if(length(genes_use) == 0) {
-    stop("None of the marker genes are present in the scaled data...")
-  } else if(length(genes_use) <  length(top_markers$gene)) {
-     message("Warning: not all identified marker genes are present in the ",
+ if(length(gene_ids_use) == 0) {
+    stop("None of the marker gene_ids are present in the scaled data...")
+  } else if(length(gene_ids_use) <  length(top_markers$gene_id)) {
+     message("Warning: not all identified marker gene_ids are present in the ",
              "selected slot. Only markers present in the selected slot ",
              "will be plotted. If using scale.data you should consider re-scaling",
-             "your object to include all genes in the scale.data slot")
+             "your object to include all gene_ids in the scale.data slot")
 
-    top_markers <- top_markers %>% filter(gene %in% genes_use)
+    top_markers <- top_markers %>% filter(gene_id %in% gene_ids_use)
   }
+ 
 
-  cells_use <- cell_use %in% colnames(GetAssayData(seurat_object, slot=slot))
+  message("setting min and max values")
+  # x <- MinMax(x, min = disp_min, max = disp_max)
+  x[x<disp_min] <- disp_min
+  x[x>disp_max] <- disp_max
 
-  x <- as.matrix(GetAssayData(seurat_object, slot=slot)[genes_use, cells_use])
-
-  # compute row z-scores if not using scale.data.
-  if(slot!="scale.data") {  x <- t(scale(t(x))) }
-
-  x <- MinMax(x, min = disp_min, max = disp_max)
-
-  clusters <- Idents(seurat_object)[cells_use]
-
+  message("reading cluster assignments")
+  cluster_assignments <- read.table(gzfile(cluster_ids), sep="\t",
+                                    header=TRUE)
+  rownames(cluster_assignments) <- cluster_assignments$barcode_id
+  
+  clusters <- as.numeric(cluster_assignments[cells_use, "cluster_id"])
 
   # set up the cluster color palette
   nclust <- length(unique(clusters))
@@ -623,33 +713,31 @@ markerComplexHeatmap <- function(seurat_object,
   names(cluster_cols) <- sort(as.numeric(as.character(unique(clusters))))
 
   # get the vector of per-cell cluster names
-  cell_clusters <- clusters[colnames(x)]
+  cell_clusters <- clusters #clusters[colnames(x)]
 
+  message("setting the row annotations")
   clusterAnnotation = rowAnnotation(df = data.frame(cluster=top_markers$cluster),
                                     col = list(cluster=cluster_cols),
                                     show_annotation_name = FALSE,
                                     show_legend=FALSE,
                                     width=unit(2,"mm"))
 
-
   if(!is.null(sub_group))
   {
-
-      if(!sub_group %in% colnames(s[[]]))
+      message("setting up the subgroups")
+      # ingest the metadata
+      metadata <- read.table(metadata_file, header=T, sep="\t")
+      rownames(metadata) <- metadata$barcode_id
+      metadata <- metadata[colnames(x),]
+      
+      if(!sub_group %in% colnames(metadata))
       {
           stop("specified sub group not found in the metadata")
       }
 
     # set up the subgroup colour palette
-    cell_sub_groups <- s[[]][cells_use, sub_group]
+    cell_sub_groups <- metadata[cells_use, sub_group]
     sub_groups <- unique(cell_sub_groups)
-
-    #if(length(sub_groups)>6){
-    #  sub_group_cols <- colormap(colormap = colormaps$portland,
-    #                             nshades = length(sub_groups))
-    #} else {
-    #  sub_group_cols <- brewer.pal(length(sub_groups),"Greys")
-    #}
 
     sub_group_cols <- colormap(colormap = colormaps$portland,
                                nshade = length(sub_groups),
@@ -669,12 +757,19 @@ markerComplexHeatmap <- function(seurat_object,
                                            annotation_legend_param = list(labels_gp = gpar(fontsize = 4),
                                                                           title_gp = gpar(fontsize = 6)))
   } else {
+      
     cell_order <- order(cell_clusters)
     subgroupAnnotation <- NULL
   }
 
+  print(head(cell_order))
   x <- x[,cell_order]
-
+  message("x dimensions")
+  print(dim(x))
+  
+  message("marker table dimesions")
+  print(dim(top_markers))
+  
   # match the Seurat colors
   exprs_cols <- colorRamp2(c(-2.5,0,2.5), c("#FF00FF", "#000000", "#FFFF00"))
 
@@ -682,6 +777,14 @@ markerComplexHeatmap <- function(seurat_object,
     n_rows <- nrow(x)
     # can probably show e.g. 60 rows at font size 8
     row.cex <- min(0.5, 60/n_rows)
+
+  # take the gene_names from the top markers
+  if(!identical(rownames(x), top_markers$gene_id))
+  {
+      stop("data rows and top marker rows do not match")
+  }
+  
+  rownames(x) <- top_markers$gene_name
 
   # draw the heatmap
   Heatmap(x,
@@ -707,8 +810,6 @@ markerComplexHeatmap <- function(seurat_object,
   )
 }
 
-#labels_gp = gpar(col = "red", fontsize = 14))
-
 
 library(reshape2)
 
@@ -724,28 +825,50 @@ library(reshape2)
 #' @param max_quantile The expression quantile to cap the data at.
 #' @importFrom reshape2 melt
 #' @export
-expressionPlots <- function(seurat_object,
-                            features,
-                            rdims,
-                            x="UMAP_1",
-                            y="UMAP_2",
-                            ncol = 6,
-                            pch=16,
-                            point_size = 2.5,
-                            max_quantile = 0.9) {
+expressionPlots <- function(
+    loom="loom.data",
+    matrix_loc="layers/log1p",
+    barcode_id_loc="col_attrs/barcode_id",
+    gene_id_loc="row_attrs/gene_ids",
+    annotation="annotation.tsv.gz",
+    cluster_ids="cluster_ids.tsv.gz",
+    features=NULL,
+    rdims=NULL,
+    x="UMAP_1",
+    y="UMAP_2",
+    ncol = 6,
+    pch=16,
+    point_size = 2.5,
+    max_quantile = 0.9) {
 
   require(ggplot2)
-  cells <- rdims$barcode
+  
+  cells <- rdims$barcode_id
 
-  DefaultAssay(seurat_object) <- "RNA"
-  checkFeatures(seurat_object, features)
-  checkCells(seurat_object, cells)
+  # checkFeatures(seurat_object, features)
+  # checkCells(seurat_object, cells)
 
   ncol <- min(ncol, length(features))
 
-  data <- GetAssayData(seurat_object, slot =  "data",
-                       assay="RNA")[features, cells]
 
+    print(features)
+    print(loom)
+    print(matrix_loc)
+    print(gene_id_loc)
+    print(barcode_id_loc)
+
+  message("getting data")
+  data <- getLoomData(loom_path = loom,
+                   matrix_loc = matrix_loc,
+                   genes = features,
+                   cells = cells,
+                   gene_id_loc = gene_id_loc,
+                   barcode_id_loc = barcode_id_loc
+                  )
+  
+
+  anno <- parseBiomartAnnotation(annotation)
+  rownames(data) <- getGeneNames(anno, rownames(data))
 
   # transform to % of 90th quantile so that a common
   # colour scale can be used.

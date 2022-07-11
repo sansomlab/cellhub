@@ -52,7 +52,7 @@ sprintfResults <- function(results_table,
 #' @param m_col The column containing the log2 ratio
 #' @param id_col A column containing unique identifiers
 #' @param ngenes The number of genes to demarcate
-topGenes <- function(data, m_col = "avg_logFC",
+topGenes <- function(data, m_col = "log2FC",
                      use_fc = TRUE,
                      id_col="gene", ngenes=7)
 {
@@ -76,10 +76,10 @@ topGenes <- function(data, m_col = "avg_logFC",
 #' @param m_col The column containing the log2 ratio
 #' @param ngenes The number of genes to demarcate
 #' @param id_col A column containing a unique identifier
-categoriseGenes <- function(data,m_col="avg_logFC", use_fc=TRUE,
+categoriseGenes <- function(data,m_col="log2FC", use_fc=TRUE,
                             p_col="p.adj", p_threshold=0.05,
                             ngenes=7,
-                            id_col="gene")
+                            id_col="gene_name")
 {
 
   tmp <- topGenes(data[data[[m_col]] > 0,],
@@ -182,5 +182,57 @@ scale_to_quantile <- function(x,q=0.9)
   x
 }
 
+#'  sort out the p-values for plotting purposes
+#'  sometimes p-values will be set to NA if not computed
+#'  zeros are a problem for plotting
+#' @param data The data
+#' @param p_col The p value column in the data
+fix_p_values <- function(data, p_col="p.adj")
+   {
+    data[[p_col]][is.na(data[[p_col]])] <- 1
+    
+    # zeros generate Infs and are excluded from the color scale.
+    min_p <- data[[p_col]][data[[p_col]]>0]
+    # set the zeros to a very small value.
+    min_p <- min(1e-16, min_p)
+    data[[p_col]][data[[p_col]]==0] <- min_p
+    
+    data
+   }
 
+#' This function returns a map of ensembl_id -> gene_name
+#' @param annotation_file A tsv file with mapping of ensembl_id to gene_name
+parseBiomartAnnotation <- function(annotation_file)
+{
+  anno <- read.table(annotation_file, header=T, sep="\t")
+  anno <- unique(anno[,c("ensembl_id","gene_name")])
+  
+  missing_names <- anno$gene_name==""
+  anno$gene_name[missing_names] <- anno$ensembl_id[missing_names]
+  
+  x <- anno$gene_name
+  names(x) <- anno$ensembl_id
+  x
+}
 
+#' Map ensembl_ids to gene_names with a given map
+getGeneNames <- function(anno_map, ensembl_ids,
+                         make_unique=TRUE)
+{
+  if(!all(ensembl_ids %in% names(anno_map)))
+  {
+    warning("The map is missing some of the ensembl ids")
+    message("number of ensembl ids not present in the map:")
+    print(length(ensembl_ids[!ensembl_ids %in% names(anno_map)]))
+    message("adding missing to map (with id as gene_name)")
+    extra <- unique(ensembl_ids[!ensembl_ids %in% names(anno_map)])
+    names(extra) <- extra
+    anno_map <- c(anno_map, extra)
+  }
+  x <- as.vector(anno_map[ensembl_ids])
+  if(make_unique)
+  {
+    x <- make.unique(x)
+  }
+  x
+}

@@ -16,12 +16,23 @@ author: Sansom group
 # The pipeline starts from an anndata object
 source:
   # The path to the anndata file
+  # X -> scaled_data # not required if '..heatmap_matrix: log1p'
+  # layers["counts"] -> count data
+  # layers["log1p"] -> normalised, log1p transformed data
+  
   anndata: ../integrated.h5ad
 
   # The name of the reduced dimension space
   # this must exist in the source annadata obsm
   # e.g. for source_anndata.obsm["X_pca"] set to "pca"
   rdim_name: scVI
+  
+  # The matrix to be used for making the heatmaps
+  # "X" or "log1p"
+  # if "log1p" is passed the values will be z-scored
+  # for the heatmaps.
+  # (all other plots are made from the "log1p" matrix)
+  heatmap_matrix: X
 
 # compute resource options
 # ------------------------
@@ -99,17 +110,19 @@ annotation:
     # Species
     # Used to obtain gene annotations for gene set analyses
     # Choices: 'hs' (for human) | 'mm' (for mouse)
-    species: hs
+    # species: hs
+    
+    ensembl: ../cellhub/api/annotation/ensembl/ensembl.to.entrez.tsv.gz 
 
     # Release of Ensembl gene annotations
     # Choices: 'latest' or a specific number, e.g. 89,90 etc
-    ensembl_release: latest
+    # ensembl_release: latest
 
     # The ensembl host to use
     # When set to "default" the default host of the biomaRt package will be used.
     # The default biomaRt host is currently "www.ensembl.org".
     # If the default host is down try e.g. "uswest.ensembl.org" or "useast.ensembl.org"
-    ensembl_host: default
+    # ensembl_host: default
 
 # Run specifications
 # ------------------
@@ -119,7 +132,7 @@ annotation:
 runspecs:
 
   # Number(s) of components of the reduced dimension space to use 
-  n_components: 20
+  n_components: 10
 
   # Clustering resolution(s)
   cluster_resolutions: 0.6,1
@@ -393,26 +406,32 @@ knownmarkers:
 # FindMarkers parameters
 # ----------------------
 
-findmarkers:
+markers:
     numcores: 1
     # Differential expression testing method(s)
-    # Choices: 'wilcox'|'bimod'|'roc'|'t'|'tobit'|'poisson'|'negbinom'|'MAST'|'DESeq2'
-    test: wilcox
+    # Choices are as supported by scanpy e.g. : 't-test'|'wilcox'
+    # It is recommended to use t-test for data exploration and
+    # wilcox for publication
+    test: t-test
 
-    ## Differential expression parameters (see Seurat::FindMarkers)
-    # Limit testing to genes which show, on average, at least X-fold difference
-    # (see logfc.threshold=...)
-    threshuse: 0.25
+    # pseudocount used to estimate fold changes
+    pseudocount: 0.1
+
+    # log fold change threshold below which markers
+    # will not be tested for significance - should be set 
+    # with regard to the choice of pseudocount!
+    min_fc: 1.5
+    
     # Only test genes that are detected in a minimum fraction of min.pct cells
     # (see min.pct=...)
-    minpct: 0.1
+    min_pct: 0.1
 
     # the slot to use for the top marker heatmap.
     # (if "scale.data" is missing, "data" will be used)
     # if data is used, row z-scores are plotted.
-    heatmap_slot: scale.data
+    # heatmap_slot: scale.data
 
-    maxcellsperident: 50000
+    # maxcellsperident: 50000
     #
     # Within-cluster differential expression (optional)
     # ------------------------------------------------

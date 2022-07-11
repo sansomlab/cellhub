@@ -58,6 +58,8 @@ message(sprintf("saving a unique list of cluster ids"))
 write.table(unique_cluster_ids, file=file.path(opt$outdir,"cluster_ids.tsv"),
             quote=FALSE, col.names = FALSE, row.names = FALSE)
 
+
+
 cluster_colors <- gg_color_hue(length(unique_cluster_ids))
 message(sprintf("saving the cluster colors (ggplot)"))
 write.table(cluster_colors, file=file.path(opt$outdir,"cluster_colors.tsv"),
@@ -69,5 +71,16 @@ cluster_assignments <- data.frame(barcode_id=as.character(names(cluster_ids)),
 write.table(cluster_assignments,
             gzfile(file.path(opt$outdir, "cluster_ids.tsv.gz")),
             sep="\t", col.names=T, row.names=F, quote=F)
+
+
+
+message(sprintf("saving numbers of cells per cluster"))
+ncells_per_cluster <- table(cluster_assignments$cluster_id)
+
+write.table(data.frame(cluster=names(ncells_per_cluster),
+                       ncells=as.numeric(ncells_per_cluster)), 
+            sep="\t",
+            file=file.path(opt$outdir,"cluster_cell_counts.tsv"),
+            quote=FALSE, col.names = TRUE, row.names = FALSE)
 
 message("Completed")

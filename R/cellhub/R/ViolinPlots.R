@@ -1,26 +1,64 @@
 #' Get data for a set of violin plots
-#' @param seurat_object A seurat object
+#' @param loom The location of the Loom file
+#' @param matrix_loc The location of the matrix in the Loom file
+#' @param barcode_id_loc The location of the barcodes in the Loom file
+#' @param gene_id_loc The location of the gene_ids in the Loom file
+#' @param scale Should the Loom data be row-scaled
+#' @param cluster_ids The location of a tsv file mapping barcode_id to cluster_id
 #' @param genes The set of genes to retrieve data for (row names of the seurat objects' "data" slot).
 #' @param metadata A vector of meta.data columns to retrieve
 #' @param clusters A vector of clusters to retrieve data for, if NULL all are included.
 #'
 #' @export
 #'
-getViolinData <- function(seurat_object,
+getViolinData <- function(loom="loom.data",
+                          matrix_loc="layers/log1p",
+                          barcode_id_loc="col_attrs/barcode_id",
+                          gene_id_loc="row_attrs/gene_ids",
+                          cluster_ids="cluster_ids.tsv.gz",
+                          metadata_file="metadata.tsv.gz",
+                          annotation="annotation.tsv.gz",
                           genes,
                           metadata=NULL,
                           clusters=NULL)
 {
   require(reshape2)
 
-  genes <-genes[genes %in% rownames(GetAssayData(seurat_object))]
+  
+  data <- getLoomData(loom_path = loom,
+                   matrix_loc = matrix_loc,
+                   genes = genes,
+                   cells = NULL,
+                   gene_id_loc = gene_id_loc,
+                   barcode_id_loc = barcode_id_loc
+                  )
 
-  data <- as.data.frame(as.matrix(GetAssayData(seurat_object)[genes,]))
+  # this will convert hypens to dots in the barcodes.
+  data <- data.frame(data)
 
-  data$gene <- as.vector(rownames(data))
+  #genes <-genes[genes %in% rownames(x)]
 
-  ggData <- melt(data,id.vars="gene")
-  ggData$cluster <- as.numeric(as.vector(Idents(seurat_object)[ggData$variable]))
+
+  data$gene_id <- as.vector(rownames(data))
+  
+  anno <- parseBiomartAnnotation(annotation)
+  data$gene_name <- getGeneNames(anno, data$gene_id)
+
+  message("reading in the cluster ids")
+  cids <- read.table(cluster_ids, header=T, sep="\t")
+  
+  # see comment above re hypens.
+  rownames(cids) <- gsub("-",".",cids$barcode_id)
+  print(head(rownames(cids)))
+
+  message("melting the data")
+  ggData <- melt(data,id.vars=c("gene_id","gene_name"))
+  
+  print(head(ggData))
+  
+  ggData$cluster <- as.numeric(cids[ggData$variable,"cluster_id"])
+        
+  #as.vector(Idents(seurat_object)[ggData$variable]))
 
   if(!is.null(clusters))
   {
@@ -29,7 +67,10 @@ getViolinData <- function(seurat_object,
 
   if(length(metadata)>0)
   {
-    ggData[,metadata] <- seurat_object[[ggData$variable, metadata]]
+    md <- read.table(metadata_file, header=T, sep="\t")
+    rownames(md) <- md$barcode_id
+    ggData[,metadata] <- md[ggData$variable, metadata]
+#    seurat_object[[ggData$variable, metadata]]
   }
   ggData
 }
@@ -62,7 +103,7 @@ removeGrobs <- function(gpGrob, ncol, nmissing)
   gpGrob
 }
 
-#' Function to draw a block of horizontal violin lots
+#' Function to draw a block of horizontal violin plots
 #'
 #' The number of columns will be respected even if
 #' there are fewer genes than columns
@@ -79,7 +120,10 @@ removeGrobs <- function(gpGrob, ncol, nmissing)
 #'
 #' @export
 #'
-makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
+makeViolins <- function(ggData, 
+                        title=NULL, 
+                        ncol=8, 
+                        group=NULL,
                         colors=NULL,
                         alpha=1,
                         clusters=NULL, cluster_labels=NULL,
@@ -88,8 +132,11 @@ makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
   require(ggplot2)
   require(ggstance)
   theme_set(theme_classic(base_size = 8))
+  
+  message("number of genes:")
+  print(length(unique(ggData$gene_name)))
 
-  ggData$gene <- factor(ggData$gene, levels=unique(ggData$gene))
+  ggData$gene_name <- factor(ggData$gene_name, levels=unique(ggData$gene_name))
 
   if(is.null(clusters))
   {
@@ -99,13 +146,12 @@ makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
     cluster_levels <- unique(clusters)
   }
 
-
-
-  nl  <- length(levels(ggData$gene))
+  nl  <- length(levels(ggData$gene_name))
   nrow <- ceiling(nl/ncol)
 
   if(nl < ncol) { to_add <- (ncol - nl) } else { to_add <- 0 }
 
+  message("preparing the data")
   if(!is.null(cluster_labels))
   {
     ggData$cluster <- factor(cluster_labels[as.character(ggData$cluster)],
@@ -118,13 +164,17 @@ makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
   
   if(to_add > 0)
   {
-    ggData$gene <- factor(ggData$gene,
-                          levels = c(levels(ggData$gene),
+    ggData$gene_name <- factor(ggData$gene_name,
+                          levels = c(levels(ggData$gene_name),
                                      paste0(".",c(1:to_add))))
   }
 
   ticks <- function() {function(limits) c(round(min(limits)),max(1,floor(max(limits))))}
 
+  message("drawing the plot")
+  print(length(unique(ggData$gene_name)))
+  #print(unique(ggData$gene_name))
+  
   if(is.null(group))
   {
     gp <- ggplot(ggData, aes(value, cluster, fill=cluster))
@@ -133,7 +183,7 @@ makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
     gp <- ggplot(ggData, aes_string("value", "cluster", fill=group))
   }
   gp <- gp + geom_violinh(scale = "width", trim = TRUE, alpha=alpha)
-  gp <- gp + facet_wrap(~gene, scales="free_x", ncol=ncol, drop=F)
+  gp <- gp + facet_wrap(~gene_name, scales="free_x", ncol=ncol, drop=F)
   if(!is.null(title)) {
     gp <- gp + ggtitle(title)
   }
@@ -149,15 +199,19 @@ makeViolins <- function(ggData, title=NULL, ncol=8, group=NULL,
                    panel.spacing.x=unit(2, "mm"),
                    axis.line.y = element_blank())
 
-  ggData$gene <- droplevels(ggData$gene)
+  ggData$gene_name <- droplevels(ggData$gene_name)
+  
+  message("adding geom_segment...")  
   gp <- gp + geom_segment(data=ggData, x=-Inf, xend=-Inf, y=-Inf, yend=Inf,size=1)
 
+  message("getting the grob...") 
   gpGrob <- ggplotGrob(gp)
 
   if(nl < ncol) {
+    message("removing grobs...") 
     gpGrob <- removeGrobs(gpGrob, ncol, ncol - nl)
   }
-
+  message("makeViolins done.")
   gpGrob
 }
 
@@ -176,8 +230,13 @@ plotGrob <- function(ggGrob)
 
 
 #' Make a plot (or return a grob) of a set of horizontal violin plots from a seurat object.
-#' @param seurat_object A seurat object.
-#' @param genes The list of genes to plot (should correspond to row names in the seurat object).
+#' @param loom The location of the Loom file
+#' @param matrix_loc The location of the matrix in the Loom file
+#' @param barcode_id_loc The location of the barcodes in the Loom file
+#' @param gene_id_id_loc The location of the gene_ids in the Loom file
+#' @param scale Should the Loom data be row-scaled
+#' @param cluster_ids The location of a tsv file mapping barcode_id to cluster_id
+#' @param genes The list of gene_ids to plot (should correspond to row names in the seurat object).
 #' @param clusters The clusters to show - if NULL, plots are made for all clusters.
 #' @param title A title for this set of genes.
 #' @param ncol  Number of columns, will be passed to facet_wrap.
@@ -190,8 +249,13 @@ plotGrob <- function(ggGrob)
 #'
 #' @export
 #'
-plotHorizontalViolins <- function(seurat_object,
-                                  genes,
+plotHorizontalViolins <- function(loom="loom.data",
+                                  matrix_loc="layers/log1p",
+                                  barcode_id_loc="col_attrs/barcode_id",
+                                  gene_id_loc="row_attrs/gene_ids",
+                                  annotation="annotation.tsv.gz",
+                                  cluster_ids="cluster_ids.tsv.gz",
+                                  genes=NULL,
                                   clusters=NULL,
                                   cluster_labels=NULL,
                                   title=NULL,
@@ -203,7 +267,13 @@ plotHorizontalViolins <- function(seurat_object,
                                   plot=TRUE)
 
 {
-  ggData <- getViolinData(seurat_object,
+  message("getting the data")
+  ggData <- getViolinData(loom=loom,
+                          matrix_loc=matrix_loc,
+                          barcode_id_loc=barcode_id_loc,
+                          gene_id_loc=gene_id_loc,
+                          cluster_ids=cluster_ids,
+                          annotation=annotation,
                           genes=genes,
                           clusters=clusters,
                           metadata=group)
@@ -212,7 +282,10 @@ plotHorizontalViolins <- function(seurat_object,
   {
    names(colors) <- clusters
   }
+  
 
+
+  message("making the violins")
   ggGrob <- makeViolins(ggData,
                         title=title,
                         ncol=ncol,
@@ -223,10 +296,13 @@ plotHorizontalViolins <- function(seurat_object,
                         colors=colors,
                         alpha=alpha)
 
+  
   if(plot)
   {
+    message("plotting grob")
     plotGrob(ggGrob)
   } else {
+    message("returning grob")
     ggGrob
   }
 }
