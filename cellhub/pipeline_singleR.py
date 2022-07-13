@@ -14,6 +14,8 @@ This pipeline runs singleR for cell prediction. Single R:
 Given these facts, in cellhub we run singleR on the raw counts upstream to 
 (a) help with cell QC and (b) save time in the interpretation phase.
 
+This pipeline operates on the ensembl_ids.
+
 Usage
 =====
 
@@ -27,30 +29,24 @@ The pipeline should be run in the cellhub directory.
 
 To obtain a configuration file run "cellhub singleR config".
 
-Please note that the references for singleR are obtained via the R bioconductor
-'celldex' library. It is recommended to fetch all the references that you 
-need interactively to ensure that they are cached correctly in your the
-bioconductor EXPERIMENT_HUB_DIR and ANNOTATION_HUB_DIR for future use.
-
 
 Inputs
 ------
 
-The pipeline starts from the per-sample h5 files.
+1. Per-sample h5 files (from the cellhub API).
 
-We operate on the ensembl_ids.
-
-Dependencies
-------------
-
-This pipeline requires:
+2. References for singleR  obtained via the R bioconductor 'celldex' library. 
+   As downloading of the references is very slow, they need to 
+   be manually downloaded and "stashed" as rds files in an appropriate location using the 
+   R/scripts/singleR_stash_references.R scripts. This location is then specified in the
+   yaml file.
 
 
 Pipeline output
 ===============
 
-The pipeline produces the following outputs:
-
+The pipeline saves the singleR scores and predictions for each of the
+specified references on the cellhub API.
 
 """
 
@@ -101,11 +97,10 @@ if len(sys.argv) > 1:
 # ############################# pipeline tasks ############################## #
 # ########################################################################### #
 
-# input location:
-# api/cellranger.multi/counts/filtered/GSM2560248/h5/sample_filtered_feature_bc_matrix.h5
-
 def genSingleRjobs():
-    '''generate the singleR jobs'''
+    '''
+       generate the singleR jobs
+    '''
 
     sample_h5s = glob.glob("api/cellranger.multi/counts/filtered/*/h5/sample_filtered_feature_bc_matrix.h5")
 
@@ -126,7 +121,7 @@ def genSingleRjobs():
 @files(genSingleRjobs)
 def singleR(infile, outfile):
     '''
-    Perform cell identity prediction.
+       Perform cell identity prediction with singleR.
     '''
     
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -159,7 +154,7 @@ def singleR(infile, outfile):
        "singleR.dir/out.dir/labels.sentinel")
 def concatenate(infile, outfile):
     '''
-    Concatenate the label predictions across all the samples.
+       Concatenate the label predictions across all the samples.
     '''
     
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -207,7 +202,7 @@ def concatenate(infile, outfile):
        "singleR.dir/api.sentinel")
 def singleRapi(infiles, outfile):
     '''
-    Add the scrublet results to the API
+        Add the singleR results to the cellhub API.
     '''
     references = [x.strip() for x in PARAMS["reference_data"].split(",")]
     

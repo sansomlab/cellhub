@@ -58,18 +58,17 @@ Pipeline documentation
 .. toctree::
    :maxdepth: 2
 
+   pipelines/pipeline_adt_norm.rst
    pipelines/pipeline_ambient_rna.rst
+   pipelines/pipeline_annotation.rst
+   pipelines/pipeline_celldb.rst
    pipelines/pipeline_cellranger_multi.rst
    pipelines/pipeline_cell_qc.rst
+   pipelines/pipeline_cluster.rst
    pipelines/pipeline_emptydrops.rst
-   pipelines/pipeline_velocity.rst
-   pipelines/pipeline_celldb.rst
    pipelines/pipeline_fetch_cells.rst
-   pipelines/pipeline_adt_norm.rst
-   pipelines/pipeline_integration.rst
-   pipelines/pipeline_export.rst
-
-
+   pipelines/pipeline_singleR.rst
+   pipelines/pipeline_velocity.rst
 
 Indices and tables
 ------------------

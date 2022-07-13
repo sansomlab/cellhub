@@ -5,7 +5,21 @@ Pipeline cluster
 Overview
 ========
 
-This pipeline performs clustering of integrated single cell data.
+This pipeline performs clustering of integrated single cell datasets. Starting from an anndata
+object with integrated coordinates (e.g. from Harmony or scVI) the pipeline:
+
+* Computes the neighbour graph using the HNSW alogrithm
+* Performs UMAP compuation and Leiden clustering (with ScanPy)
+* Visualises QC statistics on the UMAPs and by cluster
+* Visualises singleR results
+* Finds cluster marker genes (using the ScanPy 'rank_genes_groups' function)
+* Performs pathway analysis of the cluster phenotypes (with gsfisher)
+* Prepares marker gene and summary reports
+* Export an anndata for viewing with cellxgene
+
+For plotting of data in R, the pipeline saves the input anndata in loom format and
+reads data in R with the loomR library.
+
 
 Usage
 =====
@@ -29,25 +43,36 @@ Inputs
 
 The pipeline starts from an anndata object with the following structure.
 
-* anndata.X -> scaled data
-* anndata.layers["counts"] -> raw counts
-* anndata.layers["log1p"] -> total count normalised, 1og1p transformed data
+* annadata.var.index -> ensembl_ids (use of gene names is not supported)
+* anndata.X -> scaled data (a dense matrix)
+* anndata.layers["counts"] -> raw counts (a sparse matrix)
+* anndata.layers["log1p"] -> total count normalised, 1og1p transformed data (a sparse matrix)
 * anndata.obs -> metadata (typically passed through from original cellhub object)
-* anndata.obsm["X_rdim_name"] -> where "rdim_name" matches the "runspec_rdim_name" parameter
+* anndata.obsm["X_rdim_name"] -> containing the integrated coordinates (where "rdim_name" matches
+                                  the "runspec_rdim_name" parameter). TODO: rename this parameter.
 
-It is strongly recommended to retain the information for all of the genes
-in all of the matrices (i.e. do not subset to HVGs!)
-
-Dependencies
-------------
-
-This pipeline requires:
+It is strongly recommended to retain the information for all of the genes in all of the matrices 
+(i.e. do not subset to HVGs!). This is important for marker gene discovery and pathway analysis.
 
 
 Pipeline output
 ===============
 
 The pipeline produces the following outputs:
+
+1. Summary report
+
+- Containing the overview UMAP plots, visualisation of QC and SingleR information 
+- The result of the per-cluster pathway analysis
+
+2. Marker report
+
+- Containing heatmaps, violin plots, expression dotplots, MA and volcano plots for 
+each cluster.
+
+3. xlsx spreadsheets for the marker gene and pathway results
+
+4. Anndata objects ready to be viewed with cellxgene
 
 
 """
@@ -249,8 +274,7 @@ def genNeighbourGraphs():
 def neighbourGraph(infile, outfile):
     '''
        Compute the neighbor graph.
-
-       A miniminal anndata is saved for UMAP computation and clustering
+       A miniminal anndata is saved for UMAP computation and clustering.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -333,7 +357,7 @@ def genScanpyClusterJobs():
 @files(genScanpyClusterJobs)
 def scanpyCluster(infile, outfile):
     '''
-       discover clusters using scanpy.
+       Discover clusters using ScanPy.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -361,7 +385,7 @@ def scanpyCluster(infile, outfile):
            r"\1/cluster.sentinel")
 def cluster(infile, outfile):
     '''
-    post-process the clustering result
+    Post-process the clustering result.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -393,7 +417,8 @@ def cluster(infile, outfile):
            regex(r"(.*)/(.*)/cluster.sentinel"),
            r"\1/\2/compare.clusters.sentinel")
 def compareClusters(infile, outfile):
-    '''Draw a dendrogram showing the relationship between the clusters
+    '''
+       Draw a dendrogram showing the relationship between the clusters.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -513,7 +538,7 @@ def paga(infile, outfile):
            r"\1/umap.dir/umap.sentinel")
 def UMAP(infile, outfile):
     '''
-    Run the UMAP analysis on a saved anndata object.
+       Compute the UMAP layout.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -570,7 +595,7 @@ RDIMS_VIS_COMP_2 = "UMAP_2"
            r"\1/rdims.visualisation.dir/plot.rdims.factor.sentinel")
 def plotRdimsFactors(infiles, outfile):
     '''
-    Visualise factors of interest on the projection.
+       Visualise factors of interest on the UMAP.
     '''
 
     infile, export_sentinel = infiles
@@ -651,7 +676,7 @@ def plotRdimsFactors(infiles, outfile):
            r"\1/\2/rdims.visualisation.dir/plot.rdims.cluster.sentinel")
 def plotRdimsClusters(infile, outfile):
     '''
-    Visualise the clusters on the chosen projection
+        Visualise the clusters on the UMAP
     '''
 
     metadata_table = os.path.join(os.path.dirname(infile),
@@ -727,7 +752,9 @@ def plotRdimsClusters(infile, outfile):
            regex(r"(.*)/(.*)/(.*).sentinel"),
            r"\1/singleR.dir/rdims.plots.sentinel")
 def plotRdimsSingleR(infile, outfile):
-    '''Plot the SingleR primary identity assignments on a UMAP'''
+    '''
+        Plot the SingleR primary identity assignments on a UMAP
+    '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
@@ -789,9 +816,7 @@ def plotRdimsSingleR(infile, outfile):
            r"\1/genelists.dir/plot.rdims.genes.sentinel")
 def plotRdimsGenes(infile, outfile):
     '''
-    Visualise gene expression levels on reduced dimension coordinates
-
-    The @data slot of the seurat object is used.
+        Visualise gene expression levels on the UMAP.
     '''
 
     # TODO: test and fix.
@@ -813,10 +838,6 @@ def plotRdimsGenes(infile, outfile):
         genelists = glob.glob(
             os.path.join(PARAMS["exprsreport_genelist_dir"], "*.tsv"))
 
-        # if RDIMS_VIS_METHOD == "tsne":
-        #     rdims_table = infile.replace(
-        #         "sentinel", str(PARAMS["tsne_perplexity"]) + ".tsv")
-        # elif RDIMS_VIS_METHOD == "umap":
         rdims_table = infile.replace( ".sentinel", ".tsv")
 
         # set the job threads and memory
@@ -896,7 +917,7 @@ def plotRdimsGenes(infile, outfile):
            "singleR.dir/singleR.plots.sentinel")
 def plotSingleR(infile, outfile):
     '''
-       Make singleR heatmaps for the references present on the cellhub api
+       Make singleR heatmaps for the references present on the cellhub API.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -942,7 +963,9 @@ def plotSingleR(infile, outfile):
            regex(r"(.*)/umap.dir/umap.sentinel"),
            r"\1/singleR.dir/summary.sentinel")
 def summariseSingleR(infile, outfile):
-    '''Collect the single R plots into a section for the report'''
+    '''
+       Collect the single R plots into a section for the Summary report.
+    '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
     
@@ -1011,9 +1034,9 @@ def summariseSingleR(infile, outfile):
            r"\1/group.numbers.dir/plot.group.numbers.sentinel")
 def plotGroupNumbers(infiles, outfile):
     '''
-    Plot statistics on cells by group, e.g. numbers of cells per cluster.
+       Plot statistics on cells by group, e.g. numbers of cells per cluster.
 
-    Plots are defined on a case-by-case basis in the yaml.
+       Plots are defined on a case-by-case basis in the yaml.
     '''
 
     cluster_outfile, metadata_outfile = infiles
@@ -1108,7 +1131,7 @@ def plotGroupNumbers(infiles, outfile):
            r"\1/\2/stats.dir/cluster.stats.sentinel")
 def clusterStats(infile, outfile):
     '''
-    Compute per-cluster statistics (mean expression level).
+       Compute per-cluster statistics (e.g. mean expression level).
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1163,7 +1186,8 @@ def clusterStats(infile, outfile):
            r"\1/\2/markers.dir/markers.sentinel")
 def findMarkers(infile, outfile):
     '''
-    Find per-cluster marker genes. Just execute the rank_genes routine, no filtering here.
+        Find per-cluster marker genes. Just execute the rank_genes_groups routine, 
+        no filtering here.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1235,9 +1259,12 @@ def findMarkers(infile, outfile):
            add_inputs(loom, metadata),
            r"\1/\2/markers.dir/markers.summary.sentinel")
 def summariseMarkers(infiles, outfile):
-    # we want to
-    # concat all the marker tables for all the levels.
-    # need to do the p-adj
+    '''
+       Summarise the differentially expressed marker genes. P-values
+       are adjusted per-cluster are filtering out genes with low expression
+       levels and fold changes. Per-cluster gene universes are prepared for
+       the pathway analysis.
+    '''
 
     spec, SPEC = TASK.get_vars(infiles[0], outfile, PARAMS)
     
@@ -1250,7 +1277,6 @@ def summariseMarkers(infiles, outfile):
     
     print(marker_files)
     marker_files = ",".join(marker_files)
-    
     
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_summarise_markers.R
                    --marker_files=%(marker_files)s
@@ -1277,7 +1303,7 @@ def summariseMarkers(infiles, outfile):
            r"\1/\2/\3/topMarkerHeatmap.sentinel")
 def topMarkerHeatmap(infiles, outfile):
     '''
-    Make the top marker heatmap
+       Make the top marker heatmap.
     '''
 
     markers, loom, metadata = infiles
@@ -1333,8 +1359,8 @@ def topMarkerHeatmap(infiles, outfile):
            r"\1/de.plots.dir/characteriseClusterMarkers.tex")
 def dePlots(infile, outfile):
     '''
-        Make diagnoistic differential expression plots
-        (MA and volcano plots)
+        Make per-cluster diagnoistic differential expression plots
+        (MA and volcano plots).
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1465,7 +1491,7 @@ def markerPlots(infiles, outfile):
            r"\1/marker.de.plots.dir/plotMarkerNumbers.sentinel")
 def plotMarkerNumbers(infile, outfile):
     '''
-    Summarise the numbers of per-cluster marker genes.
+       Summarise the numbers of marker genes for each cluster.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1506,7 +1532,7 @@ def plotMarkerNumbers(infile, outfile):
 @files(None, "markers.sentinel")
 def markers(infile, outfile):
     '''
-       Collect the marker plots
+       Target to run marker gene plotting tasks.
     '''
 
     IOTools.touch_file(outfile)
@@ -1520,7 +1546,9 @@ def markers(infile, outfile):
 # ########################################################################### #
 
 def parseGMTs(param_keys=["gmt_pathway_files_"]):
-    '''Helper function for parsing the lists of GMT files'''
+    '''
+       Helper function for parsing the lists of GMT files
+    '''
 
     all_files = []
     all_names = []
@@ -1623,7 +1651,7 @@ def summariseGenesetAnalysis(infile, outfile):
     '''
     Summarise the geneset over-enrichment analyses of cluster marker genes.
 
-    Enriched pathways are summarised in an Excel table and a heatmap.
+    Enriched pathways are saved as dotplots and exported in excel format.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1704,7 +1732,7 @@ def genesets(infile, outfile):
          markerPlots], "plots.sentinel")
 def plots(infile, outfile):
     '''
-    Intermediate target to collect plots.
+       Target to run all the plotting functions.
     '''
 
     IOTools.touch_file(outfile)
@@ -1720,7 +1748,7 @@ def plots(infile, outfile):
 # High quality pdf reports are generated which can be easily shared.
 #
 # The reports incorporate raster (png) graphics. PDF versions of each graphic
-# are also avaliable in the individual run folders.
+# can also be generation (see yaml.)
 
 # -------------------------- < Define variables > --------------------------- #
 
@@ -1731,7 +1759,7 @@ def plots(infile, outfile):
            r"\1/latex.dir/report.vars.sentinel")
 def latexVars(infiles, outfile):
     '''
-    Prepare a file containing the latex variable definitions.
+       Prepare a file containing the latex variable definitions for the reports.
     '''
     infile = infiles[0]
      
@@ -1760,7 +1788,7 @@ def latexVars(infiles, outfile):
            r"\1/summary.report.sentinel")
 def summaryReportSource(infile, outfile):
     '''
-    Write the latex for the summary report
+       Write the latex source for the summary report.
     '''
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
@@ -1783,7 +1811,7 @@ def summaryReportSource(infile, outfile):
            r"\1/summaryReport.sentinel")
 def summaryReport(infile, outfile):
     '''
-    Compile the summary report.
+       Compile the summary report to PDF format.
     '''
      
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1837,7 +1865,7 @@ def summaryReport(infile, outfile):
            r"\1/marker.report.sentinel")
 def markerReportSource(infile, outfile):
     '''
-    Write the latex for the marker report
+       Write the latex source file  for the marker report.
     '''
     
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1866,7 +1894,7 @@ def markerReportSource(infile, outfile):
            r"\1/clusterMarkerReport.sentinel")
 def markerReport(infile, outfile):
     '''
-     Prepare a PDF report visualising the discovered cluster markers
+       Prepare a PDF report visualising the discovered cluster markers.
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -1917,10 +1945,12 @@ def markerReport(infile, outfile):
            r"reports.dir/\1.comps.\2.res/export.sentinel")
 def export(infile, outfile):
     '''
-    Link output files to a directory in the "reports.dir" folder.
+       Link output files to a directory in the "reports.dir" folder.
 
-    Prepare folders containing the reports, differentially expressed genes
-    and geneset tables for each analysis.
+       Prepare folders containing the reports, differentially expressed genes
+       and geneset tables for each analysis.
+       
+       TODO: link in the cellxgene anndata files.
     '''
 
     spec, SPEC = TASK.get_vars(infile, infile, PARAMS)
@@ -1963,10 +1993,11 @@ def export(infile, outfile):
 
 # --------------------------- < report target > ----------------------------- #
 
-# This is the target normally used to execute the pipeline.
-
 @follows(export)
 def report():
+    '''
+       Target for building the reports.
+    '''
     pass
 
 #endregion
@@ -1981,6 +2012,7 @@ def report():
 def knownMarkerViolins(infile, outfile):
     pass
 
+# TODO: Add back this functionality if needed.
 # @active_if(PARAMS["run_knownmarkers"])
 # @transform(scanpyCluster,
 #            regex(r"(.*)/(.*)/(.*)/cluster.sentinel"),
@@ -2024,7 +2056,7 @@ def knownMarkerViolins(infile, outfile):
            r"\1/cellxgene.sentinel")
 def cellxgene(infile, outfile):
     '''
-    Export an anndata object for cellxgene
+       Export an anndata object for cellxgene.
     '''
         
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
@@ -2086,46 +2118,41 @@ def cellxgene(infile, outfile):
 # ######################### Auxillary functions ############################# #
 # ########################################################################### #
 
-@transform(scanpyCluster,
-           regex(r"(.*)/cluster.sentinel"),
-           r"\1/cluster_counts.rds")
-def aggregateUMIsPseudobulks(infile, outfile):
-    '''
-    Aggregate UMI counts across cells within cluster to form pseudobulks.
+# TODO: replace with python script to summarise counts from anndata.
+# @transform(scanpyCluster,
+#            regex(r"(.*)/cluster.sentinel"),
+#            r"\1/cluster_counts.rds")
+# def aggregateUMIsPseudobulks(infile, outfile):
+#     '''
+#     Aggregate UMI counts across cells within cluster to form pseudobulks.
 
-    Useful for performing e.g. DESeq2 analysis of clusters from
-    multiple samples.
-    '''
+#     Useful for performing e.g. DESeq2 analysis of clusters from
+#     multiple samples.
+#     '''
 
-    outdir = os.path.dirname(infile)
-    cluster_ids = os.path.join(outdir, "cluster_ids.rds")
+#     outdir = os.path.dirname(infile)
+#     cluster_ids = os.path.join(outdir, "cluster_ids.rds")
 
-    seurat_dir = Path(outfile).parents[1]
-    sample_data_dir = str(seurat_dir).replace(".seurat", "")
-    run_dir = Path(seurat_dir).parents[0]
+#     seurat_dir = Path(outfile).parents[1]
+#     sample_data_dir = str(seurat_dir).replace(".seurat", "")
+#     run_dir = Path(seurat_dir).parents[0]
 
-    tenxdir = os.path.join(run_dir, 'data.dir', sample_data_dir)
+#     tenxdir = os.path.join(run_dir, 'data.dir', sample_data_dir)
 
-    log_file = os.path.join(outdir, 'aggregated_clusters.log')
+#     log_file = os.path.join(outdir, 'aggregated_clusters.log')
 
-    locals().update(
-        TASK.get_resources(memory=PARAMS["resources_memory_low"]))
+#     locals().update(
+#         TASK.get_resources(memory=PARAMS["resources_memory_low"]))
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/aggregate_umis_pseudobulks.R
-                           --tenxdir=%(tenxdir)s
-                           --clusterids=%(cluster_ids)s
-                           --outfile=%(outfile)s
-                           &> %(log_file)s
-                        '''
+#     statement = '''Rscript %(cellhub_code_dir)s/R/aggregate_umis_pseudobulks.R
+#                            --tenxdir=%(tenxdir)s
+#                            --clusterids=%(cluster_ids)s
+#                            --outfile=%(outfile)s
+#                            &> %(log_file)s
+#                         '''
 
-    P.run(statement)
+#     P.run(statement)
 
-
-# ------------------------ < auxillary target > ----------------------------- #
-
-@follows(aggregateUMIsPseudobulks)
-def aux():
-    pass
 
 #endregion
 

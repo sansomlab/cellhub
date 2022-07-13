@@ -9,8 +9,11 @@ Core dependencies include:
 
 - Cellranger (from 10X Genomics) >= 6.0
 - Python3
+- Various Python packages (see python/requirements.txt)
 - R >= 4.0
-- (Latex)
+- Various R libraries (see R/install.packages.R)
+- Latex
+- The provided cellhub R library
 
 
 Installation
@@ -33,3 +36,7 @@ Installation
 4. To install the required R packages (the "BiocManager" and "devtools" libraries must be pre-installed)::
 
      Rscript cellhub-devel/R/install.packages.R
+     
+5. Install the cellhub R library
+
+     R CMD INSTALL R/cellhub
