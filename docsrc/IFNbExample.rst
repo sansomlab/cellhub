@@ -91,7 +91,7 @@ as well as downstream analysis.
   
   cellhub singleR -v5 -p20 make full.
   
-As noted: :doc:`in the pipeline_singleR inputs section <cellhub/pipeline_singleR>` the celldex references
+As noted: :doc:`in the pipeline_singleR inputs section <pipelines/pipeline_singleR>` the celldex references
 neede to be stashed before the pipeline is run.
 
 
@@ -140,7 +140,7 @@ specified in the pipeline_fetch_cells.yml) file::
 This step is performed manually because it is highly dataset specific. Different integration algorithms are needed for different contexts and strategies for HVG selection and modelling of covariates need
 to be considered by the data analyst on a case by case basis.
 
-The result should be saved as an anndata file as described: :doc:`in the pipeline_cluster inputs section <cellhub/pipeline_cluster>`.
+The result should be saved as an anndata file as described: :doc:`in the pipeline_cluster inputs section <pipelines/pipeline_cluster>`.
 
 
 11. Clustering analysis
