@@ -2015,7 +2015,7 @@ def knownMarkerViolins(infile, outfile):
 #     IOTools.touch_file(outfile)
 
 # ########################################################################### #
-# ##################'## Generate cellxgene output ########################### #
+# ##################### Generate cellxgene output ########################### #
 # ########################################################################### #
 
 @follows(markers)
@@ -2079,7 +2079,7 @@ def cellxgene(infile, outfile):
     ''' % dict(PARAMS, **SPEC, **locals())
 
     P.run(statement)
-    #IOTools.touch_file(outfile)
+    IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
@@ -2136,7 +2136,7 @@ def aux():
 # ########################################################################### #
 
 
-@follows(report)
+@follows(report, cellxgene)
 def full():
     pass
 
