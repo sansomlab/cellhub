@@ -73,7 +73,6 @@ x.sample = x.sample.replace("_", "\\_")
 x.projectName = PARAMS["projectname"]
 x.reportAuthor = PARAMS["author"]
 x.cellhubDir = PARAMS["cellhub_code_dir"]
-# x.normalizationMethod = PARAMS["normalization_method"]
 x.nPositiveMarkers = PARAMS["exprsreport_n_positive"]
 x.nNegativeMarkers = PARAMS["exprsreport_n_negative"]
 x.nnK = PARAMS["neighbors_n_neighbors"]
@@ -90,7 +89,7 @@ x.rdimsVisMethod = "umap.mindist_" + str(PARAMS["umap_mindist"])
 # <------------------------------ path variables ---------------------------> #
 
 x.singleRDir = p(x.compDir, "singleR.dir")
-x.clusterGenesetsDir = p(x.clusterDir, "cluster.genesets.dir")
+x.clusterGenesetsDir = p(x.clusterDir, "genesets.dir")
 x.clusterMarkerDEPlotsDir = p(x.clusterDir, "marker.de.plots.dir")
 x.clusterMarkerRdimsPlotsDir = p(x.clusterDir, "cluster.marker.rdims.plots.dir")
 x.clusterMarkersDir = p(x.clusterDir, "markers.dir")
@@ -144,6 +143,7 @@ else:
 # x.cellCycle = PARAMS["regress_cellcycle"]
 # x.sdCutOff = PARAMS["vargenes_sdcutoff"]
 # x.latentVariables = PARAMS["regress_latentvars"].replace("_", "\\_")
+# x.normalizationMethod = PARAMS["normalization_method"]
 
 
 # <---------------------------- save the  variables ------------------------> #

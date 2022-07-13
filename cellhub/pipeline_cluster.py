@@ -89,6 +89,22 @@ PARAMS = P.get_parameters(
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+# automatically set paths on the cellhub api
+cellhub_ensembl_annotations = os.path.join(PARAMS["source_cellhub"],
+            "api/annotation/ensembl/ensembl.to.entrez.tsv.gz")
+
+if not os.path.exists(cellhub_ensembl_annotations):
+    raise ValueError("cellhub ensembl annotations file not found: " +
+                     cellhub_ensembl_annotations)
+    
+PARAMS["cellhub_ensembl_annotations"] = cellhub_ensembl_annotations
+
+cellhub_kegg_pathways = os.path.join(PARAMS["source_cellhub"],
+                                  "api/annotation/kegg/kegg.pathways.rds")
+
+if not os.path.exists(cellhub_kegg_pathways):
+    raise ValueError("cellhub kegg pathways file not found")
+PARAMS["cellhub_kegg_pathways"] = cellhub_kegg_pathways
 
 # ----------------------- < pipeline configuration > ------------------------ #
 
@@ -697,28 +713,14 @@ def plotRdimsClusters(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-#@follows(UMAP)
 @active_if(PARAMS["run_singleR"])
-# @product(UMAP,
-#          formatter("(.sentinel)$"),
-#          singleR,
-#          formatter("(.sentinel)$"),
-#          "{subpath[0][0][1]}/"         #  cluster files, first file  seurat.dir/comp.dir/cluster.dir/clusters
-#          "singleR.dir/"
-#          "{subdir[1][0][0]}/"
-#          "singleR.umap.sentinel")
-@files(None, None)
-def plotUmapSingleR(infiles, outfile):
+@transform(RDIMS_VIS_TASK,
+           regex(r"(.*)/(.*)/(.*).sentinel"),
+           r"\1/singleR.dir/rdims.plots.sentinel")
+def plotRdimsSingleR(infile, outfile):
     '''Plot the SingleR primary identity assignments on a UMAP'''
 
-    cluster_sentinel, singleR_sentinel = infiles
-
-    spec, SPEC = TASK.get_vars(cluster_sentinel, outfile, PARAMS)
-
-
-    singleR_dir = os.path.dirname(singleR_sentinel)
-
-    metadata = os.path.join(singleR_dir, "labels.tsv.gz")
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
     rdims_table = os.path.join(spec.component_dir,
                                "umap.dir",
@@ -729,20 +731,32 @@ def plotUmapSingleR(infiles, outfile):
     rdim1 = RDIMS_VIS_COMP_1
     rdim2 = RDIMS_VIS_COMP_2
 
-    #outdir = os.path.dirname(outfile)
-    #log_file = outfile.replace(".sentinel", ".log")
-
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"])
+    
+    api_loc = os.path.join(PARAMS["source_cellhub"], "api", "singleR")
 
-    statement  = '''Rscript %(cellhub_code_dir)s/R/plot_rdims_factor.R
+    if not os.path.exists(api_loc):
+        raise ValueError("singleR api not found in source cellhub folder")
+
+    references = [os.path.basename(x) for x in
+                  glob.glob(os.path.join(api_loc,"*"))]
+    
+    stats = []
+    
+    for reference in references:
+    
+        labels = os.path.join(api_loc, reference, "labels.tsv.gz")
+    
+        statement  = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_rdims_factor.R
                         --method=%(rdims_vis_method)s
                         --table=%(rdims_table)s
-                        --metadata=%(metadata)s
+                        --metadata=%(labels)s
                         --rdim1=%(rdim1)s
                         --rdim2=%(rdim2)s
                         --colorfactors=pruned.labels
+                        --analysisname=%(reference)s
                         --pointsize=%(plot_pointsize)s
                         --pointalpha=%(plot_pointalpha)s
                         --pointpch=%(plot_pointpch)s
@@ -751,9 +765,12 @@ def plotUmapSingleR(infiles, outfile):
                         --plotdirvar=rdimsVisSingleRDir
                         &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
+                
+        stats.append(statement)
 
-    P.run(statement)
+    P.run(stats)
     IOTools.touch_file(outfile)
+
 
 
 @follows(RDIMS_VIS_TASK)
@@ -862,60 +879,75 @@ def plotRdimsGenes(infile, outfile):
 
 #endregion
 
-#region SingleR
-@files(None, None)
-def singleR(infile, outfile):
-    '''dummy function while refactoring'''
-    pass
+#region singleR
 
-# Fix
 @active_if(PARAMS["run_singleR"])
-@transform(singleR,
-           formatter("(.sentinel)$"),
-           "{path[0]}/"
-           "{basename[0]}.plot.sentinel")
+@transform(metadata,
+           regex(".*/metadata.sentinel"),
+           "singleR.dir/singleR.plots.sentinel")
 def plotSingleR(infile, outfile):
-    '''Make the singleR heatmap'''
+    '''
+       Make singleR heatmaps for the references present on the cellhub api
+    '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
-    predictions = os.path.join(spec.indir,
-                               "predictions.rds")
+    metadata = infile.replace(".sentinel", ".tsv.gz")
+    api_loc = os.path.join(PARAMS["source_cellhub"], "api", "singleR")
 
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    if not os.path.exists(api_loc):
+        raise ValueError("singleR api not found in source cellhub folder")
+
+    references = [os.path.basename(x) for x in
+                  glob.glob(os.path.join(api_loc,"*"))]
+    
+    stats = []
+    
+    for reference in references:
+    
+        # set the job threads and memory
+        job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"])
+        
+        scores = os.path.join(api_loc, reference, "scores.tsv.gz")
+        labels = os.path.join(api_loc, reference, "labels.tsv.gz")
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/singleR_plots.R
-                       --seuratobject=%(seurat_object)s
-                       --predictions=%(predictions)s
+        statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_singleR_plots.R
+                       --metadata=%(metadata)s
+                       --scores=%(scores)s
+                       --labels=%(labels)s
+                       --reference=%(reference)s
                        --outdir=%(outdir)s
                        --pdf=%(plot_pdf)s
                        &> %(log_file)s
                        ''' % dict(PARAMS, **SPEC, **locals())
 
-    P.run(statement)
+        stats.append(statement)
+
+    P.run(stats)
     IOTools.touch_file(outfile)
 
 @active_if(PARAMS["run_singleR"])
-@follows(plotSingleR, plotUmapSingleR)
+@follows(plotSingleR, plotRdimsSingleR)
 @transform(UMAP,
            regex(r"(.*)/umap.dir/umap.sentinel"),
-           r"\1/singleR.dir/singleR.summary.tex")
+           r"\1/singleR.dir/summary.sentinel")
 def summariseSingleR(infile, outfile):
     '''Collect the single R plots into a section for the report'''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    api_loc = os.path.join(PARAMS["source_cellhub"], "api", "singleR")
 
-    references = [x.strip() for x in PARAMS["singleR_reference"].split(",")]
+    references = [os.path.basename(x) for x in
+                  glob.glob(os.path.join(api_loc,"*"))]
 
-    singleR_path = os.path.join(Path(infile).parents[2],
+    singleR_path = "singleR.dir"
+
+    singleR_umap_path = os.path.join(Path(infile).parents[1],
                                 "singleR.dir")
 
-    singleR_umap_path = spec.outdir
-
-
-    latex_path = outfile  # .replace(".sentinel", ".tex")
+    latex_path = outfile.replace(".sentinel", ".tex")
 
     with open(latex_path, "w") as tex:
 
@@ -926,8 +958,7 @@ def summariseSingleR(infile, outfile):
             tex.write("\n")
 
             heatmap_path = os.path.join(singleR_path,
-                                        reference + ".ref.dir",
-                                        "singleR_score_heatmap")
+                                        reference + ".heatmap")
 
 
             if(os.path.exists(heatmap_path + ".png")):
@@ -941,10 +972,8 @@ def summariseSingleR(infile, outfile):
                 tex.write("\n")
 
             umap_path = os.path.join(singleR_umap_path,
-                                        reference + ".ref.dir",
-                                        "umap.pruned.labels")
+                                     "umap." + reference + ".pruned.labels")
 
-            # umap
             if(os.path.exists(umap_path + ".png")):
 
                 umap_fig = {"width": "1", "height": "0.9",
@@ -956,6 +985,8 @@ def summariseSingleR(infile, outfile):
                     templates.figure % umap_fig))
 
                 tex.write("\n")
+                
+    IOTools.touch_file(outfile)
 
 #endregion
 
@@ -1211,23 +1242,13 @@ def summariseMarkers(infiles, outfile):
     print(marker_files)
     marker_files = ",".join(marker_files)
     
-    if PARAMS["source_heatmap_matrix"] == "X":
-        matrix_loc = "matrix"
-        scale= "FALSE"
-    elif PARAMS["source_heatmap_matrix"] == "log1p":
-        matrix_loc = "layers/log1p"
-        scale = "TRUE"
-    else:
-        raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
     
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_summarise_markers.R
                    --marker_files=%(marker_files)s
-                   --loom=%(loom_file)s
+                   --minpct=%(markers_min_pct)s
+                   --minfc=%(markers_min_fc)s
                    --clusterids=%(cluster_ids)s
-                   --metadata=%(metadata_file)s
-                   --annotation=%(annotation_ensembl)s
-                   --matrix_loc=%(matrix_loc)s
-                   --scale=%(scale)s
+                   --annotation=%(cellhub_ensembl_annotations)s
                    --outdir=%(outdir)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
@@ -1415,7 +1436,7 @@ def markerPlots(infiles, outfile):
                     --data_matrix_loc="layers/log1p"
                     --scale=%(scale)s
                     --metadata=%(metadata_file)s
-                    --annotation=%(annotation_ensembl)s
+                    --annotation=%(cellhub_ensembl_annotations)s
                     --clusterids=%(cluster_ids)s
                     --rdimstable=%(rdims_table)s
                     --cluster=%(i)s
@@ -1478,7 +1499,6 @@ def plotMarkerNumbers(infile, outfile):
 # It is only run on samples prefixed with "all.", "agg." or "aligned."
 
 @active_if(PARAMS["findmarkers_between"])
-#@follows(getGenesetAnnotations)
 @transform(scanpyCluster,
            regex(r"(all.*|agg.*|aligned.*|integrated.*)/cluster.sentinel"),
            r"\1/condition.markers.dir/findMarkersBetweenConditions.sentinel")
@@ -1526,7 +1546,7 @@ def findMarkersBetweenConditions(infile, outfile):
                    --threshuse=%(findmarkers_threshuse)s
                    --minpct=%(findmarkers_minpct)s
                    --mindiffpct=-Inf
-                   --annotation=annotation.dir/ensembl.to.entrez.tsv.gz
+                   --annotation=%(cellhub_ensembl_annotations)s
                    %(conserved_options)s
                    --numcores=%(findmarkers_numcores)s
                    --outdir=%(outdir)s
@@ -1741,10 +1761,9 @@ def parseGMTs(param_keys=["gmt_pathway_files_"]):
 @active_if(PARAMS["run_genesets"])
 @follows(summariseMarkers)
 @transform(findMarkers,
-           regex(r"(.*)/cluster.markers.dir/.*.sentinel"),
-      #     add_inputs(getGenesetAnnotations),
-           r"\1/cluster.genesets.dir/geneset.analysis.sentinel")
-def genesetAnalysis(infiles, outfile):
+           regex(r"(.*)/markers.dir/markers.sentinel"),
+           r"\1/genesets.dir/geneset.analysis.sentinel")
+def genesetAnalysis(infile, outfile):
     '''
     Naive geneset over-enrichment analysis of cluster marker genes.
 
@@ -1756,15 +1775,9 @@ def genesetAnalysis(infiles, outfile):
     (e.g. such as those from MSigDB).
     '''
 
-    findMarkersLog, genesetAnno = infiles
+    findMarkersLog = infile
 
     spec, SPEC = TASK.get_vars(findMarkersLog, outfile, PARAMS)
-
-    anno = os.path.join(os.path.dirname(genesetAnno),
-                        "ensembl.to.entrez.tsv.gz")
-
-    kegg_pathways = os.path.join(os.path.dirname(genesetAnno),
-                                 "kegg_pathways.rds")
 
     param_keys = ["gmt_celltype_files_",
                   "gmt_pathway_files_"]
@@ -1786,18 +1799,18 @@ def genesetAnalysis(infiles, outfile):
         markers = os.path.join(spec.indir, "markers.summary.table.tsv.gz")
 
         universe = os.path.join(
-            spec.indir, "markers.cluster." + str(i) + ".universe.tsv.gz")
+            spec.indir, str(i) + ".universe.tsv.gz")
 
         if not os.path.exists(universe):
             E.warn("Skipping geneset analysis: %s does not exist" % universe)
             continue
 
-        statements.append('''Rscript %(cellhub_code_dir)s/R/genesetAnalysis.R
+        statements.append('''Rscript %(cellhub_code_dir)s/R/scripts/cluster_geneset_analysis.R
                             --markers=%(markers)s
                             --universe=%(universe)s
-                            --species=%(annotation_species)s
-                            --annotation=%(anno)s
-                            --kegg_pathways=%(kegg_pathways)s
+                            --species=%(source_species)s
+                            --annotation=%(cellhub_ensembl_annotations)s
+                            --kegg_pathways=%(cellhub_kegg_pathways)s
                             --gmt_names=%(gmt_names)s
                             --gmt_files=%(gmt_files)s
                             --cluster=%(i)s
@@ -1813,7 +1826,7 @@ def genesetAnalysis(infiles, outfile):
 
 @active_if(PARAMS["run_genesets"])
 @transform(genesetAnalysis,
-           regex(r"(.*)/.*.sentinel"),
+           regex(r"(.*)/geneset.analysis.sentinel"),
            r"\1/summarise.geneset.analysis.sentinel")
 def summariseGenesetAnalysis(infile, outfile):
     '''
@@ -1842,7 +1855,7 @@ def summariseGenesetAnalysis(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_min"])
 
-    statement = '''Rscript %(cellhub_code_dir)s/R/summariseGenesets.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_geneset_summary.R
                          --genesetdir=%(genesetdir)s
                          --gmt_names=%(gmt_names)s
                          --show_detailed=%(show_detailed)s
@@ -1874,7 +1887,6 @@ def summariseGenesetAnalysis(infile, outfile):
 @follows(summariseMarkersBetweenConditions)
 @transform(findMarkersBetweenConditions,
            regex(r"(.*)/condition.markers.dir/.*.sentinel"),
-       #    add_inputs(getGenesetAnnotations),
            r"\1/condition.genesets.dir/geneset.analysis.between.conditions.sentinel")
 def genesetAnalysisBetweenConditions(infiles, outfile):
     '''
@@ -1931,9 +1943,9 @@ def genesetAnalysisBetweenConditions(infiles, outfile):
         statements.append('''Rscript %(cellhub_code_dir)s/R/genesetAnalysis.R
                             --markers=%(markers)s
                             --universe=%(universe)s
-                            --species=%(annotation_species)s
-                            --annotation=%(anno)s
-                            --kegg_pathways=%(kegg_pathways)s
+                            --species=%(source_species)s
+                            --annotation=%(cellhub_ensembl_annotations)s
+                            --kegg_pathways=%(cellhub_kegg_pathways)s
                             --gmt_names=%(gmt_names)s
                             --gmt_files=%(gmt_files)s
                             --cluster=%(i)s
@@ -2028,6 +2040,7 @@ def genesets(infile, outfile):
          plotRdimsFactors,
          plotRdimsClusters,
          plotRdimsGenes,
+         plotRdimsSingleR,
          plotGroupNumbers,
          markerPlots], "plots.sentinel")
 def plots(infile, outfile):
@@ -2054,7 +2067,8 @@ def plots(infile, outfile):
 
 @transform(plotRdimsClusters,
            regex("(.*)/rdims.visualisation.dir/plot.rdims.cluster.sentinel"),
-           add_inputs(taskSummary, markers, genesets, plots, summariseGenesetAnalysis),
+           add_inputs(taskSummary, markers, genesets, plots, 
+                      summariseGenesetAnalysis,summariseSingleR),
            r"\1/latex.dir/report.vars.sentinel")
 def latexVars(infiles, outfile):
     '''
@@ -2240,8 +2254,8 @@ def markerReport(infile, outfile):
 
 @follows(mkdir("reports.dir"), markerReport)
 @transform(summaryReport,
-           regex(r"(.*).seurat.dir/components.(.*).dir/cluster.(.*).dir/latex.dir/summaryReport.pdf"),
-           r"reports.dir/\1.\2_\3/export.sentinel")
+           regex(r"out.(.*).comp.dir/cluster.(.*).dir/latex.dir/summaryReport.sentinel"),
+           r"reports.dir/\1.comps.\2.res/export.sentinel")
 def export(infile, outfile):
     '''
     Link output files to a directory in the "reports.dir" folder.
@@ -2250,17 +2264,11 @@ def export(infile, outfile):
     and geneset tables for each analysis.
     '''
 
-
     spec, SPEC = TASK.get_vars(infile, infile, PARAMS)
 
-    sample = Path(infile).parts[0].split(".")[0]
+    out_dir = Path(outfile).parents[0]
 
-    cluster_run = spec.components + "_" + spec.resolution
-
-    out_dir = os.path.join("reports.dir",
-                           ".".join([sample, cluster_run]))
-
-    run_dir = Path(os.path.dirname(infile)).parents[0]
+    run_dir = Path(infile).parents[1]
 
     try:
         shutil.rmtree(out_dir)
@@ -2275,18 +2283,17 @@ def export(infile, outfile):
 
     targets = [os.path.join(run_dir,"latex.dir","summaryReport.pdf"),
                os.path.join(run_dir,"latex.dir","clusterMarkerReport.pdf"),
-               os.path.join(run_dir,"cluster.markers.dir","markers.summary.table.xlsx"),
+               os.path.join(run_dir,"markers.dir","markers.summary.table.xlsx"),
                os.path.join(run_dir,"condition.markers.dir",between_xlsx),
-               os.path.join(run_dir, "cluster.genesets.dir","cluster.genesets.xlsx"),
+               os.path.join(run_dir, "genesets.dir","cluster.genesets.xlsx"),
                os.path.join(run_dir, "condition.genesets.dir","condition.genesets.xlsx")]
 
     for target_file in targets:
 
-
+        print(target_file)
         if os.path.exists(target_file):
-
+        
             target = os.path.basename(target_file)
-
             link_name = os.path.join(out_dir, target)
 
             os.symlink(os.path.relpath(target_file, start=out_dir),

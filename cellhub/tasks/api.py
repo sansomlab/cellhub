@@ -95,7 +95,7 @@ class api():
         if pipeline is None or pipeline == "":
             raise ValueError("a pipeline name must be specified")
 
-        self.pipeline = re.sub("[ -_]",".",pipeline)
+        self.pipeline = re.sub("[ \-_]",".",pipeline)
         self.endpoint = endpoint
         self.dataset_defined = False
 

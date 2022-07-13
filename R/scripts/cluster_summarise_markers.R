@@ -4,37 +4,25 @@
 
 stopifnot(
   require(dplyr),
-  require(Matrix),
-  require(reshape2),
+  require(matrixStats),
   require(openxlsx),
   require(optparse),
-  require(ComplexHeatmap),
   require(cellhub)
 )
 
 # Options ----
 
 option_list <- list(
-    make_option(c("--loom"), default="data.loom",
-                help="path to the loom file"),
-    make_option(c("--matrix_loc"), default="matrix",
-                help="location of the matrix in the loom file"),
-    make_option(c("--scale"), default=FALSE,
-                help="should the expression data be scaled for the heatmap"),
-    make_option(c("--barcode_id_loc="), default="col_attrs/barcode_id",
-                help="location of the barcode ids in the loom file"),
-    make_option(c("--gene_id_loc="), default="row_attrs/gene_ids",
-                help="location of the gene ids in the loom file"),
     make_option(c("--marker_files"), default="none",
                 help="List of marker files to aggregate"),
-    make_option(c("--metadata"), default="none",
-                help="A tsv file containing the metadata"),
+    make_option(c("--minpct"), default=0.1, type="double",
+                help="minimum fraction of cells expressing gene"),
+    make_option(c("--minfc"), default=1.5, type="double",
+                help="minimum foldchange"),
     make_option(c("--annotation"), default="none",
                 help="A tsv file containing the annotation"),
     make_option(c("--clusterids"), default="none",
-                help="A tsv file containing the cluster identities"),
-    make_option(c("--subgroup"), default=NULL,
-                help="Optional. Name of a column in metadata to add annotation for in the heatmap"),
+                help="A tsv file containing the clusterids"),
     make_option(c("--pdf"), default = FALSE,
                 help="Create a pdf version of the top marker heatmap"),
     make_option(c("--outdir"), default="seurat.out.dir",
@@ -89,7 +77,9 @@ colnames(results) <- cols
 for(mf in mfs)
 {
   message("Reading markers from: ", mf)
-  x <- readMarkers(mf,min_pct=0.1,min_fc=1.5)
+  x <- readMarkers(mf,
+                   min_pct=opt$minpct,
+                   min_fc=opt$minfc)
   x <- x[,cols]
   results <- rbind(results,x)
 }
@@ -97,7 +87,7 @@ for(mf in mfs)
 # write.table(results, gzfile("raw.tsv.gz"), col.names=T, sep="\t", quote=F)
 
 message("Summarising markers across levels")
-print(head(results))
+
 # collapse levels 
 # - this is where conserved markers are identified
 #   (maximum p-value per level is retained)
@@ -107,6 +97,17 @@ markers <- results %>% group_by(cluster, gene_id) %>%
              across(c("pct","pct_other", "mean_exprs", "mean_exprs_other", "FC","min_FC"), mean),
              nlevels=n()) %>%
    arrange(cluster,pval,desc(FC))
+   
+# When dealing with conserved markers it is possible that some levels
+# had no cells so the DE test was not run.
+
+# detect the number of levels expected as the maximum observed.
+# TODO: make this an explicit check using the metadata.
+n_levels <- max(markers$nlevels)
+
+# nuke the adjusted p-values for genes not tested across
+# all the levels of the conserved factor.
+markers$p.adj[markers$nlevels < n_levels] <- NA
 
 message("Marker aggregation complete")
 markers <- data.frame(markers)
@@ -122,9 +123,6 @@ markers$gene_name <- getGeneNames(anno, markers$gene_id)
 #                      "cluster_mean","other_mean")]
 
 markers <- markers[order(markers$cluster, markers$p.adj),]
-
-# markers$index <- c(rownames(markers))
-
 
 markers$log2FC <- log2(markers$FC)
 markers$min_log2FC <- log2(markers$min_FC)
@@ -164,47 +162,9 @@ saveWorkbook(wb, file=paste(outPrefix,"table","xlsx",
                             sep="."),
              overwrite=T)
 
-# message("Making a heatmap of the top marker genes from each cluster")
-    
-# mch <- markerComplexHeatmap(loom_path=opt$loom,
-#                             matrix_loc=opt$matrix_loc,
-#                             barcode_id_loc=opt$barcode_id_loc, #"col_attrs/barcode_id",
-#                             gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_ids",
-#                             scale=opt$scale,
-#                             cluster_ids=opt$clusterids,
-#                             metadata_file=opt$metadata,
-#                             marker_table=filtered_markers,
-#                             priority="log2FC",
-#                             n_markers=20,
-#                             cells_use=NULL,
-#                             row_names_gp=10,
-#                             sub_group=opt$subgroup)
-
-# drawHeatmap <- function()
-# {
-#     draw(mch)
-# }
-
-# # } else {
-
-# #     drawHeatmap <- function()
-# #     {
-# #     plot.new()
-# #     text(0.5,0.5,"scale.data slot not present")
-# #     }
-# # }
 
 
-
-# save_plots(paste(outPrefix,"heatmap", sep="."),
-#            plot_fn=drawHeatmap,
-#            width = 7,
-#            to_pdf = opt$pdf,
-#            height = 9)
-
-
-
-## summarise the number of marker genes identified for each cluster
+message("summarising the number of marker genes identified for each cluster")
 
 # shouldn't be reading this twice!.
 cids <- read.table(gzfile(opt$clusterids), header=T, sep="\t")
@@ -228,5 +188,41 @@ write.table(sumdf,
                   sep="."),
             quote=F,sep="\t",row.names=F)
 
+message("preparing the gene universe")
+
+# The gene universe is defined per-cluster as the set of genes
+# expressed > opt$min_pct in the "cluster" and/or
+# "other" population.
+#
+# TODO: size of universe can be very small, consider increasing.
+#
+# When dealing with conserved markers, markers need to pass
+# the min_pct in all levels in order to be included in the results.
+# Hence we also use the minimum min_pct for inclusion in the universe
+# list.
+#
+universe <- results %>% group_by(cluster, gene_id) %>%
+   summarize(across(c("pct","pct_other"), min),
+             nlevels=n()) 
+
+# ignore genes not found in all the levels
+n_levels <- max(universe$nlevels)
+universe <- universe[universe$nlevels == n_levels, ]
+
+# take the max of the cluster or the other cells
+universe$max_pct <- rowMaxs(as.matrix(universe[, c("pct", "pct_other")]))
+
+universe <- universe[universe$max_pct >= opt$minpct,]
+
+for(cluster in unique(universe$cluster))
+{
+  cluster_universe <- universe[universe$cluster==cluster, "gene_id"] 
+  
+  message("Saving gene universe for cluster ",cluster)
+  write.table(cluster_universe,
+              gzfile(file.path(opt$outdir,
+                               paste(cluster, "universe.tsv.gz", sep="."))),
+              quote=F, sep="\t", row.names=F)
+}
 
 message("completed")

@@ -28,70 +28,34 @@ stopifnot(
 # Options ----
 
 option_list <- list(
-    make_option(
-      c("--table"),
-      default="none",
-      help="A table containing the reduced coordinates and phenotype information"
-    ),
-    make_option(
-        c("--metadata"),
-        default="none",
+    make_option(c("--table"), default="none",
+      help="A table containing the reduced coordinates and phenotype information"),
+    make_option(c("--metadata"), default="none",
         help="A table containing phenotype information"),
-    make_option(
-      c("--method"),
-      default="tSNE",
-      help="Normally the type of dimension reduction"
-      ),
-    make_option(
-      c("--rdim1"),
-      default="tSNE_1",
-      help="The name of the column for reduced dimension one"
-      ),
-    make_option(
-      c("--rdim2"),
-      default="tSNE_2",
-      help="The name of the column for reduced dimension two"
-      ),
-    make_option(
-      c("--shapefactor"),
-      default="none",
-      help="A column in the cell metadata to use for deterimining the shape of points on the tSNE"
-      ),
-    make_option(
-      c("--colorfactors"),
-      default="none",
-      help="Column(s) in the cell metadata to use for deterimining the color of points on the tSNE. One plot will be made per color factor."
-    ),
-    make_option(
-      c("--plotdirvar"),
-      default="tsneDir",
-      help="latex var holding location of plots"
-      ),
-    make_option(
-      c("--pointsize"),
-      default=0.5,
-      help="The point size for the tSNE plots"
-    ),
-    make_option(
-      c("--pointpch"),
-      default="16",
-      help="The point pch for the tSNE plots (if no shapefactor)"
-      ),
-    make_option(
-      c("--pointalpha"),
-      default=0.8,
-      help="The alpha setting for the points on the tSNE plots"
-    ),
-    make_option(
-      c("--pdf"),
-      default=FALSE,
-      help="Produce pdf versions of the plots"
-      ),
-    make_option(
-      c("--outdir"),
-      default="seurat.out.dir",
-      help="outdir"
-      )
+    make_option(c("--method"),default="UMAP",
+      help="Normally the type of dimension reduction"),
+    make_option(c("--rdim1"), default="UMAP_1",
+      help="The name of the column for reduced dimension one"),
+    make_option(c("--rdim2"), default="UMAP_2",
+      help="The name of the column for reduced dimension two"),
+    make_option(c("--shapefactor"),default="none",
+      help="A column in the cell metadata to use for deterimining the shape of points on the UMAP"),
+    make_option(c("--colorfactors"),default="none",
+      help="Column(s) in the cell metadata to use for deterimining the color of points on the UMAP. One plot will be made per color factor."),
+    make_option(c("--analysisname", default=NULL,
+      help="the name of the analysis being prented on the umap coordinates")),
+    make_option(c("--plotdirvar"), default="UMAPDir",
+      help="latex var holding location of plots"),
+    make_option(c("--pointsize"), default=0.5,
+      help="The point size for the UMAP plots"),
+    make_option(c("--pointpch"), default="16",
+      help="The point pch for the UMAP plots (if no shapefactor)"),
+    make_option(c("--pointalpha"), default=0.8,
+      help="The alpha setting for the points on the UMAP plots"),
+    make_option(c("--pdf"), default=FALSE,
+      help="Produce pdf versions of the plots"),
+    make_option(c("--outdir"), default="seurat.out.dir",
+      help="outdir")
     )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -109,20 +73,19 @@ rownames(plot_data) <- plot_data$barcode_id
 
 if(opt$metadata!="none")
 {
-    meta_data <- read.table(opt$metadata, sep="\t", header=TRUE)
-    rownames(meta_data) <- meta_data$barcode_id
+    meta_data <- read.table(opt$metadata, sep="\t", header=TRUE, row.names="barcode_id")
     meta_data$barcode_id <- NULL
-    meta_cols <- colnames(meta_data)
+    # meta_cols <- colnames(meta_data)
 
-    if(length(intersect(rownames(plot_data), rownames(meta_data))) < length(rownames(meta_data)))
+    if(length(intersect(rownames(plot_data), rownames(meta_data))) < length(rownames(plot_data)))
     {
         stop("Not all cell barcodes are present in the given metadata table")
     } else {
 
         meta_data <- meta_data[rownames(plot_data),]
-        plot_cols <- colnames(plot_data)
+        # plot_cols <- colnames(plot_data)
         plot_data <- cbind(plot_data, meta_data)
-        colnames(plot_data) <- c(plot_cols, meta_cols)
+        # colnames(plot_data) <- c(plot_cols, meta_cols)
     }
 }
 
@@ -147,8 +110,8 @@ color_vars <- strsplit(opt$colorfactors,",")[[1]]
 print(color_vars)
 tex = ""
 
-print("Making tSNE plots colored by each of the factor variables")
-## Make one whole-page tSNE plot per color variable
+message("Making UMAP plots colored by each of the factor variables")
+## Make one whole-page UMAP plot per color variable
 for(color_var in color_vars)
 {
     print(paste("Making",color_var,"rdims plot"))
@@ -238,14 +201,19 @@ for(color_var in color_vars)
     }
 
 
-
     ## write out a separate legend if we have more than 20 levels.
     gp <- gp + theme_minimal()
 
-
+    if(is.null(opt$analysisname))
+    {
     plotfilename = paste(opt$method, color_var, sep=".")
     texCaption <- paste(opt$method,"plot colored by",color_var)
-
+    } else {
+    plotfilename = paste(opt$method, opt$analysisname, color_var, sep=".")
+    texCaption <- paste(opt$method,"plot showing", opt$analysisname, "colored by",color_var)
+    }
+  
+  
     nlevels <- length(unique(plot_data[[color_var]]))
 
     if(nlevels > 20 && numeric==FALSE)

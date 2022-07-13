@@ -15,11 +15,19 @@ author: Sansom group
 # The source data
 # The pipeline starts from an anndata object
 source:
+  # TODO: automatically detect from cellhub.
+  # Choices: 'hs' (for human) | 'mm' (for mouse)
+  species: hs
+
+  # The location of the cellhub directory
+  # it will be used to collect
+  # the annotations and singleR prections
+  cellhub: ../cellhub
+
   # The path to the anndata file
   # X -> scaled_data # not required if '..heatmap_matrix: log1p'
   # layers["counts"] -> count data
   # layers["log1p"] -> normalised, log1p transformed data
-  
   anndata: ../integrated.h5ad
 
   # The name of the reduced dimension space
@@ -69,15 +77,13 @@ resources:
 # ---------------------------------------
 # True | False
 run:
-  singleR: False
   compare_clusters: True
   characterise_markers: True
   top_marker_heatmap: True
-  extra_cluster_marker_plots: True
   paga: False
   knownmarkers: False
-  genesets: False
-  cellbrowser: False
+  genesets: True
+  singleR: True
 
 # Give the pipeline a head start?
 # --------------------------------
@@ -95,28 +101,6 @@ headstart:
   # Link in the annotation?
   # True | False
   annotation: False
-
-
-# Gene annotations
-# ----------------
-
-annotation:
-    # Species
-    # Used to obtain gene annotations for gene set analyses
-    # Choices: 'hs' (for human) | 'mm' (for mouse)
-    # species: hs
-    
-    ensembl: ../cellhub/api/annotation/ensembl/ensembl.to.entrez.tsv.gz 
-
-    # Release of Ensembl gene annotations
-    # Choices: 'latest' or a specific number, e.g. 89,90 etc
-    # ensembl_release: latest
-
-    # The ensembl host to use
-    # When set to "default" the default host of the biomaRt package will be used.
-    # The default biomaRt host is currently "www.ensembl.org".
-    # If the default host is down try e.g. "uswest.ensembl.org" or "useast.ensembl.org"
-    # ensembl_host: default
 
 # Run specifications
 # ------------------
@@ -167,27 +151,6 @@ cluster:
   # Clustering algorithm (as supported by Scanpy)
   # "leiden" | "louvain"
   algorithm: leiden
-
-# SingleR
-# -------
-singleR:
-
-  # number of cores for multiprocessing
-  workers: 4
-
-  plot_extra: False
-
-  # Reference datasets used to predict cell's identity
-  # see https://bioconductor.org/packages/3.11/bioc/vignettes/SingleR/inst/doc/SingleR.html#5_available_references
-  # Human: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
-  # Mouse: ImmGenData; MouseRNAseqData
-  # If more than one reference is used, use a comma to separate the reference names. Example: ImmGenData,MouseRNAseqData
-  reference: ImmGenData,MouseRNAseqData
-
-  # Columns in metadata for visualizing in plots; by default nCount_RNA, nFeature_RNA, and percent.mito will be shown
-  # Comma separated. Example: condition,genotype,timepoint
-  show_annotation_in_plots: none
-
 
 
 # Data summary plots
@@ -543,24 +506,24 @@ gmt_pathway_files:
   #
   # > human msigdb sets >
   #
-  # msigdb_biocarta: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.gmt
-  # msigdb_reactome: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.gmt
-  # msigdb_canonical_pathways: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.gmt
-  # msigdb_tf_motifs: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.gmt
-  # msigdb_immunological_signatures: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.gmt
+  msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.gmt
+  msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.gmt
+  # msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.gmt
+  # msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.gmt
+  # msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.gmt
   #
   # > mouse msigdb sets >
   #
-  # msigdb_biocarta: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.mouse.gmt
-  # msigdb_reactome: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.mouse.gmt
-  # msigdb_canonical_pathways: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.mouse.gmt
-  # msigdb_tf_motifs: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.mouse.gmt
-  # msigdb_immunological_signatures: /gfs/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.mouse.gmt
+  # msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.mouse.gmt
+  # msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.mouse.gmt
+  # msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.mouse.gmt
+  # msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.mouse.gmt
+  # msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.mouse.gmt
 
 gmt_celltype_files:
   # > human cell types >
   #
-  # xCell: /gfs/mirror/xCell/xCell_entrezID.gmt
+  # xCell: /well/kir/mirror/xCell/xCell_entrezID.gmt
   #
 
 

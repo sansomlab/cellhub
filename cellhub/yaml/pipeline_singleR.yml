@@ -1,0 +1,31 @@
+# SingleR
+# -------
+
+resources:
+  # Number of cores used for parallel jobs
+  # (ScaleData and JackStraw)
+  cores: 2
+
+  memory: 16G
+
+  # Is memory allocated by core on the cluster?
+  # If not, set to "False"
+  # If true, set to the integer value of the avaliable
+  #    memory/core, e.g. 16 for 16GB.
+  mempercore: 16
+
+
+
+reference:
+
+  # The location of the celldex references saved as rds files.
+  # The stash can be built with:
+  # Rscript /path/to/cellhub/R/scripts/singleR_stash_references.R --outdir outdir
+  stash_dir: /well/sansom/shared/mirror/celldex/2022.07.12
+
+  # Reference datasets used to predict cell's identity
+  # see https://bioconductor.org/packages/3.11/bioc/vignettes/SingleR/inst/doc/SingleR.html#5_available_references
+  # Human: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
+  # Mouse: ImmGenData; MouseRNAseqData
+  # If more than one reference is used, use a comma to separate the reference names. Example: ImmGenData,MouseRNAseqData
+  data: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
