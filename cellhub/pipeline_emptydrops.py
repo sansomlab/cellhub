@@ -124,7 +124,7 @@ def emptyDrops(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
-    statement = '''Rscript %(code_dir)s/R/run_emptydrops.R
+    statement = '''Rscript %(code_dir)s/R/scripts/emptydrops_run.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -157,7 +157,7 @@ def meanReads(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
-    statement = '''Rscript %(code_dir)s/R/calculate_mean_reads.R
+    statement = '''Rscript %(code_dir)s/R/scripts/emptydrops_calculate_mean_reads.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''

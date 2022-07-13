@@ -236,7 +236,7 @@ def makeSampleTable(sample_files, outfile):
     job_threads = 2
     job_memory = "2000M"
 
-    statement = '''Rscript %(code_dir)s/R/sampleName2metadatatable.R
+    statement = '''Rscript %(code_dir)s/R/scripts/cellranger_sampleName2metadatatable.R
                    --outfile=%(outfile)s
                    --samplefiles=%(samples)s
                    &> %(log_file)s

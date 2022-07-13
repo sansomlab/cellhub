@@ -137,7 +137,7 @@ def qcmetrics(infile, outfile):
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/calculate_qc_metrics.R
+    statement = '''Rscript %(code_dir)s/R/scripts/qc_metrics.R
                  --cellranger_dir=%(cellranger_dir)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
