@@ -1371,8 +1371,6 @@ def dePlots(infile, outfile):
             out_tex.write(line + "\n")
 
 
-        
-@active_if(PARAMS["run_extra_cluster_marker_plots"])
 @transform(summariseMarkers,
            regex(r"(.*)/markers.dir/markers.summary.sentinel"),
            add_inputs(loom, metadata),
@@ -1710,6 +1708,7 @@ def plotMarkerNumbersBetweenConditions(infile, outfile):
          topMarkerHeatmap,
          plotMarkerNumbers,
          dePlots,
+         markerPlots,
          characteriseClusterMarkersBetweenConditions,
          plotMarkerNumbersBetweenConditions)
 @files(None, "markers.sentinel")
@@ -2042,6 +2041,7 @@ def genesets(infile, outfile):
          plotRdimsGenes,
          plotRdimsSingleR,
          plotGroupNumbers,
+         dePlots,
          markerPlots], "plots.sentinel")
 def plots(infile, outfile):
     '''

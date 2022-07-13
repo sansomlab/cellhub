@@ -75,7 +75,7 @@ if(opt$metadata!="none")
 {
     meta_data <- read.table(opt$metadata, sep="\t", header=TRUE, row.names="barcode_id")
     meta_data$barcode_id <- NULL
-    # meta_cols <- colnames(meta_data)
+    meta_cols <- colnames(meta_data)
 
     if(length(intersect(rownames(plot_data), rownames(meta_data))) < length(rownames(plot_data)))
     {
@@ -83,9 +83,9 @@ if(opt$metadata!="none")
     } else {
 
         meta_data <- meta_data[rownames(plot_data),]
-        # plot_cols <- colnames(plot_data)
+        plot_cols <- colnames(plot_data)
         plot_data <- cbind(plot_data, meta_data)
-        # colnames(plot_data) <- c(plot_cols, meta_cols)
+        colnames(plot_data) <- c(plot_cols, meta_cols)
     }
 }
 
@@ -120,21 +120,17 @@ for(color_var in color_vars)
     {
                 clust_levels = unique(plot_data[[cluster_col]])
 
-                print(head(plot_data))
                 message("computing cluster centers")
                 centers = data.frame(row.names=clust_levels, "cluster"=clust_levels,
                                      "x"=1,
                                      "y"=1)
 
-                print(head(centers))
                 for(clust in clust_levels)
                 {
                     centers[clust,"x"] = median(plot_data[plot_data[[cluster_col]]==clust,opt$rdim1])
                     centers[clust,"y"] = median(plot_data[plot_data[[cluster_col]]==clust,opt$rdim2])
                 }
                 message("computed cluster centers")
-                print(head(centers))
-
 
         }
 
