@@ -118,13 +118,13 @@ def fetchEnsembl(infile, outfile):
     # Some clusters do not support internet access from execution nodes
     to_cluster = False
 
-    outfile_name = outfile.replace(".sentinel", ".tsv.gz")
+    #outfile_name = outfile.replace(".sentinel", ".tsv.gz")
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/annotation_fetch_ensembl.R
                     --ensemblversion=%(annotation_ensembl_release)s
                     %(ensembl_host)s
                     --species=%(annotation_species)s
-                    --outfile=%(outfile_name)s
+                    --outdir=%(outdir)s
                     &> %(log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
 
@@ -140,13 +140,15 @@ def ensemblAPI(infile, outfile):
     Add the ensembl gene annotation results to the API
     '''
 
-    target_file = infile.replace(".sentinel", ".tsv.gz")
-
-    file_set={"annotations" : {"path": target_file,
-                               "description":"ensembl annotations",
+    file_set={"anno": {"path": "annotation.dir/ensembl.to.entrez.tsv.gz",
+                               "description":"mapping of ensembl to entrez ids",
+                               "format":"tsv"},
+              
+              "emap": {"path": "annotation.dir/ensembl.gene_name.map.tsv.gz",
+                               "description":"mapping of ensembl ids to gene_name",
                                "format":"tsv"}
     }
-
+    
     x = api.api("annotation")
 
     x.define_dataset(analysis_name="ensembl",
@@ -210,7 +212,7 @@ def keggAPI(infile, outfile):
 # ########################################################################### #
 
 
-@follows(fetchEnsembl)
+@follows(keggAPI, ensemblAPI)
 def full():
     pass
 

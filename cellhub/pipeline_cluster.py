@@ -99,6 +99,15 @@ if not os.path.exists(cellhub_ensembl_annotations):
     
 PARAMS["cellhub_ensembl_annotations"] = cellhub_ensembl_annotations
 
+cellhub_ensembl_map = os.path.join(PARAMS["source_cellhub"],
+            "api/annotation/ensembl/ensembl.gene_name.map.tsv.gz")
+
+if not os.path.exists(cellhub_ensembl_map):
+    raise ValueError("cellhub ensembl map file not found: " +
+                     cellhub_ensembl_map)
+    
+PARAMS["cellhub_ensembl_map"] = cellhub_ensembl_map
+
 cellhub_kegg_pathways = os.path.join(PARAMS["source_cellhub"],
                                   "api/annotation/kegg/kegg.pathways.rds")
 
@@ -1483,221 +1492,6 @@ def plotMarkerNumbers(infile, outfile):
 
 #endregion
 
-#region Within cluster DE
-
-# ########################################################################### #
-# ################# Within cluster between condition DE ##################### #
-# ########################################################################### #
-
-# Here genes differentially expressed between two conditions are identified
-# at the cluster level.
-#
-# This analysis is optional.
-#
-# It is only run on samples prefixed with "all.", "agg." or "aligned."
-
-@active_if(PARAMS["findmarkers_between"])
-@transform(scanpyCluster,
-           regex(r"(all.*|agg.*|aligned.*|integrated.*)/cluster.sentinel"),
-           r"\1/condition.markers.dir/findMarkersBetweenConditions.sentinel")
-def findMarkersBetweenConditions(infile, outfile):
-    '''
-    Identification of genes differentially expressed within-cluster.
-
-    The two conditions to compare must be specified in the configuration file.
-
-    This analysis is run in parallel for each cluster.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    statements = []
-
-    if PARAMS["findmarkers_conserved_between"]:
-        conservedfactor = PARAMS["findmarkers_conserved_between_factor"]
-        conservedpadj = PARAMS["findmarkers_conserved_between_padj"]
-        conserved_options = '''--conservedfactor=%(conservedfactor)s
-            --conservedpadj=%(conservedpadj)s
-        '''
-    else:
-        conserved_options = ""
-
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"],
-        cpu=PARAMS["findmarkers_numcores"])
-
-    for i in spec.clusters:
-
-        if str(i) == "911":
-            continue
-
-        cluster_log_file = outfile.replace(".sentinel", "." + str(i) + ".log")
-        statements.append('''Rscript %(cellhub_code_dir)s/R/seurat_FindMarkers.R
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
-                   --clusterids=%(cluster_ids)s
-                   --cluster=%(i)s
-                   --testfactor=%(findmarkers_between_testfactor)s
-                   --a=%(findmarkers_between_a)s
-                   --b=%(findmarkers_between_b)s
-                   --testuse=%(findmarkers_test)s
-                   --threshuse=%(findmarkers_threshuse)s
-                   --minpct=%(findmarkers_minpct)s
-                   --mindiffpct=-Inf
-                   --annotation=%(cellhub_ensembl_annotations)s
-                   %(conserved_options)s
-                   --numcores=%(findmarkers_numcores)s
-                   --outdir=%(outdir)s
-                   &> %(cluster_log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals()))
-
-    P.run(statements)
-    IOTools.touch_file(outfile)
-
-
-@active_if(PARAMS["findmarkers_between"])
-@transform(findMarkersBetweenConditions,
-           regex(r"(.*)/findMarkersBetweenConditions.sentinel"),
-           r"\1/summariseMarkersBetweenConditions.sentinel")
-def summariseMarkersBetweenConditions(infile, outfile):
-    '''
-    Make summary tables and plots of within-cluster DE genes.
-
-    The per-cluster results files are aggregated. A heatmap of the top
-    cluster markers is generated. A summary excel file is generated.
-    Tables for geneset enrichment testing are prepared.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    testname = os.path.basename(outfile).split(".")[1]
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"])
-
-    # make sumamary tables and plots of the differentially expressed genes
-    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkersBetween.R
-                   --seuratobject=%(seurat_object)s
-                   --seuratassay=RNA
-                   --testfactor=%(findmarkers_between_testfactor)s
-                   --a=%(findmarkers_between_a)s
-                   --b=%(findmarkers_between_b)s
-                   --clusterids=%(cluster_ids)s
-                   --outdir=%(outdir)s
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-
-@active_if(PARAMS["findmarkers_between"])
-@transform(summariseMarkersBetweenConditions,
-           regex(r"(.*)/condition.markers.dir/summariseMarkersBetweenConditions.sentinel"),
-           r"\1/condition.marker.de.plots.dir/characteriseClusterMarkersBetween.tex")
-def characteriseClusterMarkersBetweenConditions(infile, outfile):
-    '''
-    Characterise within-cluster DE genes.
-
-    Diagnostic summary plots of differentially expressed genes
-    and violin plots are generated.
-
-    Parallelised per-cluster.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    marker_table = os.path.join(os.path.dirname(infile),
-                                "markers.between." +
-                                PARAMS["findmarkers_between_testfactor"] +
-                                ".summary.table.tsv.gz")
-
-    # not all clusters may have degenes
-    degenes = pd.read_csv(marker_table, sep="\t")
-    declusters = [x for x in set(degenes["cluster"].values)]
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
-
-    statements = []
-    tex = []
-
-    for i in declusters:
-
-        if str(i) == "911":
-            continue
-
-        cluster_log_file = outfile[:-len(".tex")] + "." + str(i) + ".log"
-
-        statement = '''
-                    Rscript %(cellhub_code_dir)s/R/seurat_characteriseClusterDEGenes.R
-                    --degenes=%(marker_table)s
-                    --seuratobject=%(seurat_object)s
-                    --seuratassay=RNA
-                    --clusterids=%(cluster_ids)s
-                    --cluster=%(i)s
-                    --testfactor=%(findmarkers_between_testfactor)s
-                    --a=%(findmarkers_between_a)s
-                    --b=%(findmarkers_between_b)s
-                    --useminfc=FALSE
-                    --outdir=%(outdir)s
-                    --plotdirvar=conditionMarkerDEPlotsDir
-                    &> %(cluster_log_file)s
-                    ''' % dict(PARAMS, **SPEC, **locals())
-
-        cluster_tex_file = ".".join(["characterise.degenes", str(i),
-                                     "between.tex"])
-
-        tex.append("\\input{\\conditionMarkerDEPlotsDir/" + cluster_tex_file + "}")
-        statements.append(statement)
-
-    P.run(statements)
-
-    with open(outfile, "w") as out_tex:
-        for line in tex:
-            out_tex.write(line + "\n")
-
-
-@active_if(PARAMS["findmarkers_between"])
-@transform(summariseMarkersBetweenConditions,
-           regex(r"(.*)/condition.markers.dir/(.*).sentinel"),
-           r"\1/condition.marker.de.plots.dir/plotMarkerNumbersBetween.sentinel")
-def plotMarkerNumbersBetweenConditions(infile, outfile):
-    '''
-    Summarise the numbers of within-cluster DE genes.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    marker_table = os.path.join(os.path.dirname(infile),
-                                "markers.between." +
-                                PARAMS["findmarkers_between_testfactor"] +
-                                ".summary.table.tsv.gz")
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
-
-    statement = '''Rscript %(cellhub_code_dir)s/R/seurat_summariseMarkerNumbers.R
-                   --degenes=%(marker_table)s
-                   --clusterids=%(cluster_ids)s
-                   --testfactor=%(findmarkers_between_testfactor)s
-                   --a=%(findmarkers_between_a)s
-                   --b=%(findmarkers_between_b)s
-                   --minfc=2
-                   --minpadj=0.05
-                   --outdir=%(outdir)s
-                   --plotdirvar=conditionMarkerDEPlotsDir
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-#endregion
-
 #region Markers <Target>
 
 # ########################################################################### #
@@ -1708,9 +1502,7 @@ def plotMarkerNumbersBetweenConditions(infile, outfile):
          topMarkerHeatmap,
          plotMarkerNumbers,
          dePlots,
-         markerPlots,
-         characteriseClusterMarkersBetweenConditions,
-         plotMarkerNumbersBetweenConditions)
+         markerPlots)
 @files(None, "markers.sentinel")
 def markers(infile, outfile):
     '''
@@ -1877,144 +1669,11 @@ def summariseGenesetAnalysis(infile, outfile):
 
 #endregion
 
-#region Within Cluster Geneset Analysis
-
-# ------------------- < within cluster geneset analysis > ------------------- #
-
-@active_if(PARAMS["run_genesets"])
-@active_if(PARAMS["findmarkers_between"])
-@follows(summariseMarkersBetweenConditions)
-@transform(findMarkersBetweenConditions,
-           regex(r"(.*)/condition.markers.dir/.*.sentinel"),
-           r"\1/condition.genesets.dir/geneset.analysis.between.conditions.sentinel")
-def genesetAnalysisBetweenConditions(infiles, outfile):
-    '''
-    Naive geneset over-enrichment analysis of genes DE within-cluster.
-
-    Testing is performed with the gsfisher package.
-
-    GO categories and KEGG pathways are tested by default.
-
-    Arbitrary sets of genes cat be supplied as GMT files
-    (e.g. such as those from MSigDB).
-    '''
-
-    findMarkersLog, genesetAnno = infiles
-
-    spec, SPEC = TASK.get_vars(findMarkersLog, outfile, PARAMS)
-
-    anno = os.path.join(os.path.dirname(genesetAnno),
-                        "ensembl.to.entrez.tsv.gz")
-
-    kegg_pathways = os.path.join(os.path.dirname(genesetAnno),
-                                 "kegg_pathways.rds")
-
-    gmt_names, gmt_files = parseGMTs(param_keys=["gmt_pathway_files_"])
-
-    statements = []
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
-
-    for i in spec.clusters:
-
-        if str(i) == "911":
-            continue
-
-        cluster_log_file = os.path.join(
-            spec.outdir, "geneset.analysis.between." + str(i) + ".log")
-
-        markers = os.path.join(
-            spec.indir, "markers.between." +
-            PARAMS["findmarkers_between_testfactor"] +
-            ".summary.table.tsv.gz")
-
-        universe = os.path.join(
-            spec.indir, "markers.between." +
-            PARAMS["findmarkers_between_testfactor"] +
-            ".cluster." + str(i) + ".universe.tsv.gz")
-
-        if not os.path.exists(universe):
-            E.warn("Skipping geneset analysis: %s does not exist" % universe)
-            continue
-
-        statements.append('''Rscript %(cellhub_code_dir)s/R/genesetAnalysis.R
-                            --markers=%(markers)s
-                            --universe=%(universe)s
-                            --species=%(source_species)s
-                            --annotation=%(cellhub_ensembl_annotations)s
-                            --kegg_pathways=%(cellhub_kegg_pathways)s
-                            --gmt_names=%(gmt_names)s
-                            --gmt_files=%(gmt_files)s
-                            --cluster=%(i)s
-                            --adjpthreshold=%(genesets_marker_adjpthreshold)s
-                            --direction=both
-                            --prefix=genesets.between
-                            --outdir=%(outdir)s
-                            &> %(cluster_log_file)s
-                      ''' % dict(PARAMS, **SPEC, **locals()))
-
-    P.run(statements)
-    IOTools.touch_file(outfile)
-
-
-@active_if(PARAMS["run_genesets"])
-@active_if(PARAMS["findmarkers_between"])
-@transform(genesetAnalysisBetweenConditions,
-           regex(r"(.*)/.*.sentinel"),
-           r"\1/summarise.geneset.analysis.between.conditions.sentinel")
-def summariseGenesetAnalysisBetweenConditions(infile, outfile):
-    '''
-    Summarise the geneset over-enrichment analyses of genes DE within-cluster.
-
-    Enriched pathways are summarised in an Excel table and a heatmap.
-    '''
-
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    genesetdir = os.path.dirname(infile)
-
-    gmt_names, gmt_files = parseGMTs(param_keys=["gmt_pathway_files_"])
-
-    use_adjusted = str(PARAMS["genesets_use_adjusted_pvalues"]).upper()
-    show_common = str(PARAMS["genesets_show_common"]).upper()
-    show_detailed = str(PARAMS["genesets_show_detailed"])
-
-
-    # set the job threads and memory
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
-
-    statement = '''Rscript %(cellhub_code_dir)s/R/summariseGenesets.R
-                         --genesetdir=%(genesetdir)s
-                         --gmt_names=%(gmt_names)s
-                         --show_detailed=%(show_detailed)s
-                         --clusters=%(cluster_table)s
-                         --mingenes=%(genesets_min_fg_genes)s
-                         --pvaluethreshold=%(genesets_pvalue_threshold)s
-                         --padjustmethod=%(genesets_padjust_method)s
-                         --minoddsratio=%(genesets_min_odds_ratio)s
-                         --useadjusted=%(use_adjusted)s
-                         --showcommon=%(show_common)s
-                         --outprefix=%(outdir)s/condition.genesets
-                         --prefix=genesets.between
-                         --plotdirvar=conditionGenesetsDir
-                         --pdf=%(plot_pdf)s
-                    &> %(log_file)s
-                      ''' % dict(PARAMS, **SPEC, **locals())
-
-    P.run(statement)
-    IOTools.touch_file(outfile)
-
-#endregion
-
 #region Genesets <Target>
 
 # ---------------------- < geneset analysis target > ---------------------- #
 
-@files([summariseGenesetAnalysis,
-        summariseGenesetAnalysisBetweenConditions],
+@files([summariseGenesetAnalysis],
        "genesets.sentinel")
 def genesets(infile, outfile):
     '''
@@ -2358,6 +2017,69 @@ def knownMarkerViolins(infile, outfile):
 # ########################################################################### #
 # ##################'## Generate cellxgene output ########################### #
 # ########################################################################### #
+
+@follows(markers)
+@transform(UMAP,
+           regex(r"(.*)/umap.dir/umap.sentinel"),
+           r"\1/cellxgene.sentinel")
+def cellxgene(infile, outfile):
+    '''
+    Export an anndata object for cellxgene
+    '''
+        
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_low"],
+        cpu=1)
+
+
+    umap_path = os.path.join(os.path.dirname(infile),
+                             ".".join(["umap", 
+                                       str(PARAMS["umap_mindist"]), 
+                                       "tsv.gz"]))
+
+    cluster_paths = []
+    cluster_names = []
+    cxg_res = PARAMS["cellxgene_resolution"]
+    if cxg_res == "all":
+
+        for res in spec.resolutions:
+            cluster_dir = os.path.join(spec.component_dir,
+                            ".".join(["cluster", str(res), "dir"]))
+            cluster_paths.append(os.path.join(cluster_dir, "cluster_ids.tsv.gz"))
+            cluster_names.append("cluster_" + str(res))
+    else:
+       
+        cluster_dir = os.path.join(spec.component_dir,
+                            ".".join(["cluster", str(cxg_res), "dir"]))
+        if not os.path.exists(cluster_dir):
+            raise ValueError("Path to selected clustering resolution does not exist")
+            
+        cluster_paths.append(os.path.join(cluster_dir,"cluster_ids.tsv.gz"))
+        cluster_names.append("cluster" + str(cxg_res))
+        
+    cluster_paths=",".join(cluster_paths)
+    cluster_names=",".join(cluster_names)
+    
+    out_file = outfile.replace(".sentinel", ".h5ad")
+
+    statement='''python %(cellhub_code_dir)s/python/cluster_cellxgene.py
+                 --source_anndata=%(source_anndata)s
+                 --annotation=%(cellhub_ensembl_map)s
+                 --obs=%(cellxgene_obs)s
+                 --umap=%(umap_path)s
+                 --umap_facet_x=%(cellxgene_facet_umap_x)s
+                 --umap_facet_y=%(cellxgene_facet_umap_y)s
+                 --cluster_paths=%(cluster_paths)s
+                 --cluster_names=%(cluster_names)s
+                 --cluster_split=%(cellxgene_cluster_split)s
+                 --adt=None
+                 --outfile=%(out_file)s
+    ''' % dict(PARAMS, **SPEC, **locals())
+
+    P.run(statement)
+    #IOTools.touch_file(outfile)
 
 
 # ########################################################################### #

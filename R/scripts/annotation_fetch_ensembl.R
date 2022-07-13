@@ -44,9 +44,9 @@ option_list <- list(
       help="species - mm or hs"
       ),
     make_option(
-      c("--outfile"),
+      c("--outdir"),
       default="none",
-      help="outfile")
+      help="outdir")
     )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -72,7 +72,21 @@ if(is.null(opt$ensembl_host))
 }
 
 write.table(anno,
-            gzfile(opt$outfile),
+            gzfile(file.path(opt$outdir,
+                             "ensembl.to.entrez.tsv.gz")),
             quote=FALSE,
             row.names=FALSE,sep="\t")
 
+# make a map of ensembl ids to gene names.
+emap <- unique(anno[,c("ensembl_id","gene_name")])
+missing_names <- emap$gene_name==""
+emap$gene_name[missing_names] <- emap$ensembl_id[missing_names]
+  
+# make the gene names unique
+emap$gene_name <- make.unique(emap$gene_name)
+
+write.table(emap,
+            gzfile(file.path(opt$outdir,
+                             "ensembl.gene_name.map.tsv.gz")),
+            quote=FALSE,
+            row.names=FALSE,sep="\t")

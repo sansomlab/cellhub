@@ -390,23 +390,6 @@ markers:
 
     # maxcellsperident: 50000
     #
-    # Within-cluster differential expression (optional)
-    # ------------------------------------------------
-    # Whether to perform within-cluster DE analysis
-    # Choices: False|True
-    between: False
-
-    # Column in metadata.tsv that contains the factor
-    # for within-cluster differential expression analysis, e.g.
-    # testfactor: genotype
-    between_testfactor: genotype
-
-    # Names of the two levels to compare
-    # Note that 'a' is the numerator, 'b' the denominator of fold-changes, e.g.
-    # between_a: knockout
-    # between_b: wildtype
-    between_a: knockout
-    between_b: wildtype
 
     # Conserved cluster marker identification (optional)
     # -------------------------------------------------
@@ -433,27 +416,6 @@ markers:
     conserved_between_factor: none
 
     conserved_between_padj: 0.05
-
-
-# Gene expression report options
-# ------------------------------
-
-exprsreport:
-
-    workers: 12
-
-   # Count of up-regulated markers to represent in tSNE plots for each cluster
-    n_positive: 50
-    # Count of down-regulated markers to represent in tSNE plots for each cluster
-    n_negative: 25
-
-    # Make plots from user-defined genelists?
-    genelists: False
-
-    # a directory containing manually defined gene lists as
-    # tab-delimited .txt files with columns:
-    # gene_id, gene_name, common_name (common_name is optional)
-    genelist_dir:
 
 
 # Geneset over-representation analysis
@@ -527,10 +489,31 @@ gmt_celltype_files:
   #
 
 
-# Cellbrowser
+# Cellxgene
 # ------------------------------------
-# (Only one cellbrowser instance is generated according to the specified
-# runspecs for each sample)
-cellbrowser:
-  # Specify the folder name for each sample that should be used for cellbrowser
-  # sample1: 25_0.4_1_wilcox
+
+cellxgene:
+
+  # The 'umap_mindist' parameter is used to select the umap layout. 
+  
+  # The columns in the obs to be included (if present) in the object
+  # supply as comma seperated list
+  # default 'all'
+  obs: all
+  
+  # The prefered cluster resolution can be set here or left to 'all'
+  resolution: all
+  
+  # factors by which to facet the umap layouts
+  # faceting by up to 2 factors is supported
+  # (supply multiple factors as comma-seperated list 
+  # e.g. 'condition,replicate')
+  # default: None
+  facet_umap_x: condition
+  facet_umap_y: None
+  
+  # a factor by which to split the clusters by
+  # only one factor may be specified
+  # default: None
+  cluster_split: None
+  

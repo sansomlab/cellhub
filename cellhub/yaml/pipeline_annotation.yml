@@ -15,7 +15,10 @@ annotation:
 
     # Release of Ensembl gene annotations
     # Choices: 'latest' or a specific number, e.g. 89,90 etc
-    ensembl_release: latest
+    # ** This should be set to match the version used to build
+    #    the 10x references. The current 10x references (2020A)
+    #    use ensembl 98 **
+    ensembl_release: 98
 
     # The ensembl host to use
     # When set to "default" the default host of the biomaRt package will be used.
