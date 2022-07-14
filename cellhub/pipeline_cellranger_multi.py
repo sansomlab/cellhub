@@ -312,14 +312,23 @@ def cellrangerMulti(infile, outfile):
 
     log_file = id_tag + ".log"
 
+    mempercore = PARAMS["cellranger_mempercore"]
+
+    if mempercore:
+        mempercore_stat="--mempercore " + str(mempercore)
+    else:
+        mempercore_stat = ""
+
     # this statement is to run in slurm mode
     statement = '''cd cellranger.multi.dir;
                     cellranger multi
-	    	    --id %(id_tag)s
+	    	        --id %(id_tag)s
                     --csv=%(config_path)s
-                    --jobmode=slurm
+                    --jobmode=%(cellranger_job_template)s
                     --maxjobs=%(max_jobs)s
-		    --nopreflight
+		            --nopreflight
+                    --disable-ui
+                    %(mempercore_stat)s
                     &> %(log_file)s
                  '''
 
