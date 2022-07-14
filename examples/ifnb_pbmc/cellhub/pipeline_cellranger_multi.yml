@@ -42,8 +42,8 @@ run:
 # Section describing configuration of Gene Expression libraries only, unless otherwise specified.
 gene-expression:
         # Path of folder containing 10x-compatible reference. Required for gene expression and Feature Barcode libraries.
-        # e.g. mouse /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
-        reference: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        # e.g. mouse /well/kir/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        reference: /well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
 
         # Path to a target panel CSV file or name of a 10x Genomics fixed gene panel (pathway, pan-cancer, immunology, neuroscience). Optional.
         target-panel:
@@ -111,7 +111,7 @@ libraries:
         description: pbmc unstimulated 10% sub sample.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /gfs/mirror/geo/GSE96583/GSM2560248_0.1/
+            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560248_0.1/
             feature_types: Gene Expression
             subsample_rate:
             lanes:
@@ -132,7 +132,7 @@ libraries:
         description: pbmc ifnb stimulated 10% sub sample.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /gfs/mirror/geo/GSE96583/GSM2560249_0.1/
+            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560249_0.1/
             feature_types: Gene Expression
             subsample_rate:
             lanes:
