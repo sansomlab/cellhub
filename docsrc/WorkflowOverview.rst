@@ -78,7 +78,7 @@ Integration of samples is performed manually by the user because it is highly da
 9. Clustering analysis
 ----------------------
 
-Clustering analysis is performed with  :doc:`in the pipeline_cluster<pipelines/pipeline_cluster>`.
+Clustering analysis is performed with  :doc:`pipeline_cluster<pipelines/pipeline_cluster>`.
 
 
 Workflow Diagram

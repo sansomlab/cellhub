@@ -14,9 +14,13 @@ Repository layout
      - The cellhub Python module which contains the set of CGAT-core pipelines
    * - cellhub/tasks
      - The cellhub tasks submodule which contains helper functions and pipeline task definitions
+   * - cellhub/reports
+     - The latex source files used for building the reports
    * - Python
      - Python worker scripts that are executed by pipeline tasks
-   * - R
+   * - R/cellhub
+     - The R cellhub library
+   * - R/scripts
      - R worker scripts that are executed by pipeline tasks
    * - docsrc
      - The documentation source files in restructured text format for compilation with sphinx

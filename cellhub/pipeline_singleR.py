@@ -1,15 +1,16 @@
-"""=============
+"""
+================
 Pipeline singleR
 ================
 
 Overview
 ========
 
-This pipeline runs singleR for cell prediction. Single R:
+This pipeline runs `singleR<https://bioconductor.org/packages/release/bioc/html/SingleR.html>`_ for cell prediction. Single R:
 
-(1) runs at cell level (cells are score idependently)
+(1) runs at cell level (cells are scored independently)
 (2) Uses a non-paramentric correlation test (i.e. monotonic transformations of 
-   the test data have no effect).
+    the test data have no effect).
 
 Given these facts, in cellhub we run singleR on the raw counts upstream to 
 (a) help with cell QC and (b) save time in the interpretation phase.
@@ -47,6 +48,9 @@ Pipeline output
 
 The pipeline saves the singleR scores and predictions for each of the
 specified references on the cellhub API.
+
+Code
+====
 
 """
 

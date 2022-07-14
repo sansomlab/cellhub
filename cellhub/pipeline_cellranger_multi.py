@@ -335,31 +335,27 @@ def postProcessMtx(infile, outfile):
     counts for the GEX, ADT and HTO modalities into seperate
     market matrices.
 
-    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" synta.
+    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" syntax.
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
+            library_id/outs/multi/count/raw_feature_bc_matrix/
 
-      library_id/outs/multi/count/raw_feature_bc_matrix/
+        filtered "outs": :: 
+            library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
 
-    filtered "outs": ::
+    Outputs:
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+    This task produces:
 
-    Post-processed outputs
-    ----------------------
+        unfiltered: ::
+            out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
 
-    This task produces
-
-    unfiltered: ::
-      out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
-
-    filtered: ::
-      out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
+        filtered: ::
+            out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
 
     '''
 
@@ -478,18 +474,17 @@ def h5API(infile, outfile):
     '''
     Put the h5 files on the API
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
 
-      library_id/outs/multi/count/raw_feature_bc_matrix/
+            library_id/outs/multi/count/raw_feature_bc_matrix/
 
-    filtered "outs": ::
+        filtered "outs": ::
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+            library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
 
     '''
     x = api.api("cellranger.multi")
@@ -563,29 +558,25 @@ def postProcessVDJ(infile, outfile):
 
     The cellbarcodes are reformatted to the "UMI-LIBRARY_ID" syntax.
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
+            library_id/outs/multi/vdj_[b|t]/
 
-      library_id/outs/multi/vdj_[b|t]/
+        filtered "outs": ::
+            library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
 
-    filtered "outs": ::
+    Outputs:
 
-      library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
+        This task produces:
 
-    Post-processed outputs
-    ----------------------
+        unfiltered: ::
+            out.dir/library_id/unfiltered/vdj_[t|b]/
 
-    This task produces
-
-    unfiltered: ::
-      out.dir/library_id/unfiltered/vdj_[t|b]/
-
-    filtered: ::
-      out.dir/library_id/filtered/sample_id/vdj_[t|b]/
+        filtered: ::
+            out.dir/library_id/filtered/sample_id/vdj_[t|b]/
 
     '''
 

@@ -1,4 +1,5 @@
-"""=============
+"""
+================
 Pipeline cluster
 ================
 
@@ -48,8 +49,8 @@ The pipeline starts from an anndata object with the following structure.
 * anndata.layers["counts"] -> raw counts (a sparse matrix)
 * anndata.layers["log1p"] -> total count normalised, 1og1p transformed data (a sparse matrix)
 * anndata.obs -> metadata (typically passed through from original cellhub object)
-* anndata.obsm["X_rdim_name"] -> containing the integrated coordinates (where "rdim_name" matches
-                                  the "runspec_rdim_name" parameter). TODO: rename this parameter.
+* anndata.obsm["X_rdim_name"] -> containing the integrated coordinates (where "rdim_name" matches 
+  the "runspec_rdim_name" parameter). TODO: rename this parameter.
 
 It is strongly recommended to retain the information for all of the genes in all of the matrices 
 (i.e. do not subset to HVGs!). This is important for marker gene discovery and pathway analysis.
@@ -68,7 +69,7 @@ The pipeline produces the following outputs:
 2. Marker report
 
 - Containing heatmaps, violin plots, expression dotplots, MA and volcano plots for 
-each cluster.
+  each cluster.
 
 3. xlsx spreadsheets for the marker gene and pathway results
 
@@ -118,7 +119,7 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 cellhub_ensembl_annotations = os.path.join(PARAMS["source_cellhub"],
             "api/annotation/ensembl/ensembl.to.entrez.tsv.gz")
 
-if not os.path.exists(cellhub_ensembl_annotations):
+if __name__ == "__main__" and not os.path.exists(cellhub_ensembl_annotations):
     raise ValueError("cellhub ensembl annotations file not found: " +
                      cellhub_ensembl_annotations)
     
@@ -127,7 +128,7 @@ PARAMS["cellhub_ensembl_annotations"] = cellhub_ensembl_annotations
 cellhub_ensembl_map = os.path.join(PARAMS["source_cellhub"],
             "api/annotation/ensembl/ensembl.gene_name.map.tsv.gz")
 
-if not os.path.exists(cellhub_ensembl_map):
+if __name__ == "__main__" and not os.path.exists(cellhub_ensembl_map):
     raise ValueError("cellhub ensembl map file not found: " +
                      cellhub_ensembl_map)
     
@@ -136,7 +137,7 @@ PARAMS["cellhub_ensembl_map"] = cellhub_ensembl_map
 cellhub_kegg_pathways = os.path.join(PARAMS["source_cellhub"],
                                   "api/annotation/kegg/kegg.pathways.rds")
 
-if not os.path.exists(cellhub_kegg_pathways):
+if __name__ == "__main__" and not os.path.exists(cellhub_kegg_pathways):
     raise ValueError("cellhub kegg pathways file not found")
 PARAMS["cellhub_kegg_pathways"] = cellhub_kegg_pathways
 

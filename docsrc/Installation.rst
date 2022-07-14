@@ -37,6 +37,6 @@ Installation
 
      Rscript cellhub-devel/R/install.packages.R
      
-5. Install the cellhub R library
+5. Install the cellhub R library::
 
      R CMD INSTALL R/cellhub

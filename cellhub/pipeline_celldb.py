@@ -46,7 +46,6 @@ quality features that aid the selection of 'good' cells from 'bad' cells.
 Currently the following tables are generated:
 * metadata
 
-
 Code
 ====
 
@@ -157,7 +156,7 @@ def load_gex_qcmetrics(outfile):
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/scrublet.load")
 def load_gex_scrublet(outfile):
-    '''load the scrublet scores into database '''
+    '''Load the scrublet scores into database.'''
 
     x = PARAMS["table_gex_scrublet"]
 
@@ -169,11 +168,14 @@ def load_gex_scrublet(outfile):
             index = x["index"],
             outfile=outfile)
 
-@active_if(PARAMS["table_gmm_demux"]["active"])
+
+@active_if(PARAMS["table_gmm_demux_active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gmm.demux.load")
 def load_gmm_demux(outfile):
-    '''load the gmm demux dehashing calls into the database '''
+    '''
+    Load the gmm demux dehashing calls into the database.
+    '''
 
     x = PARAMS["table_gmm_demux"]
 
@@ -185,7 +187,7 @@ def load_gmm_demux(outfile):
             index = x["index"],
             outfile=outfile)
 
-@active_if(PARAMS["table_demuxEM"]["active"])
+@active_if(PARAMS["table_demuxEM_active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/demuxEM.load")
 def load_demuxEM(outfile):
@@ -207,7 +209,6 @@ def load_demuxEM(outfile):
          load_gex_scrublet,
          load_gmm_demux,
          load_demuxEM)
-         # load_cellranger_stats)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")
 def final(outfile):
