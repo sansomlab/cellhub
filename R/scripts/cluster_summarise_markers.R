@@ -19,8 +19,6 @@ option_list <- list(
                 help="minimum fraction of cells expressing gene"),
     make_option(c("--minfc"), default=1.5, type="double",
                 help="minimum foldchange"),
-    make_option(c("--annotation"), default="none",
-                help="A tsv file containing the annotation"),
     make_option(c("--clusterids"), default="none",
                 help="A tsv file containing the clusterids"),
     make_option(c("--pdf"), default = FALSE,
@@ -67,7 +65,7 @@ readMarkers <- function(marker_file_name,
 
 mfs <- strsplit(opt$marker_files, ",")[[1]] 
 
-cols <- c("gene_id","pval","p.adj",#"logfoldchange",
+cols <- c("gene_name","gene_id", "score", "pval","p.adj", #"logfoldchange",
           "pct","pct_other","mean_exprs", "mean_exprs_other","FC","min_FC",
           "cluster", "level")
 
@@ -80,20 +78,30 @@ for(mf in mfs)
   x <- readMarkers(mf,
                    min_pct=opt$minpct,
                    min_fc=opt$minfc)
+  
+  if(!"gene_id" %in% colnames(x))
+  {
+    # add fake gene_ids if not present to avoid multiple if clauses
+    # downstream. For pathway analysis real gene_ids must be supplied
+    # in adata.var.gene_id
+    x$gene_id <- x$gene_name
+   }
+  
   x <- x[,cols]
   results <- rbind(results,x)
 }
 
-# write.table(results, gzfile("raw.tsv.gz"), col.names=T, sep="\t", quote=F)
-
 message("Summarising markers across levels")
+
+print(head(results))
 
 # collapse levels 
 # - this is where conserved markers are identified
 #   (maximum p-value per level is retained)
 #   (max(NA, float) = NA)
-markers <- results %>% group_by(cluster, gene_id) %>%
-   summarize(across(c("pval","p.adj"),max),
+markers <- results %>% group_by(cluster, gene_name, gene_id) %>%
+   summarize(across(c("score"),min),
+             across(c("pval","p.adj"),max),             
              across(c("pct","pct_other", "mean_exprs", "mean_exprs_other", "FC","min_FC"), mean),
              nlevels=n()) %>%
    arrange(cluster,pval,desc(FC))
@@ -114,20 +122,12 @@ markers <- data.frame(markers)
 print(dim(markers))
 
 # add the gene names
-anno <- parseBiomartAnnotation(opt$annotation)
-markers$gene_name <- getGeneNames(anno, markers$gene_id)
-
-#markers <- markers[,c("cluster","gene","gene_id",
-#                      "p_val","p.adj",
-#                      "avg_logFC","pct.1","pct.2",
-#                      "cluster_mean","other_mean")]
-
 markers <- markers[order(markers$cluster, markers$p.adj),]
 
 markers$log2FC <- log2(markers$FC)
 markers$min_log2FC <- log2(markers$min_FC)
 
-## write out the full (unannotated) table of significantly
+## write out the full table of significantly
 ## differentially expressed marker genes as a.tsv file.
 
 message("Saving marker.summary.table.tsv")
@@ -162,11 +162,8 @@ saveWorkbook(wb, file=paste(outPrefix,"table","xlsx",
                             sep="."),
              overwrite=T)
 
-
-
 message("summarising the number of marker genes identified for each cluster")
 
-# shouldn't be reading this twice!.
 cids <- read.table(gzfile(opt$clusterids), header=T, sep="\t")
 
 summary <- c()

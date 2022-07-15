@@ -62,10 +62,12 @@ args = parser.parse_args()
 L.info("Running with arguments:")
 print(args)
 
+
 # ########################################################################### #
 # ########################### Read in the data ############################## #
 # ########################################################################### #
 
+L.info("Reading in the source anndata:")
 adata = ad.read_h5ad(args.anndata)
 
 cids = pd.read_csv(args.clusterids, sep="\t", dtype=str)
@@ -76,7 +78,11 @@ adata.obs["cluster_id"] = cids.loc[adata.obs.index, "cluster_id"]
 if not args.subset_factor == "None":
     L.info('subsetting by factor "' +
     args.subset_factor + '" to level "' + args.subset_level + '"')
-    adata = adata[adata.obs[args.subset_factor]==args.subset_level]
+    L.info('data shape before:')
+    print(adata.layers["counts"].shape)
+    adata = adata[adata.obs[args.subset_factor]==args.subset_level].copy()
+    L.info('data shape after:')
+    print(adata.layers["counts"].shape)
 
 
 # ########################################################################### #
@@ -131,14 +137,16 @@ xx = adata.uns["rank_genes_groups"]
 # Note: the pts columns have their own index and a different row order!
 #       here we need to work around this sub-optimal situation.
 
+res = pd.DataFrame({"gene_name":[x[0] for x in xx["names"]]})
+res.index = res["gene_name"]
 
+if "gene_ids" in adata.var.columns:
+    # Add the gene_ids to the result
+    res["gene_id"] = adata.var.loc[res["gene_name"],"gene_ids"]
 
-res = pd.DataFrame({"gene_id":[x[0] for x in xx["names"]],
-                    "pval":[x[0] for x in xx["pvals"]],
-                    "logfoldchange":[x[0] for x in xx["logfoldchanges"]]})
-
-res.index = res["gene_id"]
-
+res["pval"] = [x[0] for x in xx["pvals"]]
+res["score"] = [x[0] for x in xx["scores"]]
+res["logfoldchange"] = [x[0] for x in xx["logfoldchanges"]]
 res["pct"] = xx["pts"].loc[res.index, args.cluster].values
 res["pct_other"] = xx["pts_rest"].loc[res.index, args.cluster].values
 
@@ -182,14 +190,17 @@ res["pct_other"] = xx["pts_rest"].loc[res.index, args.cluster].values
 #   as the scanpy "approximations"!
 # (quick arbitrary check of sig. markers gives pearson r 0.998, spearmans rho 0.994)
 
+L.info("Reading the group means")
 group_means = pd.read_csv(args.group_means, sep="\t", index_col=0)
 group_means = group_means.sort_index() # unnecessary
 group_means.index = group_means.index.astype(str)
 
+L.info("Reading the group sizes")
 group_sizes = pd.read_csv(args.group_sizes, sep="\t", index_col=0)
 group_sizes = group_sizes.sort_index() # unnecessary
 group_sizes.index = group_sizes.index.astype(str)
 
+L.info("Adding the pseudocount")
 # addition of a pseudocount is necessary to avoid Inf values.
 # as above it is important to get this right if we wish to 
 # preserve some biological intuition. 
@@ -198,6 +209,7 @@ pseudo_count = args.pseudocount  # scanpy 1e-9; seurat = 1.
 # get means for group of interest
 x = group_means.loc[args.cluster,:] + pseudo_count
 
+L.info("Computing the mean of the other group")
 # get means for other groups
 other_groups = [x for x in group_means.index if x != args.cluster]
 y = group_means.loc[other_groups,:] 
@@ -211,8 +223,14 @@ other_mean = z.sum(axis=0)
 
 other_mean = other_mean + pseudo_count
 
+L.info("Computing the fold changes")
+print(x.shape)
+print(other_mean.shape)
+
 # fold change vs other mean
 FC = x/other_mean
+
+print(FC)
 
 # get the minimum fold change
 per_group_fold_changes = 1/y.div(x, axis="columns")

@@ -14,10 +14,9 @@
 getViolinData <- function(loom="loom.data",
                           matrix_loc="layers/log1p",
                           barcode_id_loc="col_attrs/barcode_id",
-                          gene_id_loc="row_attrs/gene_ids",
+                          gene_id_loc="row_attrs/gene_name",
                           cluster_ids="cluster_ids.tsv.gz",
                           metadata_file="metadata.tsv.gz",
-                          annotation="annotation.tsv.gz",
                           genes,
                           metadata=NULL,
                           clusters=NULL)
@@ -36,29 +35,18 @@ getViolinData <- function(loom="loom.data",
   # this will convert hypens to dots in the barcodes.
   data <- data.frame(data)
 
-  #genes <-genes[genes %in% rownames(x)]
-
-
-  data$gene_id <- as.vector(rownames(data))
-  
-  anno <- parseBiomartAnnotation(annotation)
-  data$gene_name <- getGeneNames(anno, data$gene_id)
+  data$gene_name <- as.vector(rownames(data))
 
   message("reading in the cluster ids")
   cids <- read.table(cluster_ids, header=T, sep="\t")
   
   # see comment above re hypens.
   rownames(cids) <- gsub("-",".",cids$barcode_id)
-  print(head(rownames(cids)))
 
   message("melting the data")
-  ggData <- melt(data,id.vars=c("gene_id","gene_name"))
-  
-  print(head(ggData))
-  
-  ggData$cluster <- as.numeric(cids[ggData$variable,"cluster_id"])
-        
-  #as.vector(Idents(seurat_object)[ggData$variable]))
+  ggData <- melt(data,id.vars=c("gene_name"))
+
+  ggData$cluster <- as.numeric(cids[ggData$variable,"cluster_id"])        
 
   if(!is.null(clusters))
   {
@@ -70,7 +58,6 @@ getViolinData <- function(loom="loom.data",
     md <- read.table(metadata_file, header=T, sep="\t")
     rownames(md) <- md$barcode_id
     ggData[,metadata] <- md[ggData$variable, metadata]
-#    seurat_object[[ggData$variable, metadata]]
   }
   ggData
 }
@@ -173,7 +160,6 @@ makeViolins <- function(ggData,
 
   message("drawing the plot")
   print(length(unique(ggData$gene_name)))
-  #print(unique(ggData$gene_name))
   
   if(is.null(group))
   {
@@ -252,8 +238,7 @@ plotGrob <- function(ggGrob)
 plotHorizontalViolins <- function(loom="loom.data",
                                   matrix_loc="layers/log1p",
                                   barcode_id_loc="col_attrs/barcode_id",
-                                  gene_id_loc="row_attrs/gene_ids",
-                                  annotation="annotation.tsv.gz",
+                                  gene_id_loc="row_attrs/gene_name",
                                   cluster_ids="cluster_ids.tsv.gz",
                                   genes=NULL,
                                   clusters=NULL,
@@ -273,7 +258,6 @@ plotHorizontalViolins <- function(loom="loom.data",
                           barcode_id_loc=barcode_id_loc,
                           gene_id_loc=gene_id_loc,
                           cluster_ids=cluster_ids,
-                          annotation=annotation,
                           genes=genes,
                           clusters=clusters,
                           metadata=group)

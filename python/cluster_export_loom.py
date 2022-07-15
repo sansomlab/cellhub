@@ -45,6 +45,13 @@ print(args)
 
 adata = ad.read_h5ad(args.anndata)
 
+if(len(set(adata.var.index.values))) < len(adata.var.index.values):
+    L.info("Making var names unique")
+    adata.var_names_make_unique()
+
+# the gene_name is taken as the var.index
+adata.var["gene_name"] = adata.var.index.copy()
+
 adata.write_loom(args.loom)
 
 L.info("complete")

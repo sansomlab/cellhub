@@ -51,7 +51,6 @@ database: ::
             and ngenes > 200;
 
 
-
 The cells will then be automatically retrieved from the API.
 
 Cell barcodes are set according to the "barcode_id" column which is
@@ -153,11 +152,10 @@ def fetchCells(infile, outfile):
 # ########################################################################### #
 
 
-
 @follows(mkdir("anndata.dir"))
 @files(fetchCells,
-       "anndata.dir/anndata.sentinel")
-def anndata(infile, outfile):
+       "anndata.dir/gex.sentinel")
+def GEX(infile, outfile):
     '''
     Extract the target cells into a single anndata.
     Note that this currently contains all the modalities
@@ -170,9 +168,11 @@ def anndata(infile, outfile):
     outdir = os.path.dirname(outfile)   
     log_file = outfile.replace(".sentinel", ".log")
 
-    statement = '''python %(cellhub_code_dir)s/python/extract_cells_from_h5.py 
+    statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
                    --cells=%(cell_table)s
+                   --feature_type=GEX
                    --api=%(api_path)s
+                   --outname=gex.h5ad
                    --outdir=%(outdir)s
                    &> %(log_file)s
                 '''
@@ -180,117 +180,40 @@ def anndata(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
-# @active_if(PARAMS["GEX_downsample"])
-# @follows(mkdir("fetch.cells.dir/GEX.mtx.subsampled.dir"))
-# @transform(mergeGEXSubsets,
-#            regex(r"fetch.cells.dir/GEX.mtx.full.dir/matrix.sentinel"),
-#            add_inputs(fetchCells),
-#            r"fetch.cells.dir/GEX.mtx.subsampled.dir/downsample.sentinel")
-# def downsampleGEX(infiles, outfile):
-#     '''
-#     Down-sample transcripts given a cell-metadata variable
-
-#     TODO: incorporate down-sampling into the fetching
-#           of the cell subsets.
-#     '''
-
-#     merge_sentinel, fetchCells_sentinel = infiles
-#     outdir = os.path.dirname(outfile)
-#     agg_matrix_dir = os.path.dirname(merge_sentinel)
-#     cell_metadata = fetchCells_sentinel.replace(".sentinel", ".tsv.gz")
-
-#     fetch_cells.downsample_gex(agg_matrix_dir,
-#                                cell_metadata,
-#                                outdir,
-#                                PARAMS)
-
-#     IOTools.touch_file(outfile)
-
-
-# @transform([mergeGEXSubsets, downsampleGEX],
-#            regex(r"fetch.cells.dir/GEX.mtx.(.*).dir/.*.sentinel"),
-#            add_inputs(fetchCells),
-#            r"fetch.cells.dir/GEX.anndata.\1.dir/matrix.sentinel")
-# def exportAnnData(infiles, outfile):
-#     '''
-#        Export h5ad anndata matrices for downstream analysis with
-#        scanpy
-#     '''
-
-#     mtx, obs = infiles
-#     mtx_dir = os.path.dirname(mtx)
-#     obs_file = obs.replace(".sentinel",".tsv.gz")
-#     outdir = os.path.dirname(outfile)
-#     matrix_name = os.path.basename(outfile).replace(".sentinel",".h5ad")
-
-#     fetch_cells.export_anndata(mtx_dir, obs_file, outdir, matrix_name,
-#                                PARAMS)
-
-#     IOTools.touch_file(outfile)
-
 
 # # ########################################################################### #
 # # ######################### fetch ADT data ################################## #
 # # ########################################################################### #
 
-# @active_if(PARAMS["ADT_fetch"])
-# @follows(mkdir("fetch.cells.dir/ADT.mtx.subsets.dir"))
-# @transform(barcodeSubsets,
-#            regex(r"fetch.cells.dir/barcode.subsets.dir/(.*).tsv.gz"),
-#            r"fetch.cells.dir/ADT.mtx.subsets.dir/\1/matrix.mtx.gz")
-# def ADTSubsets(infile, outfile):
-#     '''
-#     Extract the ADT cell subsets from the parent mtx.
-#     '''
+@follows(mkdir("anndata.dir"))
+@active_if(PARAMS["ADT_fetch"])
+@files(fetchCells,
+       "anndata.dir/adt.sentinel")
+def ADT(infile, outfile):
+    '''
+    Extract the target cells into a single anndata.
+    Note that this currently contains all the modalities
 
-#     matrix_subset_dir = os.path.dirname(infile)
-#     matrix_id = os.path.basename(infile).replace(".tsv.gz","")
+    TODO: support down-sampling
+    '''
 
-#     outdir = os.path.dirname(outfile)
+    cell_table = infile.replace(".sentinel", ".tsv.gz")
+    api_path = os.path.join(PARAMS["cellhub_location"],"api")
+    outdir = os.path.dirname(outfile)   
+    log_file = outfile.replace(".sentinel", ".log")
 
-#     fetch_cells.get_cell_subset(barcodes=infile,
-#                                 modality="ADT",
-#                                 matrix_id=matrix_id,
-#                                 outdir=outdir,
-#                                 PARAMS=PARAMS,
-#                                 data_subset="filtered")
+    statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
+                   --cells=%(cell_table)s
+                   --feature_type=ADT
+                   --api=%(api_path)s
+                   --outdir=%(outdir)s
+                   --outname=adt.h5ad
+                   &> %(log_file)s
+                '''
 
-# @active_if(PARAMS["ADT_fetch"])
-# @follows(mkdir("fetch.cells.dir/ADT.mtx.full.dir"))
-# @merge(ADTSubsets,
-#        "fetch.cells.dir/ADT.mtx.full.dir/matrix.sentinel")
-# def mergeADTSubsets(infiles, outfile):
-#     '''
-#     Merge the ADT cell subsets into a single mtx.
-#     '''
+    P.run(statement)
+    IOTools.touch_file(outfile)
 
-#     out_mtx_file = outfile.replace(".sentinel",".mtx.gz")
-
-#     fetch_cells.merge_subsets(infiles, out_mtx_file, PARAMS)
-
-#     IOTools.touch_file(outfile)
-
-# @active_if(PARAMS["ADT_fetch"])
-# @transform(mergeADTSubsets,
-#            regex(r"fetch.cells.dir/ADT.mtx.(.*).dir/.*.sentinel"),
-#            add_inputs(fetchCells),
-#            r"fetch.cells.dir/ADT.anndata.\1.dir/matrix.sentinel")
-# def exportAnnDataADT(infiles, outfile):
-#     '''
-#        Export h5ad anndata matrices for downstream analysis with
-#        scanpy
-#     '''
-
-#     mtx, obs = infiles
-#     mtx_dir = os.path.dirname(mtx)
-#     obs_file = obs.replace(".sentinel",".tsv.gz")
-#     outdir = os.path.dirname(outfile)
-#     matrix_name = os.path.basename(outfile).replace(".sentinel",".h5ad")
-
-#     fetch_cells.export_anndata(mtx_dir, obs_file, outdir, matrix_name,
-#                                PARAMS)
-
-#     IOTools.touch_file(outfile)
 
 # ########################################################################### #
 # ######################### fetch VDJ_B data ################################ #
@@ -311,7 +234,7 @@ def anndata(infile, outfile):
 # ########################################################################### #
 
 
-@follows(anndata)
+@follows(GEX, ADT)
 def full():
     pass
 

@@ -33,7 +33,7 @@ source:
   # The name of the reduced dimension space
   # this must exist in the source annadata obsm
   # e.g. for source_anndata.obsm["X_pca"] set to "pca"
-  rdim_name: scVI
+  rdim_name: pca_harmony
   
   # The matrix to be used for making the heatmaps
   # "X" or "log1p"
@@ -109,7 +109,7 @@ headstart:
 runspecs:
 
   # Number(s) of components of the reduced dimension space to use 
-  n_components: 10
+  n_components: 20
 
   # Clustering resolution(s)
   cluster_resolutions: 0.6,1
@@ -281,7 +281,7 @@ plot:
   groups: cluster
   # Subgroup used to break down the bar plots and cell counts.
   # Note that it also visualised in t-SNE plots and marker heatmaps
-  subgroup:
+  subgroup: condition
   # QC variable to be visualised on the tSNE plot
   qcvars: total_UMI,pct_mitochondrial,ngenes
   # Column in metadata.tsv represented by the shape of data points
@@ -393,12 +393,12 @@ markers:
     # Conserved cluster marker identification (optional)
     # -------------------------------------------------
     # Identify conserved cluster markers
-    conserved: False
+    conserved: True
 
     # Set the below to a colname in seurat@metadata
     # to find cluster markers that are conserved
     # across all levels of this factor
-    conserved_factor: stim
+    conserved_factor: condition
 
     conserved_padj: 0.05
 

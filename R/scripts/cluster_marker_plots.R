@@ -25,7 +25,7 @@ option_list <- list(
                 help="should the expression data be scaled for the heatmap"),
     make_option(c("--barcode_id_loc="), default="col_attrs/barcode_id",
                 help="location of the barcode ids in the loom file"),
-    make_option(c("--gene_id_loc="), default="row_attrs/gene_ids",
+    make_option(c("--gene_id_loc="), default="row_attrs/gene_name",
                 help="location of the gene ids in the loom file"),
     make_option(c("--clusterids"), default="none",
                 help="A tsv file containing the cluster identities"),
@@ -70,17 +70,21 @@ x <- x[x$cluster==as.numeric(opt$cluster) & x$p.adj<0.1,]
 #print(head(x))
 
 n_select = 16
-# pull out by average and minimum log fold change
-x %>% top_n(n_select, log2FC) -> top_by_log2FC
 
-#print(top_by_log2FC)
+# pull out by:
+# (i) top p-value vs all other (ranking by the test statistic
+#     score to avoid ties)
+# (ii) and minimum log fold change against each other cluster
+top_by_pval <- x %>% arrange(desc(score)) %>%
+                   slice_head(n = n_select)
 
 n_select = 8
-x[!x$gene_id %in% top_by_log2FC$gene_id,] %>%
-  top_n(n_select, min_log2FC) -> top_by_min_log2FC
+top_by_min_log2FC <- x[!x$gene_name %in% top_by_pval$gene_name,] %>%
+                     arrange(desc(min_log2FC)) %>%
+                     slice_head(n = n_select)
 
-x <- x[x$gene_id %in% c(top_by_log2FC$gene_id,
-                     top_by_min_log2FC$gene_id),]
+x <- x[x$gene_name %in% c(top_by_pval$gene_name,
+                     top_by_min_log2FC$gene_name),]
 
 # marker gene heatmap.
 
@@ -92,7 +96,7 @@ message("making the heatmap")
 mch <- markerComplexHeatmap(loom_path=opt$loom,
                             matrix_loc=opt$scaled_matrix_loc,
                             barcode_id_loc=opt$barcode_id_loc, #"col_attrs/barcode_id",
-                            gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_ids",
+                            # gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_name",
                             scale=opt$scale,
                             cluster_ids=opt$clusterids,
                             metadata_file=opt$metadata,
@@ -116,9 +120,9 @@ message("making the expression dotplots")
 gp <- expressionPlots(
         loom=opt$loom,
         matrix_loc=opt$data_matrix_loc,
+        gene_id_loc=opt$gene_id_loc,
         cluster_ids=opt$clusterids,
-        annotation=opt$annotation,
-        features=x$gene_id,
+        features=x$gene_name,
         rdims=rdims,
         x=opt$rdim1,
         y=opt$rdim2,
@@ -144,10 +148,9 @@ gg_grob <- plotHorizontalViolins(
     loom=opt$loom,
     matrix_loc=opt$data_matrix_loc,
     barcode_id_loc=opt$barcode_id_loc, #"col_attrs/barcode_id",
-    gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_ids",
+    gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_name",
     cluster_ids=opt$clusterids,
-    annotation=opt$annotation,
-    genes=x$gene_id,
+    genes=x$gene_name,
     clusters=NULL,
     title=NULL,
     ncol=12,

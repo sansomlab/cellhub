@@ -27,22 +27,6 @@ cellranger:
     # Max jobs is passed to slurm as the maximum number of jobs
     maxjobs: 64
 
-    # Sort out the job mode/template
-
-    # for SLURM (e.g. Oxford KGen cluster)
-    # - we just need to specify the "slurm" mode
-    # job_template: slurm
-
-    # for SGE/UGE (e.g. Oxford BMRC cluster)
-    # - a customised template file is required
-    job_template: /well/sansom/shared/cellranger/job.templates/sge.template
-
-    # specify memory per core
-    # either False or the amount of memory avaliable per core (in GB)
-    # here this is set for the Oxford BMRC cluster
-    mempercore: 16
-
-
 
 # Chose whether to run the optional tasks
 # ---------------------------------------
@@ -58,8 +42,8 @@ run:
 # Section describing configuration of Gene Expression libraries only, unless otherwise specified.
 gene-expression:
         # Path of folder containing 10x-compatible reference. Required for gene expression and Feature Barcode libraries.
-        # e.g. mouse /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
-        reference: /well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        # e.g. mouse /well/kir/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        reference: /gpfs3/well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
 
         # Path to a target panel CSV file or name of a 10x Genomics fixed gene panel (pathway, pan-cancer, immunology, neuroscience). Optional.
         target-panel:

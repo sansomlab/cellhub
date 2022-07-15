@@ -31,7 +31,6 @@ resources:
   # can be set to none | e.g. 40G
   memory: none
 
-
 matrix:
   dir: cellranger.multi.dir
   type: mm
@@ -43,11 +42,6 @@ matrix:
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
-
-GEX:
-  downsample: True
-  downsample_group_var: sample_id
-  downsample_function: median
 
 # If ADT included, set True to create an ADT independent dataset
 ADT:

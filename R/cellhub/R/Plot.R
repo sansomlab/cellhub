@@ -226,7 +226,7 @@ plotViolins <- function(data=NULL,
         gpa <- FALSE
         nrow_a <- 0
     }
-+2619495
+
     ## if n_a is less than n_show, there are no more genes to show.
     if(n_a == n_show)
     {
@@ -609,7 +609,7 @@ plotDownsampling <- function(matrixUMI, metadata, basename) {
 markerComplexHeatmap <- function(loom_path,
                                  matrix_loc="matrix",
                                  barcode_id_loc="col_attrs/barcode_id",
-                                 gene_id_loc="row_attrs/gene_ids",
+                                 gene_name_loc="row_attrs/gene_name",
                                  scale=FALSE,
                                  cluster_ids="cluster_ids.tsv.gz",
                                  metadata_file="metadata.tsv.gz",
@@ -619,7 +619,7 @@ markerComplexHeatmap <- function(loom_path,
                                  padj_threshold=0.1,
                                  padj_col="p.adj",
                                  only_positive=TRUE,
-                                 priority=c("pval","log2FC","min_log2FC"),
+                                 priority=c("pval","log2FC","min_log2FC", "score"),
                                  row_names_gp=10,
                                  sub_group=NULL,
                                  disp_min=-2.5,
@@ -642,30 +642,35 @@ markerComplexHeatmap <- function(loom_path,
    if(priority=="pval")
    {
        message("sorting by p val, fold change")
+       if(!"score" %in% colnames(marker_table)){
+           stop("score column missing")
+       }
        # sort by p val and then by fold change
        # often top markers have p==0.
    top_markers <- marker_table %>%
          group_by(cluster) %>%
-         slice_min(n=n_markers, order_by = !!rank_var) #c(!!rank_var, desc(log2FC)))
+         arrange(!!rank_var, desc(score)) %>%
+         slice_head(n = n_markers)
    } else {
        message("sorting by ", priority)
          top_markers <- marker_table %>%
             group_by(cluster) %>%
-            slice_max(n=n_markers, order_by = !!rank_var)
+            arrange(desc(!!rank_var)) %>%
+            slice_head(n = n_markers)
    }
  
-    message("top makers gene ids:")
-    print(data.frame(top_markers[,c("gene_id", "gene_name", "cluster", "pval", "log2FC")]))
-    #gene_ids_use <- top_markers$gene_id[top_markers$gene_id %in% valid_gene_ids]
+    # message("top makers gene ids:")
+    # print(data.frame(top_markers[,c("gene_id", "gene_name", "cluster", "pval", "score", "log2FC")]))
+    # print(table(top_markers$cluster))
   
   
   # 2. Get the data slice
     message("getting the loom data")
     x <- getLoomData(loom_path = loom_path,
                      matrix_loc = matrix_loc,
-                     genes = top_markers$gene_id,
+                     genes = top_markers$gene_name,
                      cells = cells_use,
-                     gene_id_loc = gene_id_loc,
+                     gene_id_loc = gene_name_loc,
                      barcode_id_loc = barcode_id_loc
                      )
 
@@ -778,14 +783,6 @@ markerComplexHeatmap <- function(loom_path,
     # can probably show e.g. 60 rows at font size 8
     row.cex <- min(0.5, 60/n_rows)
 
-  # take the gene_names from the top markers
-  if(!identical(rownames(x), top_markers$gene_id))
-  {
-      stop("data rows and top marker rows do not match")
-  }
-  
-  rownames(x) <- top_markers$gene_name
-
   # draw the heatmap
   Heatmap(x,
           cluster_rows = FALSE,
@@ -829,8 +826,7 @@ expressionPlots <- function(
     loom="loom.data",
     matrix_loc="layers/log1p",
     barcode_id_loc="col_attrs/barcode_id",
-    gene_id_loc="row_attrs/gene_ids",
-    annotation="annotation.tsv.gz",
+    gene_id_loc="row_attrs/gene_name",
     cluster_ids="cluster_ids.tsv.gz",
     features=NULL,
     rdims=NULL,
@@ -845,17 +841,8 @@ expressionPlots <- function(
   
   cells <- rdims$barcode_id
 
-  # checkFeatures(seurat_object, features)
-  # checkCells(seurat_object, cells)
 
   ncol <- min(ncol, length(features))
-
-
-    print(features)
-    print(loom)
-    print(matrix_loc)
-    print(gene_id_loc)
-    print(barcode_id_loc)
 
   message("getting data")
   data <- getLoomData(loom_path = loom,
@@ -866,10 +853,6 @@ expressionPlots <- function(
                    barcode_id_loc = barcode_id_loc
                   )
   
-
-  anno <- parseBiomartAnnotation(annotation)
-  rownames(data) <- getGeneNames(anno, rownames(data))
-
   # transform to % of 90th quantile so that a common
   # colour scale can be used.
   scaled_data <- apply(data, 1, FUN = scale_to_quantile, q = max_quantile)
@@ -878,7 +861,6 @@ expressionPlots <- function(
                      scaled_data)
 
   fill_df <- melt(fill_frame, id.vars=c(x, y))
-
 
   gp <- ggplot(fill_df, aes_string(x, y, color="value"))
   gp <- gp + geom_point(size=point_size,

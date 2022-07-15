@@ -54,7 +54,7 @@ def per_input(infile, outfile, PARAMS):
         memory=PARAMS["resources_job_memory"], cpu=PARAMS["resources_threads"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/ambient_rna_per_library.R
+    statement = '''Rscript %(code_dir)s/R/scripts/ambient_rna_per_library.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -97,7 +97,7 @@ def compare(infiles, outfile, PARAMS):
         job_memory = PARAMS["resources_job_memory"]
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/ambient_rna_compare.R
+    statement = '''Rscript %(code_dir)s/R/scripts/ambient_rna_compare.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''

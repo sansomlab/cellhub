@@ -73,8 +73,6 @@ x.sample = x.sample.replace("_", "\\_")
 x.projectName = PARAMS["projectname"]
 x.reportAuthor = PARAMS["author"]
 x.cellhubDir = PARAMS["cellhub_code_dir"]
-x.nPositiveMarkers = PARAMS["exprsreport_n_positive"]
-x.nNegativeMarkers = PARAMS["exprsreport_n_negative"]
 x.nnK = PARAMS["neighbors_n_neighbors"]
 x.nnMethod = PARAMS["neighbors_method"]
 x.nnMetric = PARAMS["neighbors_metric"]
@@ -83,7 +81,7 @@ x.minPct = PARAMS["markers_min_pct"]
 
 x.deTest = PARAMS["markers_test"]
 x.clusteringAlgorithm= PARAMS["cluster_algorithm"]
-x.reductionType = PARAMS["source_rdim_name"]
+x.reductionType = PARAMS["source_rdim_name"].replace("_", "\\_")
 x.rdimsVisMethod = "umap.mindist_" + str(PARAMS["umap_mindist"])
 
 # <------------------------------ path variables ---------------------------> #
@@ -97,7 +95,7 @@ x.conditionGenesetsDir = p(x.clusterDir, "condition.genesets.dir")
 x.conditionMarkerDEPlotsDir = p(x.clusterDir, "condition.marker.de.plots.dir")
 x.conditionMarkersDir = p(x.clusterDir, "condition.markers.dir")
 x.genelistsDir = p(x.clusterDir, "genelists.dir")
-x.knownmarkersDir = p(x.clusterDir, "known.markers.dir")
+# x.knownmarkersDir = p(x.clusterDir, "known.markers.dir")
 x.diffmapDir = p(x.clusterDir, "dm.visualisation.dir")
 x.groupNumbersDir = p(x.clusterDir, "group.numbers.dir")
 x.umapDir = p(x.compDir, "umap.dir")
@@ -144,6 +142,8 @@ else:
 # x.sdCutOff = PARAMS["vargenes_sdcutoff"]
 # x.latentVariables = PARAMS["regress_latentvars"].replace("_", "\\_")
 # x.normalizationMethod = PARAMS["normalization_method"]
+# x.nPositiveMarkers = PARAMS["exprsreport_n_positive"]
+# x.nNegativeMarkers = PARAMS["exprsreport_n_negative"]
 
 
 # <---------------------------- save the  variables ------------------------> #

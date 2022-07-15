@@ -169,6 +169,21 @@ def load_gex_scrublet(outfile):
             outfile=outfile)
 
 
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("celldb.dir/singleR.load")
+def load_singleR(outfile):
+    '''Load the singleR predictions into the database.'''
+
+    x = PARAMS["table_gex_singleR"]
+
+    DB.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            id_type=x["id_type"],
+            index = x["index"],
+            outfile=outfile)
+
+
 @active_if(PARAMS["table_gmm_demux_active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gmm.demux.load")
@@ -207,6 +222,7 @@ def load_demuxEM(outfile):
 @follows(load_samples,
          load_gex_qcmetrics,
          load_gex_scrublet,
+         load_singleR,
          load_gmm_demux,
          load_demuxEM)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")

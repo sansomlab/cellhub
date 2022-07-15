@@ -6,7 +6,7 @@ Pipeline singleR
 Overview
 ========
 
-This pipeline runs `singleR<https://bioconductor.org/packages/release/bioc/html/SingleR.html>`_ for cell prediction. Single R:
+This pipeline runs `singleR <https://bioconductor.org/packages/release/bioc/html/SingleR.html>`_ for cell prediction. Single R:
 
 (1) runs at cell level (cells are scored independently)
 (2) Uses a non-paramentric correlation test (i.e. monotonic transformations of 
@@ -201,7 +201,45 @@ def concatenate(infile, outfile):
     P.run(stats)
     IOTools.touch_file(outfile)
 
+@transform(concatenate,
+           regex(r"(.*)/labels.sentinel"),
+           r"\1/summary.sentinel")
+def summary(infile, outfile):
+    '''
+       Make a summary table that can be included in the cell
+       metadata packages.
+    '''
+    
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory"])
+    
+    
+    references = [x.strip() for x in PARAMS["reference_data"].split(",")]
+    
+    label_tables = []
+    
+    for reference in references:
+
+        ref_dir = os.path.join(spec.outdir, reference)
+        label_table = os.path.join(ref_dir, "labels.tsv.gz")
+        label_tables.append(label_table)
+  
+    label_tables = ",".join(label_tables)
+    
+    out_file = outfile.replace(".sentinel", ".tsv.gz")
+  
+    statement = '''python %(cellhub_code_dir)s/python/singleR_summary.py
+                   --label_tables=%(label_tables)s
+                   --outfile=%(out_file)s
+                   &> %(log_file)s
+                ''' % dict(PARAMS, **SPEC, **locals())
+    
+    P.run(statement)
+    IOTools.touch_file(outfile)
+
+@follows(summary)
 @files(concatenate,
        "singleR.dir/api.sentinel")
 def singleRapi(infiles, outfile):
@@ -235,13 +273,28 @@ def singleRapi(infiles, outfile):
 
         x.register_dataset()
 
+    # add the summary
+    file_set = {}
+    file_set["summary"] = {
+        "path": os.path.join("singleR.dir", "out.dir",
+        "summary.tsv.gz"),
+        "description":"cross-reference summary of pruned.labels",
+        "format":"tsv"}
+    
+    x = api.api("singleR")    
+    
+    x.define_dataset(analysis_name="summary",
+              file_set=file_set,
+              analysis_description="Summary of SingleR prediction results")
+    
+    x.register_dataset()
 
 # ########################################################################### #
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
 
-@follows(singleR)
+@follows(singleRapi)
 def full():
     pass
 

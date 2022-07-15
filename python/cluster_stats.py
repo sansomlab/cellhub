@@ -50,7 +50,14 @@ print(args)
 # ########################### Read in the data ############################## #
 # ########################################################################### #
 
-adata = ad.read_h5ad(args.anndata)
+source_adata = ad.read_h5ad(args.anndata, backed='r')
+
+L.info("Performing expm1 computation")
+# we want to do this on the untransformed total count normalised expression values
+adata = ad.AnnData(X=source_adata.layers["log1p"].expm1().copy(),
+                obs=source_adata.obs.copy(), var=source_adata.var.copy())
+
+source_adata.file.close()
 
 cids = pd.read_csv(args.clusterids, sep="\t")
 cids.index = cids["barcode_id"]
@@ -60,17 +67,17 @@ adata.obs["cluster_id"] = cids.loc[adata.obs.index, "cluster_id"].astype("catego
 if not args.subset_factor == "None":
     L.info('subsetting by factor "' +
     args.subset_factor + '" to level "' + args.subset_level + '"')
-
-    adata = adata[adata.obs[args.subset_factor]==args.subset_level]
-
+    
+    L.info('data shape before subsetting')
+    print(adata.X.shape)
+    adata = adata[adata.obs[args.subset_factor]==args.subset_level].copy()
+    
+    L.info('data shape after subsetting')
+    print(adata.X.shape)
 
 # ########################################################################### #
 # ######################### Compute statistics ############################## #
 # ########################################################################### #
-
-# we want to do this on the untransformed total count normalised expression values
-L.info("Performing expm1 computation")
-adata.X = adata.layers["log1p"].expm1().copy()
 
 L.info("computing cluster means")
 res = pd.DataFrame(columns=adata.var_names, index=adata.obs['cluster_id'].cat.categories)                                                                                                 

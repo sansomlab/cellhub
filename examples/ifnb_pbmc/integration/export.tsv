@@ -1,2 +1,0 @@
-sample_id	path	matrixdir
-pbmc	integration.dir/pbmc.exp.dir/harmony.integrated.dir/2000_merged_50_0.1.run.dir/normalized_integrated_anndata.h5ad	fetch.cells.dir/GEX.mtx.full.dir

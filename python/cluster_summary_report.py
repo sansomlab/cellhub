@@ -102,8 +102,8 @@ if(PARAMS["run_paga"]):
     s.append('''\\input %(source_dir)s/pagaSection.tex''')
 
 
-if(PARAMS["run_knownmarkers"]):
-    s.append('''\\input %(source_dir)s/knownmarkersSection.tex''')
+# if(PARAMS["run_knownmarkers"]):
+#    s.append('''\\input %(source_dir)s/knownmarkersSection.tex''')
 
 s.append('''\\input %(source_dir)s/markerGenes.tex''')
 

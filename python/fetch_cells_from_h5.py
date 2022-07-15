@@ -30,10 +30,12 @@ parser.add_argument("--cells", default=None, type=str,
                     help='a file containing a mapping of "barcode" to "sequencing_id"')
 parser.add_argument("--api", default=None, type=str,
                     help='the path to the api')
-#parser.add_argument("--colname", default=None, type=str,
-#                    help='column name to use for extraction from samples file')
+parser.add_argument("--feature_type", default=None, type=str,
+                    help='for "Gene Expression" use "GEX", for "Antibody Capture" use "ADT"')
 parser.add_argument("--outdir",default=None, type=str,
-                    help="the place to write the final loom")
+                    help="the output directory")
+parser.add_argument("--outname",default=None, type=str,
+                    help="the output file name")
 
 args = parser.parse_args()
 
@@ -67,10 +69,21 @@ for library_id in libraries:
                            "h5","sample_filtered_feature_bc_matrix.h5")
 
     x = sc.read_10x_h5(h5_path)
+    
+    # Subset to the desired feature type.
+    if args.feature_type == "GEX":
+        L.info("subsetting to Gene Expression features")
+        x = x[:,x.var.feature_types == 'Gene Expression']
+    elif args.feature_type == "ADT":
+        L.info("subsetting to Gene Expression features")
+        x = x[:,x.var.feature_types == 'Antibody Capture']
+    else:
+        if x.args.feature_type is not None:
+            raise ValueError("Unrecognised feature type")
 
     # use unique identifiers for the index 
-    x.var["gene_name"] = [x for x in x.var.index.values]
-    x.var.index = [x for x in x.var.gene_ids.values]
+    # the index is the ensembl gene name, these are not necessarily unique
+    x.var_names_make_unique()
 
     if first:
         var_frame = x.var.copy()
@@ -99,7 +112,6 @@ anndata.obs = cell_table.loc[anndata.obs.index,]
 L.info("Adding the var")
 anndata.var = var_frame.loc[anndata.var.index]
 
-anndata.write_h5ad(os.path.join(args.outdir,
-"anndata.h5ad"))
+anndata.write_h5ad(os.path.join(args.outdir, args.outname))
 
 L.info("complete")

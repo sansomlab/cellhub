@@ -25,8 +25,6 @@ L = logging.getLogger("cluster_cellxgene.py")
 parser = argparse.ArgumentParser()
 parser.add_argument("--source_anndata", default="source.adata.h5ad", type=str,
                     help="path to the source anndata object")
-parser.add_argument("--annotation", default="ensembl.tsv.gz", type=str,
-                    help="file with mapping of ensembl_id to gene_name")
 parser.add_argument("--obs", default="all", type=str,
                     help=('the cols in obs to be included. Either a '
                           'comma seperated list, or "all" '))
@@ -83,19 +81,19 @@ source_data = ad.read_h5ad(args.source_anndata)
 data = ad.AnnData(X=sc.sparse.csc_matrix(source_data.layers["log1p"].copy()))
 data.var.index = source_data.var.index.copy()
 
-# the annotation is a unique mapping of ensembl_id -> gene_name
-# (missing gene symbols are subsituted with ensembl_id)
-# (gene symbols have been "make.unique" 'ed)
-emap = pd.read_csv(args.annotation, sep="\t")
-emap.index = emap["ensembl_id"]
-
-data.var.index = emap.loc[[x for x in data.var.index.values], "gene_name"]
-
 # Add the metadata from the obs
 # populate with columns from cell hub
 # and optional factors of interest.
 if args.obs == "all":
     data.obs = source_data.obs.copy()
+    
+    # clean out columns with ":" (duplicates from sql.)
+    # remove barcode_id
+    data.obs = data.obs[[x for x in data.obs.columns if not ":" in x]]
+
+    if "barcode_id" in data.obs.columns:
+        data.obs.drop('barcode_id', axis=1, inplace=True)
+    
 else:
     metadata_cols = [x.strip() for x in args.obs.split(",")]
     metadata_cols = [x for x in metadata_cols if x in data.obs.columns]
@@ -155,8 +153,8 @@ for cluster in zip(cluster_names, cluster_paths):
         print(cluster_colors_path)
         cluster_colors = pd.read_csv(cluster_colors_path,header=None)[0]
         data.uns[cluster[0] + "_colors"] = np.array(cluster_colors)
-        
-    if args.cluster_split is not None:
+    
+    if args.cluster_split != "None":
         L.info("splitting the clusters")
         split_clusters = [ "_".join(x) for x in zip(data.obs[cluster[0]].values.astype("str"), 
                                                    data.obs[args.cluster_split].values)]
@@ -164,7 +162,7 @@ for cluster in zip(cluster_names, cluster_paths):
         data.obs[split_name] = split_clusters
         data.obs[split_name] = data.obs[split_name].astype("category")
 
-
+L.info("adding the date")
 data.uns["ObjectCreateDate"] = date.today().strftime("%Y-%m-%d")
 
 # ########################################################################### #

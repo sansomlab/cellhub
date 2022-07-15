@@ -358,11 +358,7 @@ def postProcessMtx(infile, outfile):
 
     Outputs:
 
-<<<<<<< HEAD
-    This task produces:
-=======
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
->>>>>>> sns-fetch-from-h5
+        library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
         unfiltered: ::
             out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
@@ -707,7 +703,8 @@ def vdjAPI(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, mtxAPI, vdjAPI)
+@follows(cellrangerMulti, 
+         mtxAPI, h5API, vdjAPI)
 def full():
     '''
     Run the full pipeline.

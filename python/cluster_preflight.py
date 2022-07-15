@@ -112,14 +112,9 @@ if int(args.max_reduced_dims) > nrdims:
 
 if args.conserved:
 
-    L.info('Writing out the levels of the conserved factor')
+    L.info('Checking conserved factor exists in metadata')
 
-    levels = [x for x in adata.obs[args.conserved_factor].cat.categories]
-    print(levels)
-
-    with open("conserved.levels","w") as cl:
-        for level in levels:
-           cl.write(level + "\n")
-
+    if not args.conserved_factor in adata.obs.columns:
+        raise ValueError("The conserved factor was not found in the obs")
 
 L.info("complete")
