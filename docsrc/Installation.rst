@@ -21,8 +21,10 @@ Installation
 
 1. Install the cgat-core pipeline system following the instructions here `https://github.com/cgat-developers/cgat-core/ <https://github.com/cgat-developers/cgat-core/>`_.
 
-2. Clone and install the cellhub-devel repository e.g.::
+2. Clone and install the cellhub-devel repository e.g.
 
+.. code-block:: Bash
+     
      git clone https://github.com/COMBATOxford/cellhub-devel.git
      cd cellhub-devel
      python setup.py develop
@@ -40,3 +42,9 @@ Installation
 5. Install the cellhub R library::
 
      R CMD INSTALL R/cellhub
+
+.. note:: On some systems, automatic detection of the HDF5 library by the R package "hdf5r" (a dependency of loomR) is problematic. This can be worked around by explicitely passing the path to your HDF5 library h5cc or h5pcc binary, e.g.
+
+.. code-block:: Bash
+
+		install.packages("hdf5r", configure.args="--with-hdf5=/apps/eb/dev/skylake/software/HDF5/1.10.6-gompi-2020a/bin/h5pcc")
