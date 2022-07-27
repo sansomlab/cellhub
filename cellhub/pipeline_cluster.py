@@ -177,6 +177,9 @@ def preflight(infile, outfile):
     else:
         conserved = ""
         
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_low"])
+        
     max_rdims = max(int(x.strip()) for x in 
                     str(PARAMS["runspecs_n_components"]).strip().split(","))
 

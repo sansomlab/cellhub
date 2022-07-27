@@ -51,7 +51,7 @@ print(args)
 # ########################### Read in the data ############################## #
 # ########################################################################### #
 
-adata = ad.read_h5ad(args.anndata)
+adata = ad.read_h5ad(args.anndata, backed='r')
 
 L.info("Checking adata.X")
 # adata.X contains the scaled data, it should be
