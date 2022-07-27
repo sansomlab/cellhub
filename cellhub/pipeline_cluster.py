@@ -237,7 +237,7 @@ def loom(infile, outfile):
     '''
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
 
     log_file = outfile.replace(".sentinel", ".log")
 
