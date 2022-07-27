@@ -178,7 +178,7 @@ def preflight(infile, outfile):
         conserved = ""
         
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
         
     max_rdims = max(int(x.strip()) for x in 
                     str(PARAMS["runspecs_n_components"]).strip().split(","))
@@ -235,6 +235,9 @@ def loom(infile, outfile):
        Export the data to the loom file format. This is used
        as an exchange format for plotting in R. 
     '''
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     log_file = outfile.replace(".sentinel", ".log")
 
@@ -361,7 +364,7 @@ def scanpyCluster(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"])
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     if not "cluster.predefined.dir" in spec.outdir:
 
@@ -389,7 +392,7 @@ def cluster(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     scanpy_cluster_tsv = infile.replace(".sentinel",".tsv.gz")
 
@@ -439,7 +442,7 @@ def compareClusters(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
@@ -483,7 +486,7 @@ def clustree(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_clustree.R
                    --resolutions=%(res_str)s
@@ -510,7 +513,7 @@ def paga(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"])
+        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_paga.py
                    --anndata=%(neighbour_graph_anndata)s
@@ -544,7 +547,7 @@ def UMAP(infile, outfile):
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_high"],
-        cpu=2)
+        cpu=2, PARAMS=PARAMS)
 
     mindists = [x.strip() for x in PARAMS["umap_mindists"].split(",")]
 
@@ -621,7 +624,7 @@ def plotRdimsFactors(infiles, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_rdims_factor.R
                    --table=%(rdims_table)s
@@ -670,7 +673,7 @@ def plotRdimsClusters(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
 
     mindists = [x.strip() for x in PARAMS["umap_mindists"].split(",")]
@@ -731,7 +734,7 @@ def plotRdimsSingleR(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"])
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
     
     api_loc = os.path.join(PARAMS["source_cellhub"], "api", "singleR")
 
@@ -801,7 +804,7 @@ def plotSingleR(infile, outfile):
     
         # set the job threads and memory
         job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"])
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
         
         scores = os.path.join(api_loc, reference, "scores.tsv.gz")
         labels = os.path.join(api_loc, reference, "labels.tsv.gz")
@@ -944,7 +947,7 @@ def plotGroupNumbers(infiles, outfile):
         SPEC["log_file"] = os.path.join(spec.outdir, summary_key + ".log")
 
         job_threads, job_memory, r_memory = TASK.get_resources(
-            memory=PARAMS["resources_memory_min"])
+            memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
         statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_group_numbers.R
                    --metadata=%(metadata_table)s
@@ -999,6 +1002,9 @@ def clusterStats(infile, outfile):
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     if PARAMS["markers_conserved"]:
 
@@ -1057,6 +1063,9 @@ def findMarkers(infile, outfile):
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
     
     statements = []
     
@@ -1134,6 +1143,9 @@ def summariseMarkers(infiles, outfile):
 
     spec, SPEC = TASK.get_vars(infiles[0], outfile, PARAMS)
     
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
+    
     cluster_sentinel, loom, metadata = infiles
     
     loom_file = loom.replace(".sentinel", ".loom")
@@ -1190,7 +1202,7 @@ def topMarkerHeatmap(infiles, outfile):
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"],
-        cpu=1)
+        cpu=1, PARAMS=PARAMS)
 
     if PARAMS["plot_subgroup"] is not None:
         subgroup = '''--subgroup=%(plot_subgroup)s''' % PARAMS
@@ -1235,7 +1247,7 @@ def dePlots(infile, outfile):
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"],
-        cpu=1)
+        cpu=1, PARAMS=PARAMS)
 
     statements = []
     tex = []
@@ -1303,7 +1315,7 @@ def markerPlots(infiles, outfile):
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_low"],
-        cpu=1)
+        cpu=1, PARAMS=PARAMS)
 
     statements = []
 
@@ -1362,7 +1374,7 @@ def plotMarkerNumbers(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_plot_marker_numbers.R
                    --degenes=%(marker_table)s
@@ -1467,7 +1479,7 @@ def genesetAnalysis(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     for i in spec.clusters:
 
@@ -1532,7 +1544,7 @@ def summariseGenesetAnalysis(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_min"])
+        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_geneset_summary.R
                          --genesetdir=%(genesetdir)s
@@ -1675,6 +1687,9 @@ def summaryReport(infile, outfile):
      
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
     
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
+    
     compilation_dir = os.path.join(spec.outdir, 
                                    "summary.report.dir")
     
@@ -1757,6 +1772,9 @@ def markerReport(infile, outfile):
     '''
 
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
     
     compilation_dir = os.path.join(spec.outdir, 
                                    "marker.report.dir")
@@ -1878,8 +1896,8 @@ def cellxgene(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
     
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"],
-        cpu=1)
+        memory=PARAMS["resources_memory_high"],
+        cpu=1, PARAMS=PARAMS)
 
     umap_path = os.path.join(os.path.dirname(infile),
                              ".".join(["umap", 
