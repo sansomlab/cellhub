@@ -295,7 +295,7 @@ def neighbourGraph(infile, outfile):
         full_speed = ""
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
 
     outfile_name = outfile.replace(".sentinel", ".h5ad")
 
