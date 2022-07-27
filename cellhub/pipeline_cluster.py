@@ -229,23 +229,25 @@ def metadata(infile, outfile):
 
 @follows(preflight)
 @files(PARAMS["source_anndata"],
-       "loom.dir/data.loom")
+       "loom.dir/data.sentinel")
 def loom(infile, outfile):
     '''
        Export the data to the loom file format. This is used
        as an exchange format for plotting in R. 
     '''
 
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
-
-    log_file = outfile.replace(".sentinel", ".log")
+    
+    loom_file = outfile.replace(".sentinel", ".loom")
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_export_loom.py
                    --anndata=%(infile)s
-                   --loom=%(outfile)s
+                   --loom=%(loom_file)s
                    &> %(log_file)s
-                ''' % dict(PARAMS, **locals())
+                ''' % dict(PARAMS, **SPEC, **locals())
 
     P.run(statement)
     IOTools.touch_file(outfile)

@@ -43,7 +43,7 @@ print(args)
 # ########################### Read in the data ############################## #
 # ########################################################################### #
 
-adata = ad.read_h5ad(args.anndata)
+adata = ad.read_h5ad(args.anndata) #, backed='r') does not work here!
 
 if(len(set(adata.var.index.values))) < len(adata.var.index.values):
     L.info("Making var names unique")
