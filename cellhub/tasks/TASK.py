@@ -17,7 +17,8 @@ def get_resources(memory="4G", cpu=1, PARAMS={"resources_mempercore":False}):
     mem_gb = int(math.ceil(gb_requested / float(cpu) ))
 
     if not mpc:
-       
+    
+       print("NOT MPC")
        ncpu = cpu
     
     else:
@@ -28,6 +29,9 @@ def get_resources(memory="4G", cpu=1, PARAMS={"resources_mempercore":False}):
             raise ValueError("resources_mempercore must be False or integer")
 
         cpu_needed_for_mem_request = math.ceil(gb_requested / mpc)
+
+        print("MPC")
+        print(cpu_needed_for_mem_request)
 
         ncpu = max(cpu, cpu_needed_for_mem_request)
 
