@@ -73,7 +73,11 @@ adata = ad.AnnData(obs = sourceAdata.obs[["barcode_id"]].copy())
 #adata.var = sourceAdata.var.copy()
 
 rdims = "X_" + args.reduced_dims_name
-adata.obsm[rdims] = sourceAdata.obsm[rdims][:,0:args.ncomps].copy()
+
+# The slot is renamed to ensure we avoid additional checks run by scvelo
+# in the case that the rep name == "X_pca"
+nn_rdims = rdims + "_copy_for_nn"
+adata.obsm[nn_rdims] = sourceAdata.obsm[rdims][:,0:args.ncomps].copy()
 
 # ########################################################################### #
 # ####################### Nearest neighbor computation ###################### #
@@ -90,7 +94,8 @@ if args.method == "scanpy":
     neighbors(adata,
               n_neighbors = args.k,
               metric = args.metric,
-              use_rep = rdims)
+              use_rep = nn_rdims)
+
 
 
 elif args.method == "hnsw":
@@ -100,13 +105,12 @@ elif args.method == "hnsw":
     # with parameters from pegasus (for a more exact result).
 
     from scvelo.pp import neighbors
-
     num_threads = (args.threads if args.fullspeed else 1)
 
     neighbors(adata,
               n_neighbors = args.k,
               n_pcs = None,
-              use_rep = rdims,
+              use_rep = nn_rdims,
               knn = True,
               random_state = 0,
               method = 'hnsw',
@@ -127,7 +131,7 @@ elif args.method == "sklearn":
     neighbors(adata,
               n_neighbors = args.k,
               n_pcs = None,
-              use_rep = rdims,
+              use_rep = nn_rdims,
               knn = True,
               random_state = 0,
               method = 'sklearn',
