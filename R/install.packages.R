@@ -54,7 +54,6 @@ cran_packages <- c("circlize",
                    "R.utils",
                    "S4Vectors",
                    "scales",
-                   "Seurat",
                    "stringr",
                    "tibble",
                    "tidyr",
@@ -67,9 +66,7 @@ bioconductor_packages <- c("ComplexHeatmap",
 			   "SingleR",
 			   "celldex")
 
-github_packages <- c("tenxutils"="sansomlab/tenx/tenxutils",
-                     "SeuratDisk"="mojaveazure/seurat-disk"
-		     "loomR"="mojaveazure/loomR")
+github_packages <- c("loomR"="mojaveazure/loomR")
 
 
 message("installing cran packages")
