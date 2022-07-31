@@ -674,8 +674,11 @@ markerComplexHeatmap <- function(loom_path,
                      barcode_id_loc = barcode_id_loc
                      )
 
-    if(scale) {  x <- t(scale(t(x))) }
-    
+    if(scale) { 
+       message("scaling the data")
+       x <- t(scale(t(x))) 
+    }
+        
     message("retrieved loom data:")
     print(dim(x))
     #print(rownames(x))
@@ -710,7 +713,7 @@ markerComplexHeatmap <- function(loom_path,
   # x <- MinMax(x, min = disp_min, max = disp_max)
   x[x<disp_min] <- disp_min
   x[x>disp_max] <- disp_max
-
+  
   message("reading cluster assignments")
   cluster_assignments <- read.table(gzfile(cluster_ids), sep="\t",
                                     header=TRUE)
@@ -772,9 +775,9 @@ markerComplexHeatmap <- function(loom_path,
     cell_order <- order(cell_clusters)
     subgroupAnnotation <- NULL
   }
-
-  #print(head(cell_order))
-  x <- x[,cell_order]
+       
+     x <- x[,cell_order, drop=FALSE]
+  
   message("x dimensions")
   print(dim(x))
   
