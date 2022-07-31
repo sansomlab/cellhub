@@ -54,11 +54,14 @@ getLoomIndices <- function(loomCon=NULL,
     genes <- names(gene_hash)
   } else {
      ngenes_requested <- length(genes)
-     genes <- genes[genes %in% names(gene_hash)]
-     ngenes_found <- length(genes)
-     
      message("No. genes requested:", ngenes_requested )
+     # print(genes)
+     genes <- genes[genes %in% names(gene_hash)]
+    
+     ngenes_found <- length(genes)
      message("No. genes found:", ngenes_found)
+     # print(genes)
+     
   
     if(ngenes_found < ngenes_requested)
     {

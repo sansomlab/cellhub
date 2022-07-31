@@ -631,7 +631,7 @@ markerComplexHeatmap <- function(loom_path,
    rank_var <- sym(priority)
    
    # only plot significant markers
-   marker_table <- marker_table[marker_table[[padj_col]] < padj_threshold, ]
+   marker_table <- marker_table[marker_table[[padj_col]] < padj_threshold & !is.na(marker_table[[padj_col]]), ]
    
    # only plot positive markers
    if(only_positive)
@@ -688,17 +688,23 @@ markerComplexHeatmap <- function(loom_path,
     cells_use <- colnames(x)
     #print(head(cells_use))
 
- if(length(gene_ids_use) == 0) {
-    stop("None of the marker gene_ids are present in the scaled data...")
-  } else if(length(gene_ids_use) <  length(top_markers$gene_id)) {
-     message("Warning: not all identified marker gene_ids are present in the ",
-             "selected slot. Only markers present in the selected slot ",
-             "will be plotted. If using scale.data you should consider re-scaling",
-             "your object to include all gene_ids in the scale.data slot")
 
-    top_markers <- top_markers %>% filter(gene_id %in% gene_ids_use)
+#   } else if(length(gene_ids_use) <  length(top_markers$gene_id)) {
+#      message("Warning: not all identified marker gene_ids are present in the ",
+#              "selected slot. Only markers present in the selected slot ",
+#              "will be plotted. If using scale.data you should consider re-scaling",
+#              "your object to include all gene_ids in the scale.data slot")
+
+#     top_markers <- top_markers %>% filter(gene_id %in% gene_ids_use)
+#   }
+ 
+  if(length(gene_ids_use) == 0) {
+     stop("None of the marker gene_ids are present in the scaled data...")
   }
  
+  if(length(gene_ids_use) != length(top_markers$gene_name)) {
+      stop("Not all of the given genes were found in the Loom file.")
+  }
 
   message("setting min and max values")
   # x <- MinMax(x, min = disp_min, max = disp_max)
@@ -767,7 +773,7 @@ markerComplexHeatmap <- function(loom_path,
     subgroupAnnotation <- NULL
   }
 
-  print(head(cell_order))
+  #print(head(cell_order))
   x <- x[,cell_order]
   message("x dimensions")
   print(dim(x))

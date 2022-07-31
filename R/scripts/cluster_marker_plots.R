@@ -65,7 +65,7 @@ rdims <- read.table(opt$rdimstable,
                    sep="\t", header=T,  as.is = T)
 
 message("filtering the markers")
-x <- x[x$cluster==as.numeric(opt$cluster) & x$p.adj<0.1,]
+x <- x[x$cluster==as.numeric(opt$cluster) & x$p.adj<0.1 & !is.na(x$p.adj),]
 
 #print(head(x))
 
@@ -116,7 +116,7 @@ save_plots(paste(outprefix,"heatmap", sep="."),
            height = 2)
 
 message("making the expression dotplots")
-# expression plots
+
 gp <- expressionPlots(
         loom=opt$loom,
         matrix_loc=opt$data_matrix_loc,
