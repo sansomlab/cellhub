@@ -85,7 +85,7 @@ gene-expression:
         force-cells:
 
         # Enables intron mode, which includes the counting of reads that align to intronic regions.
-        # Default: false
+        # Default: true
         include-introns: false
 
         # Disable secondary analysis, e.g. clustering. Optional.
