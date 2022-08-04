@@ -29,7 +29,9 @@ install.package <- function(x, source="CRAN", github_repo="")
     }
 }
 
-cran_packages <- c("circlize",
+cran_packages <- c("Cairo",
+                   "circlize",
+                   "clustree",
                    "colormap",
                    "cowplot",
                    "data.table",
@@ -49,6 +51,8 @@ cran_packages <- c("circlize",
                    "Matrix",
                    "methods",
                    "optparse",
+                   "openxlsx",
+                   "pheatmap",
                    "RColorBrewer",
                    "reshape2",
                    "R.utils",
@@ -64,9 +68,11 @@ bioconductor_packages <- c("ComplexHeatmap",
                            "DropletUtils",
                            "scater",
 			   "SingleR",
-			   "celldex")
+			   "celldex",
+               "ensembldb")
 
-github_packages <- c("loomR"="mojaveazure/loomR")
+github_packages <- c("loomR"="mojaveazure/loomR",
+                     "gsfisher"="sansomlab/gsfisher")
 
 
 message("installing cran packages")
