@@ -4,7 +4,7 @@ import argparse
 import anndata as ad
 #import scanpy as sc
 #import scipy
-#import pandas as pd
+import pandas as pd
 #import numpy as np
 import logging
 import sys
@@ -43,11 +43,24 @@ print(args)
 # ########################### Read in the data ############################## #
 # ########################################################################### #
 
-adata = ad.read_h5ad(args.anndata) #, backed='r') does not work here!
+adata = ad.read_h5ad(args.anndata) #, backed='r' does not work here!
 
 if(len(set(adata.var.index.values))) < len(adata.var.index.values):
     L.info("Making var names unique")
     adata.var_names_make_unique()
+    
+# remove data that we do not need to export
+# 1. the counts
+del adata.layers["counts"]
+
+# 2. obs
+adata.obs = pd.DataFrame(adata.obs["barcode_id"])
+
+# 3. obsm
+del adata.obsm
+
+# 4. uns
+# ignore this for now
 
 # the gene_name is taken as the var.index
 adata.var["gene_name"] = adata.var.index.copy()

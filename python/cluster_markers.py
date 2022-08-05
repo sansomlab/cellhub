@@ -68,7 +68,11 @@ print(args)
 # ########################################################################### #
 
 L.info("Reading in the source anndata:")
-adata = ad.read_h5ad(args.anndata)
+source_adata = ad.read_h5ad(args.anndata, backed='r')
+
+adata = ad.AnnData(var = source_adata.var, obs = source_adata.obs)
+adata.layers["counts"] = source_adata.layers["counts"]
+adata.layers["log1p"] = source_adata.layers["log1p"]
 
 cids = pd.read_csv(args.clusterids, sep="\t", dtype=str)
 cids.index = cids["barcode_id"]

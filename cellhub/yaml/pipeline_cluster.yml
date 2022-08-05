@@ -49,16 +49,10 @@ resources:
   # (ScaleData and JackStraw)
   numcores: 12
   # Memory options for the different steps
-  # Memory_low is used for tasks: velocity,
-  # characteriseClusterMarkers*, plotMarkerNumbers*,
-  # clustree, plotTSNEPerplexities, getGenesetAnnotation,
-  # aggregateUMIsPseudobulks
-  memory_low: 10G
-  # Memory_standard is used if not further specified
+  memory_low: 8G
   memory_standard: 16G
-  # Memory_high is used for tasks: findMarkers, summariseMarkers,
-  # diffusionMap
-  memory_high: 32G
+  # Memory_high is used for exporting to loom format.
+  memory_high: 64G
   #
   # Is memory allocated by core on the cluster?
   # If not, set to "False"
@@ -502,7 +496,7 @@ cellxgene:
   # (supply multiple factors as comma-seperated list 
   # e.g. 'condition,replicate')
   # default: None
-  facet_umap_x: condition
+  facet_umap_x: None
   facet_umap_y: None
   
   # a factor by which to split the clusters by

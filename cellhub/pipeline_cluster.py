@@ -297,7 +297,7 @@ def neighbourGraph(infile, outfile):
         full_speed = ""
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     outfile_name = outfile.replace(".sentinel", ".h5ad")
 
@@ -444,7 +444,7 @@ def compareClusters(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
@@ -488,7 +488,7 @@ def clustree(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_clustree.R
                    --resolutions=%(res_str)s
@@ -548,7 +548,7 @@ def UMAP(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"],
+        memory=PARAMS["resources_memory_standard"],
         cpu=2, PARAMS=PARAMS)
 
     mindists = [x.strip() for x in PARAMS["umap_mindists"].split(",")]
@@ -1898,7 +1898,7 @@ def cellxgene(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
     
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"],
+        memory=PARAMS["resources_memory_standard"],
         cpu=1, PARAMS=PARAMS)
 
     umap_path = os.path.join(os.path.dirname(infile),

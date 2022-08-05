@@ -56,7 +56,7 @@ print(args)
 # ########################################################################### #
 
 # read in the source data
-adata = ad.read_h5ad(args.source_anndata)
+adata = ad.read_h5ad(args.source_anndata, backed='r')
 
 # add the cluster_ids
 clusters = pd.read_csv(args.clusterids, sep="\t")
