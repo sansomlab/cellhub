@@ -1,0 +1,34 @@
+#
+# Pipeline pipeline_annotation.py configuration file
+# ==============================================
+#
+
+
+# Gene annotations
+# ----------------
+
+annotation:
+    # Species
+    # Used to obtain gene annotations for gene set analyses
+    # Choices: 'hs' (for human) | 'mm' (for mouse)
+    species: hs
+
+    # Release of Ensembl gene annotations
+    # Choices: 'latest' or a specific number, e.g. 89,90 etc
+    # ** This should be set to match the version used to build
+    #    the 10x references. The current 10x references (2020A)
+    #    use ensembl 98 **
+    ensembl_release: 98
+
+    # The ensembl host to use
+    # When set to "default" the default host of the biomaRt package will be used.
+    # The default biomaRt host is currently "www.ensembl.org".
+    # If the default host is down try e.g. "uswest.ensembl.org" or "useast.ensembl.org"
+    ensembl_host: default
+
+# Run specifications
+# ------------------
+# - Parameters in "runspecs" accept comma separated lists of arguments
+# - All combinations of these parameters will be run.
+
+

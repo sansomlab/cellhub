@@ -72,6 +72,16 @@ table:
       index: barcode_id
       final_fields: "*"
 
+    # The location of the singleR output directory
+    # output of the pipeline_singleR.py
+    gex_singleR:
+      name: gex_singleR
+      path: api/singleR/summary/summary.tsv.gz
+      id_type: library_id
+      index: barcode_id
+      final_fields: "*"
+
+
     # location of the gmm_demux results
     # output of the pipeline_dehash.py
     gmm_demux:
@@ -108,12 +118,22 @@ table:
     final:
       sql_query: >-
         CREATE VIEW final AS
-        SELECT s.*, qc.*, scrub.*
+        SELECT s.*, qc.*, scrub.*, sr.*
         FROM gex_qcmetrics qc
         LEFT JOIN sample s
-        on qc.library_id = s.library_id
+        USING (library_id)
         LEFT JOIN gex_scrublet scrub
-        ON qc.barcode_id = scrub.barcode_id;
+        USING (barcode_id)
+        LEFT JOIN gex_singleR sr
+        USING (barcode_id); 
+        
+      # LEFT JOIN sample s
+      # on qc.library_id = s.library_id
+      # LEFT JOIN gex_scrublet scrub
+      # ON qc.barcode_id = scrub.barcode_id
+      # LEFT JOIN gex_singleR sr
+      # ON qc.barcode_id = sr.barcode_id;
+
 
       # Query example for a hashed dataset.
       # *** note that the sample table is joined

@@ -1,0 +1,21 @@
+Package: cellhub
+Title: cellhub utility functions
+Version: 0.1
+Date: 2022-06-26
+Author: Steve Sansom
+Maintainer: Steve Sansom <stephen.sansom@kennedy.ox.ac.uk>
+Description: Contains utility functions for Rscripts in the cellhub pipelines. Forked from sansomlab/tenx/tenxutils on 26/6/2022
+License: GPL-2
+RoxygenNote: 7.1.1
+Imports:
+    dplyr,
+    ggplot2,
+    ComplexHeatmap (>= 1.99),
+    R.utils,
+    ggalluvial,
+    colormap,
+    Matrix,
+    RColorBrewer,
+    circlize,
+    grid,
+    loomR

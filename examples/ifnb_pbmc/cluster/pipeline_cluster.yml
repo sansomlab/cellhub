@@ -1,0 +1,518 @@
+#
+# Pipeline pipeline_cluster.py configuration file
+# ==============================================
+#
+
+# General options
+# ---------------
+
+# Project name
+projectname: 10x single cell analysis
+
+# Author
+author: Sansom group
+
+# The source data
+# The pipeline starts from an anndata object
+source:
+  # TODO: automatically detect from cellhub.
+  # Choices: 'hs' (for human) | 'mm' (for mouse)
+  species: hs
+
+  # The location of the cellhub directory
+  # it will be used to collect
+  # the annotations and singleR prections
+  cellhub: ../cellhub
+
+  # The path to the anndata file
+  # X -> scaled_data # not required if '..heatmap_matrix: log1p'
+  # layers["counts"] -> count data
+  # layers["log1p"] -> normalised, log1p transformed data
+  anndata: ../integrated.h5ad
+
+  # The name of the reduced dimension space
+  # this must exist in the source annadata obsm
+  # e.g. for source_anndata.obsm["X_pca"] set to "pca"
+  rdim_name: pca_harmony
+  
+  # The matrix to be used for making the heatmaps
+  # "X" or "log1p"
+  # if "log1p" is passed the values will be z-scored
+  # for the heatmaps.
+  # (all other plots are made from the "log1p" matrix)
+  heatmap_matrix: X
+
+# compute resource options
+# ------------------------
+resources:
+  # Number of cores used for parallel jobs
+  # (ScaleData and JackStraw)
+  numcores: 12
+
+  memory_min: 8G
+  # Memory options for the different steps
+  # Memory_low is used for tasks: velocity,
+  # characteriseClusterMarkers*, plotMarkerNumbers*,
+  # clustree, plotTSNEPerplexities, getGenesetAnnotation,
+  # aggregateUMIsPseudobulks
+  memory_low: 10G
+  # Memory_standard is used if not further specified
+  memory_standard: 16G
+  # Memory_high is used for tasks: findMarkers, summariseMarkers,
+  # diffusionMap
+  memory_high: 32G
+  # Memory_extreme is used for the scaleing and PCA tasks
+  # this can require > 100G for large datasets.
+  # diffusionMap
+  memory_extreme: 64G
+  #
+  # Is memory allocated by core on the cluster?
+  # If not, set to "False"
+  # If true, set to the integer value of the avaliable
+  #    memory/core, e.g. 16 for 16GB.
+  mempercore: 16
+
+
+# Chose whether to run the optional tasks
+# ---------------------------------------
+# True | False
+run:
+  compare_clusters: True
+  characterise_markers: True
+  top_marker_heatmap: True
+  paga: False
+  genesets: True
+  singleR: True
+
+# Give the pipeline a head start?
+# --------------------------------
+#
+# whenever possible to save time and disk space
+# we should link in previous  outputs rather than
+# re-computing them unnecessarily
+
+headstart:
+
+  # the path to a previous pipeline run
+  # False | /path/to/run
+  path: False
+
+  # Link in the annotation?
+  # True | False
+  annotation: False
+
+# Run specifications
+# ------------------
+# - Parameters in "runspecs" accept comma separated lists of arguments
+# - All combinations of these parameters will be run.
+
+runspecs:
+
+  # Number(s) of components of the reduced dimension space to use 
+  n_components: 20
+
+  # Clustering resolution(s)
+  cluster_resolutions: 0.6,1
+
+  # To manually specify cluster assignments set to True
+  # - Manual cluster assignmets should be provided as sample_name.cluster_ids.rds file(s)
+  # - one per sample must be present in the run directory
+  # - the .rds files should contained a name vector of cell barcodes (names) and clusters (values)
+  predefined_clusters: False
+
+  # Runs to skip (comma separated list of subfolders within each sample directory)
+  skip:
+
+# Nearest neighbor parameters
+# --------------------------
+neighbors:
+
+  # scanpy | hnsw
+  method: hnsw
+
+  # for hnsw
+  threads: 4
+
+  # for hnsw
+  full_speed: False
+
+  # The number of neighbors to use when constructing the nearest neighbor graph
+  # - it is recommended to match the value chosen for UMAP
+  n_neighbors: 20
+
+  # the distance metric (as supported by Scanpy)
+  # e.g. euclidean | cosine
+  metric: euclidean
+
+# Clustering parameters
+# ---------------------
+cluster:
+  # Clustering algorithm (as supported by Scanpy)
+  # "leiden" | "louvain"
+  algorithm: leiden
+
+
+# Data summary plots
+# ---------------------
+
+# Summary plots of data statistics
+# --------------------------------
+#
+# Each plot is individually defined.
+#
+# title: the name of the plot for the report (the key is used as the file basename)
+#
+# group: major grouping factor (must be present in metadata)
+# subgroup: either a factor or None (must be present in metadata if set)
+# subgrouplevels: manually order levels for plots (comma separated list)
+#
+# replicate: if set the pct stat will be normalised to total counts per-replicate.
+#            if not set the pct stat will be computed within the grouped data.
+#
+# stat: the statistic to plot. Either:
+#
+#       (1)  "count" or "pct" which will be computed from the grouped date (dplyr)
+#       (2) a column from the metadata
+#       (3) "ngenes" or "total_UMI" which will be computed on the seurat object
+#           (if not present in the metadata)
+#
+# trans: transformation to apply to the y axis (only "sqrt" supported)
+#
+# geom: the plot geom to use: supported are 'bar' and 'boxplot'
+#
+# facet: should the plot be facted by the major grouping factor?
+# freey: whould the y scales be free (when facetting)
+#
+# width: width of the plot in inches
+# height: height of the plot in inches
+# ncol: number of columns for facets
+#
+# for a full list of the options supported please see the
+# R/plot_group_numbers.R script
+#
+
+# Note: (i) in labels % symbols must be escaped as %%
+#       (ii) use of "_" and "%" in titles is not supported (even if escaped!).
+#
+
+summaries:
+
+  cells_by_cluster:
+    title: Number of cells by cluster
+    group: cluster
+    subgroup: None
+    replicate: None
+    stat: count
+    geom: bar
+    facet: False
+    freey: False
+    xlab: cluster
+    ylab: number of cells
+    width: 8
+    height: 4
+
+  pct_cells_by_cluster:
+    title: Percentate of cells by cluster
+    group: cluster
+    subgroup: None
+    replicate: None
+    stat: pct
+    geom: bar
+    facet: False
+    freey: False
+    xlab: cluster
+    ylab: cells (%%)
+    width: 8
+    height: 4
+
+
+  ngenes_by_cluster:
+    title: Number of genes per cell per cluster
+    group: cluster
+    subgroup: None
+    # subgroup: stim
+    # subgrouplevels: CTRL,STIM
+    stat: ngenes
+    replicate: barcode_id
+    geom: boxplot
+    facet: True
+    freey: False
+    xlab: Source
+    ylab: Number of genes
+    trans: sqrt
+    width: 8
+    height: 10
+    ncol: 5
+
+  numi_by_cluster:
+    title: Number of umi per cell per cluster
+    group: cluster
+    subgroup: None
+    stat: total_UMI
+    replicate: barcode_id
+    geom: boxplot
+    facet: True
+    freey: False
+    xlab: Source
+    ylab: Number of genes
+    trans: sqrt
+    width: 8
+    height: 10
+    ncol: 5
+
+
+
+# Plotting parameters
+# -------------------
+
+plot:
+
+  # make pdf versions of the plots
+  # use of this parameter is currently only implemented
+  # for the singleR heatmaps, the top marker heatmap, the plots for
+  # characterisation of DE genes, rdims_plot_genes and
+  # rdims_plot_factor.
+  #
+  pdf: False
+
+  # Groups to be visualised in tSNE/bar plots
+  # e.g. 'genotype,cluster'
+  # 'cluster' is automatically added if not specified.
+  groups: cluster
+  # Subgroup used to break down the bar plots and cell counts.
+  # Note that it also visualised in t-SNE plots and marker heatmaps
+  subgroup: condition
+  # QC variable to be visualised on the tSNE plot
+  qcvars: total_UMI,pct_mitochondrial,ngenes
+  # Column in metadata.tsv represented by the shape of data points
+  shape:
+  # Opacity of data points
+  pointalpha: 0.8
+  # Size of data points
+  pointsize: 0.5
+
+  # set the point shape:
+  # for the smallest shapes and
+  # fast plotting of large datasets use '.'
+  pointpch: 16
+
+  # maximum number of cells to draw (for gene expression plots)
+  maxcells: 200000
+
+  # violin point size
+  vpointsize: 0.1
+
+  # violin number of columns
+  vncol: 4
+  vnrow: 3
+
+
+# tSNE parameters
+# ---------------
+
+tsne:
+  # Whether or not to make the tSNE plot
+  # generally UMAP is superior so this is no longer necesary to run.
+  run: False
+  # Specify up to 9 different values of the perplexity parameters to test
+  # Only values strictly less than `floor(ncells/5)` will be considered
+  perplexities: 5,10,20,30,50,100
+  # A single perplexity value used for downstream plotting and analysis
+  perplexity: 30
+  maxiter: 10000
+  # Choices: True|False
+  fast: True
+
+
+# UMAP parameters
+# ----------------
+
+umap:
+  # Computed using scanpy
+  # and the pre-computed neighbor graph (see above)
+
+  # mindists to run (comma separated list).
+  mindists: 0,0.1,0.3,0.5,0.7
+
+  # the selected mindist to use for the plots.
+  mindist: 0.5
+
+
+
+# PAGA parameters
+# ---------------
+
+paga:
+
+  # K is the number of neighbors used to compute the nearest neighbors in scanpy
+  k: 20
+
+# Known marker genes
+# ------------------
+
+knownmarkers:
+
+  # Sets of genes that are specified here will be included in the
+  # main report as violin plots.
+  #
+  # tab-delimited .txt files with columns:
+  # gene_id, gene, group
+  file:
+
+# FindMarkers parameters
+# ----------------------
+
+markers:
+    numcores: 1
+    # Differential expression testing method(s)
+    # Choices are as supported by scanpy e.g. : 't-test'|'wilcox'
+    # It is recommended to use t-test for data exploration and
+    # wilcox for publication
+    test: t-test
+
+    # pseudocount used to estimate fold changes
+    pseudocount: 0.1
+
+    # log fold change threshold below which markers
+    # will not be tested for significance - should be set 
+    # with regard to the choice of pseudocount!
+    min_fc: 1.5
+    
+    # Only test genes that are detected in a minimum fraction of min.pct cells
+    # (see min.pct=...)
+    min_pct: 0.1
+
+    # the slot to use for the top marker heatmap.
+    # (if "scale.data" is missing, "data" will be used)
+    # if data is used, row z-scores are plotted.
+    # heatmap_slot: scale.data
+
+    # maxcellsperident: 50000
+    #
+
+    # Conserved cluster marker identification (optional)
+    # -------------------------------------------------
+    # Identify conserved cluster markers
+    conserved: True
+
+    # Set the below to a colname in seurat@metadata
+    # to find cluster markers that are conserved
+    # across all levels of this factor
+    conserved_factor: condition
+
+    conserved_padj: 0.05
+
+    # Conserved differential expression between conditions  (optional)
+    # ---------------------------------------------------------------
+
+    # Identify conserved differences between conditions (within-cluster)
+    conserved_between: False
+
+    # Set the below to a colname in seurat@metadata
+    # to find gene expression differences that are conserved
+    # between condition across all levels of this factor
+    # (it should be orthogonal to "between_testfactor")
+    conserved_between_factor: none
+
+    conserved_between_padj: 0.05
+
+
+# Geneset over-representation analysis
+# ------------------------------------
+# (GO categories and KEGG pathways are analysed by default)
+
+genesets:
+
+  # Marker adjusted p-value threshold for it to be included in the geneset analysis (genesetAnalysis.R)
+  # This value will also be used in the geneset analysis for within cluster DE
+  marker_adjpthreshold: 0.1
+
+  # A method recognised by the R "p.adjust" function
+  # The adjustment is applied to the combined results from
+  # all of the clusters.
+  padjust_method: BH
+
+  # Should the adjusted p-value be used for producing the
+  # summary heatmaps?
+  use_adjusted_pvalues: True
+
+  # The p-value threshold to be used for producing the
+  # summary heatmaps.
+  pvalue_threshold: 0.05
+
+  # The minimum odds ratio to be used for inclusion in the
+  # plots
+  min_odds_ratio: 1.5
+
+  # The minimum number of over-represented genes for
+  # inclusion in the plots
+  min_fg_genes: 3
+
+  # Should genesets significantly enriched in all clusters
+  # be shown in the summary heatmaps?
+  show_common: True
+
+  # Make per-cluster geneset plots where genesets are
+  # clustered by over-represented genes
+  # either "none" or a comma-separated list of geneset names
+  show_detailed: GO.BP
+
+gmt_pathway_files:
+
+  # Arbitrary genesets can be specified here using gmt files.
+  # the key is taken as the set name, and the value as the path to the gmt file, i.e.
+  # set_name: gmt_file_path
+  #
+  # note that the below files are species and site specific
+  #
+  # > human msigdb sets >
+  #
+  msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.gmt
+  msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.gmt
+  # msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.gmt
+  # msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.gmt
+  # msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.gmt
+  #
+  # > mouse msigdb sets >
+  #
+  # msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.mouse.gmt
+  # msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.mouse.gmt
+  # msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.mouse.gmt
+  # msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.mouse.gmt
+  # msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.mouse.gmt
+
+gmt_celltype_files:
+  # > human cell types >
+  #
+  # xCell: /well/kir/mirror/xCell/xCell_entrezID.gmt
+  #
+
+
+# Cellxgene
+# ------------------------------------
+
+cellxgene:
+
+  # The 'umap_mindist' parameter is used to select the umap layout. 
+  
+  # The columns in the obs to be included (if present) in the object
+  # supply as comma seperated list
+  # default 'all'
+  obs: all
+  
+  # The prefered cluster resolution can be set here or left to 'all'
+  resolution: all
+  
+  # factors by which to facet the umap layouts
+  # faceting by up to 2 factors is supported
+  # (supply multiple factors as comma-seperated list 
+  # e.g. 'condition,replicate')
+  # default: None
+  facet_umap_x: condition
+  facet_umap_y: None
+  
+  # a factor by which to split the clusters by
+  # only one factor may be specified
+  # default: None
+  cluster_split: None
+  

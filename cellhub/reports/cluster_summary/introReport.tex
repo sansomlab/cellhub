@@ -1,0 +1,42 @@
+\documentclass{article}
+
+\usepackage{\cellhubDir/cellhub/reports/latex/preamble}
+
+\begin{document}
+
+\title{\reportTitle \\
+  \vspace{5mm}
+  \large \projectName \\
+}
+
+\author{\reportAuthor}
+\maketitle
+
+\vspace{10mm}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth,height=0.4\textheight,keepaspectratio]{{{\rdimsVisClusterDir/\rdimsVisMethod.cluster_id}}}
+\end{figure}
+
+\vspace{\fill}
+\noindent
+{\large \textbf{Sample}: \sample}
+
+\vspace{3mm}
+\noindent
+{\large \textbf{Run specs}: \runDetails}
+
+\vspace{3mm}
+\noindent
+{\large \textbf{Code}: \url{https://github.com/sansomlab/cellhub}}
+
+
+
+\clearpage
+
+\tableofcontents
+
+\clearpage
+
+
+

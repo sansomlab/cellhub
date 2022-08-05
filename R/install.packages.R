@@ -29,7 +29,9 @@ install.package <- function(x, source="CRAN", github_repo="")
     }
 }
 
-cran_packages <- c("circlize",
+cran_packages <- c("Cairo",
+                   "circlize",
+                   "clustree",
                    "colormap",
                    "cowplot",
                    "data.table",
@@ -49,12 +51,13 @@ cran_packages <- c("circlize",
                    "Matrix",
                    "methods",
                    "optparse",
+                   "openxlsx",
+                   "pheatmap",
                    "RColorBrewer",
                    "reshape2",
                    "R.utils",
                    "S4Vectors",
                    "scales",
-                   "Seurat",
                    "stringr",
                    "tibble",
                    "tidyr",
@@ -63,10 +66,13 @@ cran_packages <- c("circlize",
 
 bioconductor_packages <- c("ComplexHeatmap",
                            "DropletUtils",
-                           "scater")
+                           "scater",
+			   "SingleR",
+			   "celldex",
+               "ensembldb")
 
-github_packages <- c("tenxutils"="sansomlab/tenx/tenxutils",
-                     "SeuratDisk"="mojaveazure/seurat-disk")
+github_packages <- c("loomR"="mojaveazure/loomR",
+                     "gsfisher"="sansomlab/gsfisher")
 
 
 message("installing cran packages")

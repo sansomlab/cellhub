@@ -312,14 +312,23 @@ def cellrangerMulti(infile, outfile):
 
     log_file = id_tag + ".log"
 
+    mempercore = PARAMS["cellranger_mempercore"]
+
+    if mempercore:
+        mempercore_stat="--mempercore " + str(mempercore)
+    else:
+        mempercore_stat = ""
+
     # this statement is to run in slurm mode
     statement = '''cd cellranger.multi.dir;
                     cellranger multi
-	    	    --id %(id_tag)s
+	    	        --id %(id_tag)s
                     --csv=%(config_path)s
-                    --jobmode=slurm
+                    --jobmode=%(cellranger_job_template)s
                     --maxjobs=%(max_jobs)s
-		    --nopreflight
+		            --nopreflight
+                    --disable-ui
+                    %(mempercore_stat)s
                     &> %(log_file)s
                  '''
 
@@ -335,31 +344,27 @@ def postProcessMtx(infile, outfile):
     counts for the GEX, ADT and HTO modalities into seperate
     market matrices.
 
-    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" synta.
+    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" syntax.
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
+            library_id/outs/multi/count/raw_feature_bc_matrix/
 
-      library_id/outs/multi/count/raw_feature_bc_matrix/
+        filtered "outs": :: 
+            library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
 
-    filtered "outs": ::
+    Outputs:
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+        library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
-    Post-processed outputs
-    ----------------------
+        unfiltered: ::
+            out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
 
-    This task produces
-
-    unfiltered: ::
-      out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
-
-    filtered: ::
-      out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
+        filtered: ::
+            out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
 
     '''
 
@@ -393,7 +398,7 @@ def postProcessMtx(infile, outfile):
     for per_sample_dir in per_sample_dirs:
 
         matrix_location = os.path.join(per_sample_dir,
-                                       "count/sample_feature_bc_matrix")
+                                       "count/sample_filtered_feature_bc_matrix")
 
         sample_id = os.path.basename(per_sample_dir)
 
@@ -478,18 +483,17 @@ def h5API(infile, outfile):
     '''
     Put the h5 files on the API
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
 
-      library_id/outs/multi/count/raw_feature_bc_matrix/
+            library_id/outs/multi/count/raw_feature_bc_matrix/
 
-    filtered "outs": ::
+        filtered "outs": ::
 
-      library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+            library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
     '''
     x = api.api("cellranger.multi")
@@ -534,7 +538,7 @@ def h5API(infile, outfile):
     for per_sample_dir in per_sample_dirs:
 
         h5_location = os.path.join(per_sample_dir,
-                                       "count/sample_feature_bc_matrix.h5")
+                                       "count/sample_filtered_feature_bc_matrix.h5")
 
         h5_x = h5_template.copy()
         h5_x["h5"]["path"] = h5_location
@@ -563,29 +567,25 @@ def postProcessVDJ(infile, outfile):
 
     The cellbarcodes are reformatted to the "UMI-LIBRARY_ID" syntax.
 
-    Cellranger inputs
-    -----------------
+    Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+        The input cellranger.multi.dir folder layout is:
 
-    unfiltered "outs": ::
+        unfiltered "outs": ::
+            library_id/outs/multi/vdj_[b|t]/
 
-      library_id/outs/multi/vdj_[b|t]/
+        filtered "outs": ::
+            library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
 
-    filtered "outs": ::
+    Outputs:
 
-      library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
+        This task produces:
 
-    Post-processed outputs
-    ----------------------
+        unfiltered: ::
+            out.dir/library_id/unfiltered/vdj_[t|b]/
 
-    This task produces
-
-    unfiltered: ::
-      out.dir/library_id/unfiltered/vdj_[t|b]/
-
-    filtered: ::
-      out.dir/library_id/filtered/sample_id/vdj_[t|b]/
+        filtered: ::
+            out.dir/library_id/filtered/sample_id/vdj_[t|b]/
 
     '''
 
@@ -703,7 +703,8 @@ def vdjAPI(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, mtxAPI, vdjAPI)
+@follows(cellrangerMulti, 
+         mtxAPI, h5API, vdjAPI)
 def full():
     '''
     Run the full pipeline.

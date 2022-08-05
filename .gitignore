@@ -33,6 +33,10 @@ lib64
 doc/_build
 doc/_static
 
+# MacOS
+.DS_Store
+
+
 # Installer logs
 pip-log.txt
 
@@ -70,3 +74,4 @@ docs/*.out
 docs/._index.html
 docs/.buildinfo
 docs/*.png
+.Rproj.user

@@ -1,7 +1,7 @@
 '''
-================
+==========================
 Pipeline ADT normalization
-================
+==========================
 
 Overview
 ========
@@ -104,7 +104,7 @@ if len(sys.argv) > 1:
            r"adt_norm.dir/adt_dsb.dir/\1/\1_gex.sentinel")
 def gexdepth(infile, outfile):
     '''
-    This task will run R/calculate_depth_dist.R,
+    This task will run R/adt_calculate_depth_dist.R,
     It will describe the GEX UMI distribution of the background and cell-containing 
     barcodes. This will help to assess the quality of the ADT data and will inform
     about the definition of the background barcodes.
@@ -136,7 +136,7 @@ def gexdepth(infile, outfile):
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --qc_bar=%(qc_barcode)s
@@ -188,7 +188,7 @@ def gexdepthAPI(infiles, outfile):
            r"adt_norm.dir/adt_dsb.dir/\1/\1_adt.sentinel")
 def adtdepth(infile, outfile):
     '''
-    This task will run R/calculate_depth_dist.R,
+    This task will run R/adt_calculate_depth_dist.R,
     It will describe the ADT UMI distribution of the background and cell-containing 
     barcodes. This will help to assess the quality of the ADT data and will inform
     the definition of the background barcodes.
@@ -225,7 +225,7 @@ def adtdepth(infile, outfile):
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/calculate_depth_dist.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --rm_feat=%(rm_feat)s
@@ -275,9 +275,9 @@ def adtdepthAPI(infiles, outfile):
 @transform(adtdepth, 
            regex(r".*/.*/.*/(.*)_adt.sentinel"), 
            r"adt_norm.dir/adt_dsb.dir/\1/\1_plot.sentinel")
-def plot_norm_adt(infile, outfile):
+def adt_plot_norm(infile, outfile):
     '''
-    This task will run R/plot_norm_adt.R,
+    This task will run R/adt_plot_norm.R,
     It will create a visual report on the cell vs background dataset split and,
     if the user provided GEX and ADT UMI thresholds, those will be included. 
     '''
@@ -321,7 +321,7 @@ def plot_norm_adt(infile, outfile):
     out_file = outfile.replace(".sentinel", ".pdf")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/plot_norm_adt.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_plot_norm.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
@@ -355,7 +355,7 @@ def plot_norm_adt(infile, outfile):
            r"adt_norm.dir/adt_dsb.dir/\1/mtx/\1.sentinel")
 def dsb_norm(infile, outfile):
     '''
-    This task runs R/normalize_adt.R.
+    This task runs R/adt_normalize.R.
     It reads the unfiltered ADT count matrix and calculates DSB normalized ADT 
     expression matrix which is then saved like market matrices per sample.
     '''
@@ -401,7 +401,7 @@ def dsb_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/normalize_adt.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_normalize.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --library_id=%(library_name)s
@@ -475,7 +475,7 @@ def dsbAPI(infile, outfile):
            regex(r".*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"adt_norm.dir/adt_median.dir/\1/mtx/\1.sentinel")
 def median_norm(infile, outfile):
-    '''This task runs R/get_median_adt_normalization.R,
+    '''This task runs R/adt_get_median_normalization.R,
     It reads the filtered ADT count matrix and performed median-based 
     normalization. Calculates median-based normalized ADT expression matrix and
     writes market matrices per sample.
@@ -513,7 +513,7 @@ def median_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/get_median_adt_normalization.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_get_median_normalization.R
                  --adt=%(filtered_adt_dir)s
                  --nfeat=%(nfeat)s
                  --rm_feat=%(rm_feat)s
@@ -612,7 +612,7 @@ def clr_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/get_clr_adt_normalization.R
+    statement = '''Rscript %(code_dir)s/R/scripts/adt_get_clr_normalization.R
                  --adt=%(filtered_adt_dir)s
                  --nfeat=%(nfeat)s
                  --rm_feat=%(rm_feat)s
@@ -687,7 +687,7 @@ def plot(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@follows(gexdepthAPI, adtdepthAPI, plot_norm_adt, dsb_norm, dsbAPI, median_norm, 
+@follows(gexdepthAPI, adtdepthAPI, adt_plot_norm, dsb_norm, dsbAPI, median_norm, 
          medianAPI, clr_norm, clrAPI, plot)
 def full():
     '''
