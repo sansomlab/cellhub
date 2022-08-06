@@ -51,9 +51,8 @@ resources:
   # Memory options for the different steps
   memory_low: 8G
   memory_standard: 16G
-  # Memory_high is used for exporting to loom format.
   memory_high: 64G
-  #
+  
   # Is memory allocated by core on the cluster?
   # If not, set to "False"
   # If true, set to the integer value of the avaliable

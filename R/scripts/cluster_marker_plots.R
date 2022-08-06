@@ -16,13 +16,9 @@ option_list <- list(
     make_option(c("--markers"),default="none",
                 help="A table containing the marker information"),
     make_option(c("--loom"), default="data.loom",
-                help="path to the loom file"),
-    make_option(c("--scaled_matrix_loc"), default="matrix",
-                help="location of the scaled matrix in the loom file"),
-    make_option(c("--data_matrix_loc"), default="layers/log1p",
-                help="location of the normalised data matrix in the loom file"),
-    make_option(c("--scale"), default=FALSE,
-                help="should the expression data be scaled for the heatmap"),
+                help="path to a loom file with normalised, log1p transformed data"),
+    make_option(c("--scaled_loom"), default=NULL,
+                help="path to a loom file with scaled data"),
     make_option(c("--barcode_id_loc="), default="col_attrs/barcode_id",
                 help="location of the barcode ids in the loom file"),
     make_option(c("--gene_id_loc="), default="row_attrs/gene_name",
@@ -67,8 +63,6 @@ rdims <- read.table(opt$rdimstable,
 message("filtering the markers")
 x <- x[x$cluster==as.numeric(opt$cluster) & x$p.adj<0.1 & !is.na(x$p.adj),]
 
-#print(head(x))
-
 n_select = 16
 
 # pull out by:
@@ -92,12 +86,20 @@ if(nrow(x) > 0) {
 
 print(head(x,n=6))
 
+if(!is.null(opt$scaled_loom)) {
+    loom_file_path = opt$scaled_loom
+    scale_data = FALSE
+} else {
+    loom_file_path = opt$loom
+    scale_data = TRUE
+}
+
 message("making the heatmap")
-mch <- markerComplexHeatmap(loom_path=opt$loom,
-                            matrix_loc=opt$scaled_matrix_loc,
+mch <- markerComplexHeatmap(loom_path=loom_file_path,
+                            matrix_loc="matrix",
                             barcode_id_loc=opt$barcode_id_loc, #"col_attrs/barcode_id",
                             # gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_name",
-                            scale=opt$scale,
+                            scale=scale_data,
                             cluster_ids=opt$clusterids,
                             metadata_file=opt$metadata,
                             marker_table=x,
@@ -119,7 +121,7 @@ message("making the expression dotplots")
 
 gp <- expressionPlots(
         loom=opt$loom,
-        matrix_loc=opt$data_matrix_loc,
+        matrix_loc="matrix",
         gene_id_loc=opt$gene_id_loc,
         cluster_ids=opt$clusterids,
         features=x$gene_name,
@@ -146,7 +148,7 @@ message("making the violin plots")
 # make the violin plots
 gg_grob <- plotHorizontalViolins(
     loom=opt$loom,
-    matrix_loc=opt$data_matrix_loc,
+    matrix_loc="matrix",
     barcode_id_loc=opt$barcode_id_loc, #"col_attrs/barcode_id",
     gene_id_loc=opt$gene_id_loc, # "row_attrs/gene_name",
     cluster_ids=opt$clusterids,
