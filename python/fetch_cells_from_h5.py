@@ -8,12 +8,6 @@ import argparse
 import numpy as np
 import cellhub.tasks.cellbender as cb
 
-#    statement = '''python %(cellhub_dir)s/python/extract_cells_from_h5.py"
-#                       --cells=%(cell_manifest)s
-#                       --samples=%(sample_table)s
-#                       --outdir=%(outdir)s
-#                '''
-
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
 # ########################################################################### #
@@ -84,7 +78,6 @@ for library_id in libraries:
         
         x = cb.anndata_from_h5(h5_path)
         x.var["feature_types"] = x.var.feature_type.copy()
-        x.var_names_make_unique()
         
     else: 
         raise ValueError("Unknown source")
@@ -113,7 +106,22 @@ for library_id in libraries:
         if not np.array_equal(x.var.index, var_index):
             raise ValueError("var index mismatch")
 
-    x = x[barcodes]
+    L.info("Number of barcodes to extract:")
+    print(len(barcodes))
+    
+    common_barcodes = [y for y in barcodes if y in x.obs.index]
+     
+    L.info("Number of barcodes found:")
+    print(len(common_barcodes))
+
+    if len(common_barcodes) < len(barcodes):
+        if args.source == "cellranger":
+            raise ValueError("Not all barcodes were found")
+        else:
+            L.warn("Not all barcodes were found")
+
+    x = x[common_barcodes]
+
     x.obs.index = [ y.split("-")[0] + "-" + library_id 
                     for y in x.obs.index.values ]
     x.obs["barcode_id"] = x.obs.index

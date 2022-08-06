@@ -4,6 +4,8 @@ import scipy.sparse as sp
 import anndata
 from typing import Dict, Optional
 
+# functions below are copy-pasted from
+# https://github.com/broadinstitute/CellBender/issues/128#issuecomment-1175336065
 
 def anndata_from_h5(file: str,
                     analyzed_barcodes_only: bool = True) -> 'anndata.AnnData':
