@@ -1,5 +1,5 @@
 #
-# pipeline_ambient_rna.py configuration file
+# pipeline_cellbender.py configuration file
 # =========================================
 #
 
@@ -20,19 +20,46 @@ excludelist: None
 # compute resource options
 # ------------------------
 resources:
-    # job memory for tasks; use this in combination with nslots
-    # if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
-    job_memory: 4G
-    # number of job threads/slots
-    threads: 6
+
+  # amount of memory
+  memory: 16G
+  
+  # number of cpus
+  ncpu: 1
+    
+  # Is memory allocated by core on the cluster?
+  # If not, set to "False"
+  # If true, set to the integer value of the avaliable
+  #    memory/core, e.g. 16 for 16GB.
+  mempercore: 16
 
 
-# Ambient RNA options
-# ------------------------
-ambientRNA:
-    # Maximum UMI count threshold to define an ambient droplet
-    umi: 100
+# Cellbender parameters
+# ---------------------
+cellbender:
+    # model
+    model: full
+    # cuda
+    cuda: False
+    # nepochs
+    epochs: 150
+    # fpr
+    fpr: 0.01
+    # learning rate
+    learning_rate: 0.0001
+    # low count threshold
+    low_count_threshold: 15
     # Additional columns from the sample table (input_samples.txt) to show in summary heatmaps
     # If 'none': only exp_batch, channel_id, and seq_batch will be shown (only if they have more than one level)
     # Options: 'all' or comma-separated column names (e.g 'genotype,tissue,sex')
     plot_annotation: pool_id
+
+# Per sample parameters
+# ---------------------
+samples:
+  # Replace "sample_1" with the sample name
+  # Add as many entries as needed
+  sample_1:
+    expected_cells:
+    total_droplets_included:
+

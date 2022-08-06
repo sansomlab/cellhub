@@ -4,6 +4,10 @@ cellhub:
   # The folder containing the cellhub instance
   # from which we wish to retrieve the cells.
   location: ../cellhub
+  
+  # The source of the h5 files from which to pull the
+  # counts. Either "cellranger" or "cellbender"
+  source: cellranger
 
   # The query is executed against the "final" view of the
   # cell hub sqlite database.
