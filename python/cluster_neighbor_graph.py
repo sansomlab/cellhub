@@ -64,7 +64,7 @@ print(args)
 # #########################  Make the anndata object ######################### #
 # ########################################################################### #
 
-sourceAdata = ad.read_h5ad(args.source_anndata)
+sourceAdata = ad.read_h5ad(args.source_anndata, backed='r')
 
 # make the anndata and populate the obs and vars
 adata = ad.AnnData(obs = sourceAdata.obs[["barcode_id"]].copy())

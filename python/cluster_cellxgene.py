@@ -75,7 +75,7 @@ print(args)
 # True
 
 L.info("reading the reference anndata object")
-source_data = ad.read_h5ad(args.source_anndata)
+source_data = ad.read_h5ad(args.source_anndata, backed='r')
 
 # Add the normalised data
 data = ad.AnnData(X=sc.sparse.csc_matrix(source_data.layers["log1p"].copy()))

@@ -229,7 +229,7 @@ def metadata(infile, outfile):
 
 @follows(preflight)
 @files(PARAMS["source_anndata"],
-       "loom.dir/data.sentinel")
+       "loom.dir/loom.sentinel")
 def loom(infile, outfile):
     '''
        Export the data to the loom file format. This is used
@@ -239,17 +239,28 @@ def loom(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
     
-    loom_file = outfile.replace(".sentinel", ".loom")
+    loom_dir= os.path.dirname(outfile)
+    
+    layers = set([PARAMS["source_heatmap_matrix"], "log1p"])
+    
+    statements = []
 
-    statement = '''python %(cellhub_code_dir)s/python/cluster_export_loom.py
-                   --anndata=%(infile)s
-                   --loom=%(loom_file)s
-                   &> %(log_file)s
+    for layer in layers:
+    
+        layer_log_file = os.path.join(loom_dir, layer + ".log")
+    
+        stat = '''python %(cellhub_code_dir)s/python/cluster_loom.py
+                  --anndata=%(infile)s
+                  --layer=%(layer)s
+                  --loomdir=%(loom_dir)s
+                  &> %(layer_log_file)s
                 ''' % dict(PARAMS, **SPEC, **locals())
+                
+        statements.append(stat)
 
-    P.run(statement)
+    P.run(statements)
     IOTools.touch_file(outfile)
 
 #endregion
@@ -297,7 +308,7 @@ def neighbourGraph(infile, outfile):
         full_speed = ""
 
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     outfile_name = outfile.replace(".sentinel", ".h5ad")
 
@@ -444,7 +455,7 @@ def compareClusters(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
@@ -488,7 +499,7 @@ def clustree(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_low"], PARAMS=PARAMS)
+        memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/cluster_clustree.R
                    --resolutions=%(res_str)s
@@ -548,7 +559,7 @@ def UMAP(infile, outfile):
 
     # set the job threads and memory
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"],
+        memory=PARAMS["resources_memory_standard"],
         cpu=2, PARAMS=PARAMS)
 
     mindists = [x.strip() for x in PARAMS["umap_mindists"].split(",")]
@@ -1133,7 +1144,7 @@ def findMarkers(infile, outfile):
 @follows(findMarkers)
 @transform(cluster,
            regex(r"(.*)/(.*)/cluster.sentinel"),
-           add_inputs(loom, metadata),
+           add_inputs(metadata),
            r"\1/\2/markers.dir/markers.summary.sentinel")
 def summariseMarkers(infiles, outfile):
     '''
@@ -1148,9 +1159,8 @@ def summariseMarkers(infiles, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
     
-    cluster_sentinel, loom, metadata = infiles
+    cluster_sentinel, metadata = infiles
     
-    loom_file = loom.replace(".sentinel", ".loom")
     metadata_file= metadata.replace(".sentinel", ".tsv.gz")
     
     marker_files = glob.glob(os.path.join(spec.outdir, "*.markers.tsv.gz"))
@@ -1190,15 +1200,19 @@ def topMarkerHeatmap(infiles, outfile):
                                 "markers.summary.table.tsv.gz")
     
     
-    loom_file = loom.replace(".sentinel", ".loom")
+    loom_dir = os.path.dirname(loom) 
     metadata_file= metadata.replace(".sentinel", ".tsv.gz")
     
+    matrix_loc = "matrix"
+    
     if PARAMS["source_heatmap_matrix"] == "X":
-        matrix_loc = "matrix"
+        loom_file = os.path.join(loom_dir, "X.loom")
         scale= "FALSE"
+        
     elif PARAMS["source_heatmap_matrix"] == "log1p":
-        matrix_loc = "layers/log1p"
+        loom_file = os.path.join(loom_dir, "log1p.loom")
         scale = "TRUE"
+        
     else:
         raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
 
@@ -1303,15 +1317,16 @@ def markerPlots(infiles, outfile):
     markers = pd.read_csv(marker_table, sep="\t")
     clusters_with_markers = [x for x in markers.cluster.unique()]
     
-    loom_file = loom.replace(".sentinel", ".loom")
-    metadata_file= metadata.replace(".sentinel", ".tsv.gz")
+    loom_dir = os.path.dirname(loom) 
+    loom_file = os.path.join(loom_dir, "log1p.loom")
     
+    metadata_file= metadata.replace(".sentinel", ".tsv.gz")
+        
     if PARAMS["source_heatmap_matrix"] == "X":
-        scaled_matrix_loc = "matrix"
-        scale= "FALSE"
+        scaled_loom_file = os.path.join(loom_dir, "X.loom")
+        scaled_loom = "--scaled_loom=" + scaled_loom_file
     elif PARAMS["source_heatmap_matrix"] == "log1p":
-        scaled_matrix_loc = "layers/log1p"
-        scale = "TRUE"
+        scaled_loom = ""
     else:
         raise ValueError('source heatmap matrix parameter must be "X" or "log1p"')
 
@@ -1341,9 +1356,7 @@ def markerPlots(infiles, outfile):
                     Rscript %(cellhub_code_dir)s/R/scripts/cluster_marker_plots.R
                     --markers=%(marker_table)s
                     --loom=%(loom_file)s
-                    --scaled_matrix_loc="matrix"
-                    --data_matrix_loc="layers/log1p"
-                    --scale=%(scale)s
+                    %(scaled_loom)s
                     --metadata=%(metadata_file)s
                     --clusterids=%(cluster_ids)s
                     --rdimstable=%(rdims_table)s
@@ -1898,7 +1911,7 @@ def cellxgene(infile, outfile):
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
     
     job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory_high"],
+        memory=PARAMS["resources_memory_standard"],
         cpu=1, PARAMS=PARAMS)
 
     umap_path = os.path.join(os.path.dirname(infile),
