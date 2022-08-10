@@ -1,0 +1,28 @@
+# pipeline_clean_ambient.py configuration file
+# =========================================
+
+# General options
+# ---------------
+
+# Number of expected_cells obtained from cellranger
+
+# FDR [Required]
+FDR: 0.01
+
+# Number of epochs [Required]
+number_epochs: 150
+
+# compute resource options
+# ------------------------
+resources:
+# job memory for tasks; use this in combination with nslots
+# if no slots with memory pre-assigned; 'none' | e.g. 16G (x nslots)
+    job_memory: none
+# number of job threads/slots
+    # cellbender
+    threads: 10
+    # h5 to mtx task
+    threads_export: 3
+    
+# cuda 
+    use_cuda: False

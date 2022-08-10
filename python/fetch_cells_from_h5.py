@@ -6,12 +6,7 @@ import pandas as pd
 import logging
 import argparse
 import numpy as np
-
-#    statement = '''python %(cellhub_dir)s/python/extract_cells_from_h5.py"
-#                       --cells=%(cell_manifest)s
-#                       --samples=%(sample_table)s
-#                       --outdir=%(outdir)s
-#                '''
+import cellhub.tasks.cellbender as cb
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -30,6 +25,8 @@ parser.add_argument("--cells", default=None, type=str,
                     help='a file containing a mapping of "barcode" to "sequencing_id"')
 parser.add_argument("--api", default=None, type=str,
                     help='the path to the api')
+parser.add_argument("--source", default="cellranger", type=str,
+                    help='the source of the h5 files: "cellranger" or "cellbender"')
 parser.add_argument("--feature_type", default=None, type=str,
                     help='for "Gene Expression" use "GEX", for "Antibody Capture" use "ADT"')
 parser.add_argument("--outdir",default=None, type=str,
@@ -63,12 +60,28 @@ for library_id in libraries:
     barcodes = cell_table["barcode_id"].values[cell_table["library_id"]==library_id]
     barcodes = [ x.split("-")[0] + "-1" for x in barcodes ]
 
-    h5_path = os.path.join(args.api,
+    if args.source == "cellranger":
+        
+        h5_path = os.path.join(args.api,
                            "cellranger.multi","counts","filtered",
                            library_id,
                            "h5","sample_filtered_feature_bc_matrix.h5")
+        
+        x = sc.read_10x_h5(h5_path)
 
-    x = sc.read_10x_h5(h5_path)
+    elif args.source == "cellbender":
+    
+        h5_path = os.path.join(args.api,
+                           "cellbender","counts","filtered",
+                           library_id,
+                           "h5","cellbender_filtered.h5")
+        
+        x = cb.anndata_from_h5(h5_path)
+        x.var["feature_types"] = x.var.feature_type.copy()
+        
+    else: 
+        raise ValueError("Unknown source")
+    
     
     # Subset to the desired feature type.
     if args.feature_type == "GEX":
@@ -93,7 +106,22 @@ for library_id in libraries:
         if not np.array_equal(x.var.index, var_index):
             raise ValueError("var index mismatch")
 
-    x = x[barcodes]
+    L.info("Number of barcodes to extract:")
+    print(len(barcodes))
+    
+    common_barcodes = [y for y in barcodes if y in x.obs.index]
+     
+    L.info("Number of barcodes found:")
+    print(len(common_barcodes))
+
+    if len(common_barcodes) < len(barcodes):
+        if args.source == "cellranger":
+            raise ValueError("Not all barcodes were found")
+        else:
+            L.warn("Not all barcodes were found")
+
+    x = x[common_barcodes]
+
     x.obs.index = [ y.split("-")[0] + "-" + library_id 
                     for y in x.obs.index.values ]
     x.obs["barcode_id"] = x.obs.index

@@ -172,6 +172,7 @@ def GEX(infile, outfile):
                    --cells=%(cell_table)s
                    --feature_type=GEX
                    --api=%(api_path)s
+                   --source=%(cellhub_source)s
                    --outname=gex.h5ad
                    --outdir=%(outdir)s
                    &> %(log_file)s
