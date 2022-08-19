@@ -213,12 +213,118 @@ def h5API(infile, outfile):
 
     IOTools.touch_file(outfile)
 
+
+
+@transform(cellbender,
+           regex(r"cellbender.dir/(.*)/cellbender.sentinel"),
+           r"cellbender.dir/\1/mtx.sentinel")
+def mtx(infile, outfile):
+    '''
+        Convert cellbender h5 to mtx format
+    '''
+
+    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+
+    job_threads, job_memory, r_memory = TASK.get_resources(
+        memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
+        PARAMS=PARAMS)
+        
+    statements = []
+    
+    to_process = {"filtered": "cellbender_filtered.h5",
+                  "unfiltered": "cellbender.h5"}
+    
+    for type, path in to_process.items():
+    
+        h5 = os.path.join(spec.outdir, path)    
+        mtx_dir = os.path.join(spec.outdir, type)
+        
+        log_name = spec.log_file.replace("mtx", "mtx." + type)
+    
+        # Formulate and run statement
+        stat = '''python %(cellhub_code_dir)s/python/cellbender_export_mtx.py
+                       --cellbender_h5=%(h5)s
+                       --mtx_dir=%(mtx_dir)s
+                     &> %(log_name)s
+                    ''' % dict(PARAMS, **SPEC, **locals())
+                    
+        statements.append(stat)
+    
+    P.run(statements)
+
+    IOTools.touch_file(outfile)
+
+
+@transform(mtx,
+           regex(r"cellbender.dir/(.*)/mtx.sentinel"),
+           r"cellbender.dir/\1/register.mtx.sentinel")
+def mtxAPI(infile, outfile):
+    '''
+    Put the mtx files on the API
+
+    Inputs:
+
+        The input cellbender.dir folder layout is:
+
+        unfiltered "outs": ::
+
+            library_id/cellbender.h5
+
+        filtered "outs": ::
+
+            library_id/cellbender_filtered.h5
+
+    '''
+    x = api.api("cellbender")
+
+    out_dir = os.path.dirname(outfile)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    library_id = infile.split("/")[1]
+
+    mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
+                                 "format": "tsv",
+                                 "description": "cell barcode file"},
+                    "features": {"path":"path/to/features.tsv",
+                                  "format": "tsv",
+                                  "description": "features file"},
+                     "matrix": {"path":"path/to/matrix.mtx",
+                                 "format": "market-matrix",
+                                 "description": "Market matrix file"}
+                     }
+    
+    to_register = {"unfiltered": os.path.join(out_dir, "unfiltered"),
+                   "filtered": os.path.join(out_dir, "filtered")}
+    
+    for subset, mtx_loc in to_register.items():
+
+        if os.path.exists(mtx_loc):
+
+            mtx_x = mtx_template.copy()
+            mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+            mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+            mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+            x.define_dataset(analysis_name="counts",
+                             data_subset=subset,
+                             data_id=library_id,
+                             data_format="mtx",
+                             file_set=mtx_x,
+                             analysis_description="Cellbender count GEX output")
+
+            x.register_dataset()
+
+    IOTools.touch_file(outfile)
+    
+
+
 # ---------------------------------------------------
 # Generic pipeline tasks
 
 
-
-@follows(h5API)
+@follows(h5API, mtxAPI)
 def full():
     '''
     Run the full pipeline.
