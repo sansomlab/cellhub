@@ -330,6 +330,21 @@ def full():
     Run the full pipeline.
     '''
     pass
+    
+    
+@follows(mtxAPI, h5API)
+@files(None,"use.cellbender.sentinel")
+def useCounts(infile, outfile):
+    '''
+        Set the cellbender counts as the source for downstream analysis.
+        This task is not run by default.
+    '''
+    
+    if os.path.exists("api/counts"):
+        raise ValueError("Counts have already been registered to the API")
+
+    else:
+        os.symlink("cellbender/counts", "api/counts")
 
 
 def main(argv=None):

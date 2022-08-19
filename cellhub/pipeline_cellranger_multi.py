@@ -652,7 +652,6 @@ def vdjAPI(infile, outfile):
 
                 x.register_dataset()
 
-
 #
 # ---------------------------------------------------
 # Generic pipeline tasks
@@ -664,6 +663,21 @@ def full():
     Run the full pipeline.
     '''
     pass
+
+
+@follows(mtxAPI, h5API)
+@files(None,"use.cellranger.sentinel")
+def useCounts(infile, outfile):
+    '''
+        Set the cellranger counts as the source for downstream analysis.
+        This task is not run by default.
+    '''
+    
+    if os.path.exists("api/counts"):
+        raise ValueError("Counts have already been registered to the API")
+
+    else:
+        os.symlink("cellranger.multi/counts", "api/counts")
 
 
 def main(argv=None):
