@@ -98,8 +98,8 @@ if len(sys.argv) > 1:
 # --------------------------------------------------------
 # Run ambient rna analysis per input (e.g channel, library)
 
-@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
-           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
+@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"ambient.rna.dir/profile_per_input.dir/\1/ambient_rna.sentinel")
 def ambient_rna_per_input(infile, outfile):
     '''Explore count and gene expression profiles of ambient RNA droplets per input
