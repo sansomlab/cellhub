@@ -461,8 +461,8 @@ def h5API(infile, outfile):
 
     h5_template = {"h5": {"path":"path/to/barcodes.tsv",
                                  "format": "h5",
-                                 "description": "10X h5 count file"}
-                     }
+                                 "link_name": "data.h5",
+                                 "description": "10X h5 count file"}}
 
     # 1. deal with unfiltered count data
     h5_location = os.path.join("cellranger.multi.dir", library_id,

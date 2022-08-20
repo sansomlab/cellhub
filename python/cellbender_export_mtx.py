@@ -44,7 +44,7 @@ features_loc = os.path.join(args.mtx_dir,"features.tsv.gz")
 L.info("Saving the matrix")
 with gzip.open(matrix_loc, "w") as matrix_out:
     scio.mmwrite(matrix_out, x.X.T, comment='', 
-                 field=None, precision=None, symmetry=None)
+                 field="integer", precision=None, symmetry=None)
     
 L.info("Saving the barcodes")
 # columns: barcode #

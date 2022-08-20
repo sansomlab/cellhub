@@ -116,6 +116,7 @@ class api():
 
           { "name": { "path": "path/to/file",
                       "format": "file-format",
+                      "link_name": "api link name", # optional
                       "description": "free-text" }
 
         the top level "name" keys are arbitrary and not exposed in the API
@@ -234,8 +235,12 @@ class api():
 
             source_file = os.path.abspath(self.file_set[output_file]["path"])
 
-            link_location = os.path.join(endpoint_location,
-                                         os.path.basename(
+            if "link_name" in self.file_set[output_file].keys():
+                link_location = os.path.join(endpoint_location,
+                                             self.file_set[output_file]["link_name"])
+            else:
+                link_location = os.path.join(endpoint_location,
+                                             os.path.basename(
                                              self.file_set[output_file]["path"]))
 
             os.symlink(os.path.relpath(source_file,

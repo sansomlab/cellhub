@@ -91,9 +91,12 @@ if len(sys.argv) > 1:
 print(PARAMS)
 
 @follows(mkdir("cellbender.dir"))
-@transform(glob.glob("api/cellranger.multi/counts/unfiltered/*/h5/raw_feature_bc_matrix.h5"),
-           regex(r".*/.*/.*/.*/(.*)/h5/raw_feature_bc_matrix.h5"),
-           r"cellbender.dir/\1/cellbender.sentinel")
+@transform(glob.glob(os.path.join(PARAMS["cellhub_location"],
+                                  "api/cellranger.multi/",
+                                  "counts/unfiltered/*/h5/",
+                                  "data.h5")),
+           formatter(".*/data.h5"),
+           r"cellbender.dir/{subdir[0][1]}/cellbender.sentinel")
 def cellbender(infile, outfile):
     '''
     This task will run the CellBender comand.
@@ -173,6 +176,7 @@ def h5API(infile, outfile):
 
     h5_template = {"h5": {"path":"path/to/barcodes.tsv",
                           "format": "h5",
+                          "link_name": "data.h5",
                           "description": "Cellbender h5 count file"}
                      }
 
@@ -193,11 +197,10 @@ def h5API(infile, outfile):
 
     x.register_dataset()
 
-
     # 2. deal with per sample libraries
     h5_location = os.path.join("cellbender.dir",
-                                  library_id,
-                                  "cellbender_filtered.h5")
+                               library_id,
+                               "cellbender_filtered.h5")
 
     h5_x = h5_template.copy()
     h5_x["h5"]["path"] = h5_location

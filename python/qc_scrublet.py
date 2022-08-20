@@ -49,11 +49,13 @@ args = parser.parse_args()
 # Counts matrix
 counts_matrix = args.cellranger_dir + "/matrix.mtx.gz"
 counts_matrix = scipy.io.mmread(counts_matrix).T.tocsc()
+print(counts_matrix)
+print(counts_matrix[1:200,1:200])
 
 # Features file
 features_file = args.cellranger_dir + "/features.tsv.gz"
-features = pd.read_table(features_file, compression='gzip', sep='\t', header=None)
-features = features[1].to_numpy(dtype='<U19')
+feature_table = pd.read_table(features_file, compression='gzip', sep='\t', header=None)
+features = feature_table[1].to_numpy(dtype='<U19')
 
 # Barcode file
 barcode_file = args.cellranger_dir + "/barcodes.tsv.gz"
@@ -76,6 +78,18 @@ if keep_barcodes_file != None:
 else:
   barcodes=barcodes[0].to_numpy()
 
+# Subset the counts matrix to the "Gene Expression" features
+
+L.info("counts matrix shape before subsetting to Gene Expression features:")
+print(np.shape(counts_matrix))
+
+counts_matrix = counts_matrix[:,feature_table[2].values == "Gene Expression"]
+
+L.info("counts matrix shape after subsetting to Gene Expression features:")
+print(np.shape(counts_matrix))
+
+print(counts_matrix[1:200,1:200])
+
 # Initialize scrublet object
 L.info('Initializing scrublet object with expected double rate {}'.format(args.expected_doublet_rate))
 scrub = scr.Scrublet(counts_matrix, expected_doublet_rate=args.expected_doublet_rate)
@@ -95,14 +109,14 @@ if not hasattr(scrub, 'threshold_'):
   # Calling doublets
   scrub.call_doublets(threshold=1)
   # Creating output file with results
-  out = pd.DataFrame({'barcode_id': barcodes,
+  out = pd.DataFrame({'barcode': barcodes,
                     'library_id': [args.library_id] * len(barcodes),
                     'scrub_doublet_scores' : doublet_scores,
                     'scrub_predicted_doublets' : "NA"})
 else:
   L.info('Calculated doublet score threshold: {}'.format(scrub.threshold_))
   # Creating output file with results
-  out = pd.DataFrame({'barcode_id': barcodes,
+  out = pd.DataFrame({'barcode': barcodes,
                       'library_id': [args.library_id] * len(barcodes),
                       'scrub_doublet_scores' : doublet_scores,
                       'scrub_predicted_doublets' : predicted_doublets})

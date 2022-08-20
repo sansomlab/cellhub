@@ -92,8 +92,8 @@ if len(sys.argv) > 1:
 # ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+@transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/qcmetric.dir/\1.sentinel")
 def qcmetrics(infile, outfile):
     '''This task will run R/calculate_qc_metrics.R,
@@ -132,7 +132,7 @@ def qcmetrics(infile, outfile):
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
 
-    log_file = outfile.replace(".tsv.gz", ".log")
+    log_file = outfile.replace(".sentinel", ".log")
 
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
@@ -186,8 +186,8 @@ def qcmetricsAPI(infiles, outfile):
 # ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+@transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/scrublet.dir/\1.sentinel")
 def scrublet(infile, outfile):
     '''This task will run python/run_scrublet.py,
@@ -229,7 +229,7 @@ def scrublet(infile, outfile):
     outdir = Path(outfile).parent
 
     # Formulate and run statement
-    statement = '''python %(code_dir)s/python/run_scrublet.py
+    statement = '''python %(code_dir)s/python/qc_scrublet.py
                    --cellranger_dir=%(cellranger_dir)s
                    %(subset_option)s
                    --library_id=%(library_name)s
