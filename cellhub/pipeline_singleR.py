@@ -34,7 +34,7 @@ To obtain a configuration file run "cellhub singleR config".
 Inputs
 ------
 
-1. Per-sample h5 files (from the cellhub API).
+1. Per-sample market matrix files (from the cellhub API).
 
 2. References for singleR  obtained via the R bioconductor 'celldex' library. 
    As downloading of the references is very slow, they need to 
@@ -106,17 +106,17 @@ def genSingleRjobs():
        generate the singleR jobs
     '''
 
-    sample_h5s = glob.glob("api/cellranger.multi/counts/filtered/*/h5/sample_filtered_feature_bc_matrix.h5")
+    mtx_paths = glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz")
 
     references = [x.strip() for x in PARAMS["reference_data"].split(",")]
 
-    for h5_path in sample_h5s:
+    for mtx_path in mtx_paths:
 
-        sample = os.path.basename(Path(h5_path).parents[1])
+        sample = os.path.basename(Path(mtx_path).parents[1])
 
         for reference in references:
 
-            yield [h5_path,
+            yield [mtx_path,
                    os.path.join("singleR.dir",
                                 reference,
                                 sample + ".sentinel")]
@@ -138,9 +138,10 @@ def singleR(infile, outfile):
     Path(outfile).parents[0]).replace(".ref.dir","")
 
     sample = os.path.basename(outfile).split(".")[0]
+    mtxdir = os.path.dirname(infile)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/singleR_run.R
-                        --h5file=%(infile)s
+                        --mtxdir=%(mtxdir)s
                         --sample=%(sample)s
                         --reference=%(reference)s
                         --refstashdir=%(reference_stash_dir)s
@@ -182,7 +183,7 @@ def concatenate(infile, outfile):
         label_table = os.path.join(outdir, "labels.tsv.gz")
         
         statement = '''zcat %(ref_path)s/%(label_glob)s
-                       | awk 'NR!=1 { while (/^barcode_id/) getline; } 1 {print}'  
+                       | awk 'NR!=1 { while (/^barcode/) getline; } 1 {print}'  
                        | gzip -c > %(label_table)s
                     '''  % locals()
                     
@@ -192,7 +193,7 @@ def concatenate(infile, outfile):
         score_table = os.path.join(outdir, "scores.tsv.gz")
         
         statement = '''zcat %(ref_path)s/%(score_glob)s
-                       | awk 'NR!=1 { while (/^barcode_id/) getline; } 1 {print}'  
+                       | awk 'NR!=1 { while (/^barcode/) getline; } 1 {print}'  
                        | gzip -c > %(score_table)s
                     '''  % locals()
                     
@@ -242,7 +243,7 @@ def summary(infile, outfile):
 @follows(summary)
 @files(concatenate,
        "singleR.dir/api.sentinel")
-def singleRapi(infiles, outfile):
+def singleRAPI(infiles, outfile):
     '''
         Add the singleR results to the cellhub API.
     '''
@@ -294,7 +295,7 @@ def singleRapi(infiles, outfile):
 # ########################################################################### #
 
 
-@follows(singleRapi)
+@follows(singleRAPI)
 def full():
     pass
 
