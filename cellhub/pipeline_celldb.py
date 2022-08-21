@@ -65,6 +65,7 @@ import cgatcore.experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as iotools
 import cgatcore.database as database
+import cgatcore.csv2db as csv2db
 
 import cellhub.tasks.control as C
 import cellhub.tasks.db as DB
@@ -77,19 +78,13 @@ P.control.write_config_files = C.write_config_files
 parameter_file = C.get_parameter_file(__file__,__name__)
 PARAMS = P.get_parameters(parameter_file)
 
-print("-------------------_")
-print(PARAMS)
-
-
 def connect():
-    '''connect to database.
-    Use this method to connect to additional databases.
-    Returns a database connection.
-    '''
 
-    dbh = database.connect(url=PARAMS["database_url"])
+    db_url=PARAMS["database_url"]
+    dbhandle = database.connect(url=db_url)
+    
+    return dbhandle
 
-    return dbh
 
 @follows(mkdir("celldb.dir"))
 @originate("celldb.dir/sample.load")
@@ -103,38 +98,6 @@ def load_samples(outfile):
             db_url=PARAMS["database_url"],
             index = x["index"],
             outfile=outfile)
-
-
-# @follows(mkdir("celldb.dir"))
-# @originate("celldb.dir/libraries.load")
-# def load_libraries(outfile):
-#     ''' load the library metadata table '''
-
-#     x = PARAMS["table_library"]
-
-#     DB.load(x["name"],
-#             x["path"],
-#             db_url=PARAMS["database_url"],
-#             index = x["index"],
-#             outfile=outfile)
-
-
-# @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
-# @originate("celldb.dir/cellranger_stats.load")
-# def load_cellranger_stats(outfile):
-#     '''load metadata of mapping data into database '''
-
-#     table_file = outfile.replace(".load", ".tsv")
-
-#     celldb.preprocess_cellranger_stats(
-#         PARAMS["table_library"]["path"],
-#         table_file)
-
-#     DB.load("cellranger_stats",
-#             table_file,x
-#             db_url=PARAMS["database_url"],
-#             index = "library_id",
-#             outfile=outfile)
 
 
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
@@ -234,13 +197,30 @@ def final(outfile):
     pipeline_fetch_cells.py
     '''
 
-    dbh = connect()
+    viewname = "final"
+    dbhandle = connect()
 
-    statement = PARAMS["table_final"]["sql_query"]
-
-    cc = database.executewait(dbh, statement, retries=5)
-
+    statement = "DROP VIEW IF EXISTS " + viewname
+    cc = database.executewait(dbhandle, statement, retries=20)
     cc.close()
+    statement = PARAMS["table_final"]["sql_query"]
+    cc = database.executewait(dbhandle, statement, retries=20)
+    cc.close()
+    
+    # drop duplicate barcode and library_id columns
+    # requires qlite >= 3.35 !
+    
+    # columns = DB.getColumnNames(dbhandle, viewname)
+    
+    # cols_to_drop = [x for x in columns 
+    #                 if x.startswith("barcode:") or x.startswith("library_id:")]
+    
+    # for col in cols_to_drop:
+    
+    #     statement = 'ALTER VIEW %(viewname)s DROP COLUMN %(col)s' % locals()
+    #     cc = database.executewait(dbhandle, statement, retries=20)
+    #     cc.close()
+    
 
     iotools.touch_file(outfile)
 
