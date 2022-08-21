@@ -4,10 +4,6 @@ cellhub:
   # The folder containing the cellhub instance
   # from which we wish to retrieve the cells.
   location: ../cellhub
-  
-  # The source of the h5 files from which to pull the
-  # counts. Either "cellranger" or "cellbender"
-  source: cellranger
 
   # The query is executed against the "final" view of the
   # cell hub sqlite database.
@@ -19,25 +15,12 @@ cellhub:
     where pct_mitochondrial < 10
     and ngenes > 200;
 
-
-# There are some issues for discussion...
-# the script needs to
-# - support both library_ids
-#   and sample_ids for pre/post database summaries
-# - the script should not recompute
-#   avaliable metrics (we have metrics, shouldn't need to read the market matrix!)
-# - generally qc reports would be best made in a
-#   separate pipeline.
-build_reports: False
-
 resources:
   # memory to be used for tasks: cellSubsets,
   # can be set to none | e.g. 40G
   memory: none
 
 matrix:
-  dir: cellranger.multi.dir
-  type: mm
   # column in cell_info from db (using query above) that corresponds to the
   # folder names in the cellranger output (=matrix_dir), this name is also used
   # to extract the loom files below

@@ -25,8 +25,6 @@ parser.add_argument("--cells", default=None, type=str,
                     help='a file containing a mapping of "barcode" to "sequencing_id"')
 parser.add_argument("--api", default=None, type=str,
                     help='the path to the api')
-parser.add_argument("--source", default="cellranger", type=str,
-                    help='the source of the h5 files: "cellranger" or "cellbender"')
 parser.add_argument("--feature_type", default=None, type=str,
                     help='for "Gene Expression" use "GEX", for "Antibody Capture" use "ADT"')
 parser.add_argument("--outdir",default=None, type=str,
@@ -45,7 +43,20 @@ print(args)
 
 L.info("Reading cell table")
 cell_table = pd.read_csv(args.cells, sep="\t")
-cell_table.index = cell_table["barcode_id"].values
+
+good_cols = [x for x in cell_table.columns if
+             not x.startswith("barcode:") and
+             not x.startswith("library_id:") and
+             not x.startswith("filename")]
+
+cell_table = cell_table[good_cols]
+
+cell_table.index = ["-".join(y) for y in 
+                    zip([x.split("-")[0] for x in cell_table["barcode"].values],
+                        cell_table["library_id"].values)]  
+
+print(cell_table)
+print(cell_table.index)
 
 libraries = set(cell_table["library_id"].values)
 
@@ -57,31 +68,30 @@ for library_id in libraries:
     L.info("Slicing " + library_id)
 
     # get the barcodes to slice out
-    barcodes = cell_table["barcode_id"].values[cell_table["library_id"]==library_id]
-    barcodes = [ x.split("-")[0] + "-1" for x in barcodes ]
+    barcodes = cell_table["barcode"].values[cell_table["library_id"]==library_id]
 
-    if args.source == "cellranger":
-        
-        h5_path = os.path.join(args.api,
-                           "cellranger.multi","counts","filtered",
+    h5_path = os.path.join(args.api,
+                           "counts","filtered",
                            library_id,
-                           "h5","sample_filtered_feature_bc_matrix.h5")
+                           "h5","data.h5")
+
+    try:
         
         x = sc.read_10x_h5(h5_path)
 
-    elif args.source == "cellbender":
+    except:
+        # we need to use a custom loader for cellbender
+        L.info("Reading the h5 file with scanpy read_10x_h5 failed... "
+               "attempting to read with the custom cellbender loader")
     
         h5_path = os.path.join(args.api,
-                           "cellbender","counts","filtered",
+                           "counts","filtered",
                            library_id,
-                           "h5","cellbender_filtered.h5")
+                           "h5","data.h5")
         
         x = cb.anndata_from_h5(h5_path)
         x.var["feature_types"] = x.var.feature_type.copy()
-        
-    else: 
-        raise ValueError("Unknown source")
-    
+
     
     # Subset to the desired feature type.
     if args.feature_type == "GEX":
@@ -124,8 +134,6 @@ for library_id in libraries:
 
     x.obs.index = [ y.split("-")[0] + "-" + library_id 
                     for y in x.obs.index.values ]
-    x.obs["barcode_id"] = x.obs.index
-    x.obs["library_id"] = library_id
 
     anndata_slices[library_id] = x.copy()
 
