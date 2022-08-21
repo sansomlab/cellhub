@@ -17,8 +17,7 @@ def load(table_name,
          table_path,
          db_url="sqlite:///./celldb.dir/csvdb",
          glob="*.tsv.gz",
-         id_type="library_id",
-         index="library_id",
+         index=None,
          outfile="celldb.dir/out.load"):
     '''load a table or set of tables into the celldb database'''
 
@@ -33,8 +32,8 @@ def load(table_name,
         regex_filename = glob.replace("*",".*/(.*)")
 
         statement = '''python -m cgatcore.tables
-                               --cat %(id_type)s
                                --regex-filename "%(regex_filename)s"
+                               --cat "filename"
                                %(table_path)s/%(glob)s
                        | gzip -c
                        > %(table_file)s
@@ -47,8 +46,11 @@ def load(table_name,
 
     # 2. load the table into the database
     #
-    idx_stat = " ".join([ "-i " + x + " "
+    if index is not None:
+        idx_stat = " ".join([ "-i " + x + " "
                  for x in index.split(",")])
+    else:
+        idx_stat = ""
 
     # table headers are sanitised to replace
     # spaces and hypens with underscores
@@ -71,42 +73,56 @@ def load(table_name,
 
     P.run(statement)
     
-
-    # Add the cell_id index
-    # the cell_id index is made on columns "barcode" and "library_id" 
-    # some code is taken from https://github.com/cgat-developers/cgat-core/blob/master/cgatcore/csv2db.py
+    # Create indexes on expected columns
     
-    # (i) connect to db
-
+    # Connect to the db
     flavour = csv2db.get_flavour(db_url)
     tablename = csv2db.quote_tablename(table_name,flavour=flavour)
     dbhandle = database.connect(url=db_url)
     
-    # (ii) check the table exists and fetch the column names
-    
+    # Check the table exists and fetch the column names
     if not tablename in database.getTables(dbhandle):
     
         raise ValueError("table: %s not found in the database")
     
-    # (iii) if "barcode" and "libary_id" columns are present
-    # add the cell_id index.
+
     columns = getColumnNames(dbhandle, tablename)
+        
+    def _addIndex(dbhandle, tablename, index_name, index_columns):
     
-    if "library_id" in columns and "barcode" in columns:
-
-        idx_name = tablename + "_cell_id"
-
         try:
-            statement = "DROP index IF EXISTS " + idx_name
+            statement = "DROP index IF EXISTS " + index_name
             cc = database.executewait(dbhandle, statement, retries=20)
             cc.close()
-            statement = "CREATE index %s ON %s(library_id, barcode)" % (idx_name, tablename)
+            statement = "CREATE index %s ON %s(%s)" % (index_name, 
+                                                       tablename, 
+                                                       index_columns)
+            
             cc = database.executewait(dbhandle, statement, retries=20)
             cc.close()
             
         except Exception as ex:
-            E.info("adding index %s failed: %s" % (idx_name, ex))
-            raise ValueError("Failed to add the idex")
+            print("adding index %s failed: %s" % (index_name, ex))
+            raise ValueError("Failed to add the index")
+        
+    # Add cell_id index
+    if "library_id" in columns and "barcode" in columns:
+
+        idx_name = tablename + "_cell_id"
+        _addIndex(dbhandle, tablename, idx_name, "library_id, barcode")
+
+    # Add library_id index
+    if "library_id" in columns:
+
+        idx_name = tablename + "_library_id"
+        _addIndex(dbhandle, tablename, idx_name, "library_id")
+    
+    # Add sample_id index 
+    if "sample_id" in columns:
+
+        idx_name = tablename + "_sample_id"
+        _addIndex(dbhandle, tablename, idx_name, "sample_id")
+
             
         
         

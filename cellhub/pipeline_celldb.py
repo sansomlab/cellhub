@@ -96,7 +96,6 @@ def load_samples(outfile):
     DB.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
-            index = x["index"],
             outfile=outfile)
 
 
@@ -111,8 +110,6 @@ def load_gex_qcmetrics(outfile):
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
-            id_type=x["id_type"],
-            index = x["index"],
             outfile=outfile)
 
 
@@ -127,8 +124,6 @@ def load_gex_scrublet(outfile):
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
-            id_type=x["id_type"],
-            index = x["index"],
             outfile=outfile)
 
 
@@ -142,8 +137,6 @@ def load_singleR(outfile):
     DB.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
-            id_type=x["id_type"],
-            index = x["index"],
             outfile=outfile)
 
 
@@ -161,8 +154,6 @@ def load_gmm_demux(outfile):
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
-            id_type=x["id_type"],
-            index = x["index"],
             outfile=outfile)
 
 @active_if(PARAMS["table_demuxEM_active"])
@@ -177,8 +168,6 @@ def load_demuxEM(outfile):
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
-            id_type=x["id_type"],
-            index = x["index"],
             outfile=outfile)
 
 
