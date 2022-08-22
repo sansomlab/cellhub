@@ -177,6 +177,11 @@ def preflight(infile, outfile):
     else:
         conserved = ""
         
+    if PARAMS["run_genesets"]:
+        geneids = "--gene_ids"
+    else:
+        geneids = ""
+        
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
         
@@ -188,6 +193,7 @@ def preflight(infile, outfile):
                    --reduced_dims_name=%(source_rdim_name)s
                    --max_reduced_dims=%(max_rdims)s
                    %(conserved)s
+                   %(geneids)s
                    --conserved_factor=%(markers_conserved_factor)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **locals())

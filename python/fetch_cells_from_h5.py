@@ -90,7 +90,15 @@ for library_id in libraries:
                            "h5","data.h5")
         
         x = cb.anndata_from_h5(h5_path)
-        x.var["feature_types"] = x.var.feature_type.copy()
+        
+        if "feature_type" in x.var.columns:
+        
+            x.var.columns = [y.replace("feature_type","feature_types") for y in x.var.columns]
+        
+        if "gene_id" in x.var.columns:
+
+            x.var.columns = [y.replace("gene_id","gene_ids") for y in x.var.columns]
+        
 
     
     # Subset to the desired feature type.
@@ -148,6 +156,10 @@ anndata.obs = cell_table.loc[anndata.obs.index,]
 L.info("Adding the var")
 anndata.var = var_frame.loc[anndata.var.index]
 
+# drop unnecessary .obs columns
+anndata.obs.drop("barcode", axis=1, inplace=True)
+
+# save the anndata
 anndata.write_h5ad(os.path.join(args.outdir, args.outname))
 
 L.info("complete")

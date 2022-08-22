@@ -90,9 +90,6 @@ if args.obs == "all":
     # clean out columns with ":" (duplicates from sql.)
     # remove barcode_id
     data.obs = data.obs[[x for x in data.obs.columns if not ":" in x]]
-
-    if "barcode_id" in data.obs.columns:
-        data.obs.drop('barcode_id', axis=1, inplace=True)
     
 else:
     metadata_cols = [x.strip() for x in args.obs.split(",")]

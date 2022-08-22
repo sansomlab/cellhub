@@ -84,7 +84,7 @@ def _chunked_loom_export(source_anndata = None,
             
             raise ValueError("data type not recognised")
         
-        col_attrs = {"barcode_id": np.array(source_anndata.obs.barcode_id[chunk_start:chunk_end])}
+        col_attrs = {"barcode_id": np.array(source_anndata.obs.index[chunk_start:chunk_end])}
         
         print("adding data slice to loom")
         if chunk == 0:

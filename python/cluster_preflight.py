@@ -38,7 +38,9 @@ parser.add_argument("--reduced_dims_name", default="X_pca", type=str,
 parser.add_argument("--max_reduced_dims", default="10", type=str,
                     help="the maximum number of reduced dims expected")
 parser.add_argument("--conserved", action='store_true',
-                    help="find conserved markers")   
+                    help="find conserved markers") 
+parser.add_argument("--gene_ids", action='store_true',
+                    help='check "gene_ids" column exists in .var')   
 parser.add_argument("--conserved_factor", default="None", type=str,
                     help="name of the conserved factor")                                           
 
@@ -52,6 +54,10 @@ print(args)
 # ########################################################################### #
 
 adata = ad.read_h5ad(args.anndata, backed='r')
+
+L.info("checking adata.var")
+if args.gene_ids and "gene_ids" not in adata.var.columns:
+    raise ValueError('"gene_ids" column not found in .var')
 
 L.info("Checking adata.X")
 # adata.X contains the scaled data, it should be
