@@ -126,7 +126,7 @@ def load_gex_scrublet(outfile):
             glob=x["glob"],
             outfile=outfile)
 
-
+@active_if(PARAMS["table_gex_singleR"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/singleR.load")
 def load_singleR(outfile):
@@ -140,7 +140,7 @@ def load_singleR(outfile):
             outfile=outfile)
 
 
-@active_if(PARAMS["table_gmm_demux_active"])
+@active_if(PARAMS["table_gmm_demux"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gmm.demux.load")
 def load_gmm_demux(outfile):
@@ -156,7 +156,7 @@ def load_gmm_demux(outfile):
             glob=x["glob"],
             outfile=outfile)
 
-@active_if(PARAMS["table_demuxEM_active"])
+@active_if(PARAMS["table_demuxEM"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/demuxEM.load")
 def load_demuxEM(outfile):

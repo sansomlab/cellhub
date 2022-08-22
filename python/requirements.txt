@@ -13,3 +13,6 @@ scanpy
 scipy
 scrublet
 pyyaml
+GMM-demux
+sqlalchemy
+drmaa

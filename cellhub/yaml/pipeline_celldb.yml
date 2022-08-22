@@ -61,6 +61,7 @@ table:
     # The location of the singleR output directory
     # output of the pipeline_singleR.py
     gex_singleR:
+      active: True
       name: gex_singleR
       path: api/singleR/summary/summary.tsv.gz
 

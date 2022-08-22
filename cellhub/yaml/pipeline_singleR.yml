@@ -25,7 +25,14 @@ reference:
 
   # Reference datasets used to predict cell's identity
   # see https://bioconductor.org/packages/3.11/bioc/vignettes/SingleR/inst/doc/SingleR.html#5_available_references
-  # Human: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
-  # Mouse: ImmGenData; MouseRNAseqData
   # If more than one reference is used, use a comma to separate the reference names. Example: ImmGenData,MouseRNAseqData
-  data: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
+  #
+  # Human - uncomment the following line
+  # ------ 
+  # data: HumanPrimaryCellAtlasData, BlueprintEncodeData, DatabaseImmuneCellExpressionData, NovershternHematopoieticData, MonacoImmuneData
+  # 
+  # Mouse - uncomment the following line 
+  # -----
+  # data: ImmGenData, MouseRNAseqData
+  
+  

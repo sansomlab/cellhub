@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 
 def parse_gmmdemux(gmm_dir,
@@ -33,7 +34,8 @@ def parse_gmmdemux(gmm_dir,
                    left_on="gmm_cluster_id",
                    right_index=True)
 
-    out["barcode_id"] = out.index
+    out["barcode"] = out.index
+    out["library_id"] = library_id
 
     out["gmm_singlet"] = out["gmm_call"].isin(hto_names)
 
