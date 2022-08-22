@@ -1,20 +1,7 @@
 # celldb location
 
 cellhub:
-  # The folder containing the cellhub instance
-  # from which we wish to retrieve the cells.
-  location: ../cellhub
-
-  # The query is executed against the "final" view of the
-  # cell hub sqlite database.
-  # - The fields retrieved must include "barcode_id".
-  # - All fields retrieved are parsed into a metadata file
-  #   for the downstream analysis.
-  sql_query: >-
-    select * from final
-    where pct_mitochondrial < 10
-    and ngenes > 200;
-
+  location: .
 
 # There are some issues for discussion...
 # the script needs to
@@ -25,6 +12,11 @@ cellhub:
 # - generally qc reports would be best made in a
 #   separate pipeline.
 build_reports: False
+
+query: >-
+  select * from final
+  where pct_mitochondrial < 10
+  and ngenes > 200;
 
 resources:
   # memory to be used for tasks: cellSubsets,
@@ -44,37 +36,13 @@ matrix:
   # use the filtered|raw matrix.
   out_type: filtered
 
-GEX:
-  downsample: True
-  downsample_group_var: sample_id
-  downsample_function: median
-
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True
   fetch: False
-  dir: /well/combat/projects/preprocess/citeseq_initial/velocity
+  dir: 
 
 # Number of cells to be randomly drawn
 # or "all"
 #
 sample: all
 
-# A tsv file containing the mapping of cells to
-# matrices with columns
-# "barcode" "matrix_id"
-cell_to_matrix_map_file: None
-
-# A tsv file containing a table describing the
-# cell matrices with columns
-# "matrix_id" "matrix_dir" "matrix_type"
-matrix_table_file: None
-
-# A tsv file containing a table with cell metadata
-# It must have a "barcode" column that corresponds
-# to the final barcodes of the output matrix
-metadata_file: None
-
-# A tsv file containing a table with qc information
-# It must have a "barcode" column that corresponds
-# to the final barcodes of the output matrix
-qcdata_file: None

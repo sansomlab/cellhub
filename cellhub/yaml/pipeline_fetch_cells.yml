@@ -37,29 +37,10 @@ ADT:
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True
   fetch: False
-  dir: /well/combat/projects/preprocess/citeseq_initial/velocity
+  dir: 
 
 # Number of cells to be randomly drawn
 # or "all"
 #
 sample: all
 
-# A tsv file containing the mapping of cells to
-# matrices with columns
-# "barcode" "matrix_id"
-cell_to_matrix_map_file: None
-
-# A tsv file containing a table describing the
-# cell matrices with columns
-# "matrix_id" "matrix_dir" "matrix_type"
-matrix_table_file: None
-
-# A tsv file containing a table with cell metadata
-# It must have a "barcode" column that corresponds
-# to the final barcodes of the output matrix
-metadata_file: None
-
-# A tsv file containing a table with qc information
-# It must have a "barcode" column that corresponds
-# to the final barcodes of the output matrix
-qcdata_file: None

@@ -21,7 +21,7 @@ To fully run the example cellhub pipeline run: ::
 
   cellhub cellranger_multi make full -v5
 
-However, it may be best to run the individual tasks of the pipeline to get a feel of what each task is doing. To list the pipline tasks and their current status, use the 'show' command: ::
+However, it may be best to begin by running the individual tasks of the pipeline to get a feel of what each task is doing. To list the pipline tasks and their current status, use the 'show' command: ::
 
   cellhub cellranger_multi show
 

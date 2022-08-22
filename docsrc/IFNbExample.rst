@@ -34,15 +34,13 @@ The first step is to configure and run pipeline_cellranger_multi. We already hav
 
 Edit the pipeline_cellranger_multi.yml file as appropriate to point to folders containing fastq files extracted from the original BAM files submitted by `Kang et. al. <https://doi.org/10.1038/nbt.4042>`_ to GEO (GSE96583). The GEO identifiers are: unstimulated (GSM2560248) and stimulated (GSM2560249). The fastqs can be extracted with the `10X bamtofastq tool <https://support.10xgenomics.com/docs/bamtofastq>`_.
 
-We run the pipeline as follows: ::
+We can run the pipeline as follows: ::
 
   cellhub cellranger_multi make full -v5 -p20
 
-If you have not run "python setup.py devel" pipelines can instead be launched directly. In this case the equivalent command would be::
+Finally, the count matrices must be manually registered on the API for downstream analysis: ::
 
-  python path/to/cellhub-devel/cellhub/pipeline_cellranger_multi.py make full -v5 -p20 --pipeline-log=pipeline_cellranger_multi.py
-
-.. note:: when launching pipelines directly if the "--pipeline-log" parameter is not specified the log file will be written to "pipeline.log".
+  cellhub cellranger useCounts
 
 
 3. Running the cell qc pipeline

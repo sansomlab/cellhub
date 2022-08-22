@@ -1,6 +1,6 @@
 """
 =================
-Pipeline Velocity
+Pipeline Velocyto
 =================
 
 Overview

@@ -15,6 +15,12 @@ Core dependencies include:
 - Latex
 - The provided cellhub R library
 
+Optional dependencies include:
+
+- CellBender
+- GMM-Demux
+- pegasuspy (for demuxEM)
+
 
 Installation
 ------------

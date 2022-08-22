@@ -4,9 +4,9 @@ API
 Overview
 --------
 
-The pre-processing pipelines must define and register their outputs via a common api. The :doc:`cellhub.tasks.api module<tasks/api>` provides the code for doing this. The api comprises of an "api" folder into which pipeline outputs are symlinked (by the "register_dataset" "api" class method).
+The primary and secondary analysis pipelines must define and register their outputs via a common api. The :doc:`cellhub.tasks.api module<tasks/api>` provides the code for doing this. The api comprises of an "api" folder into which pipeline outputs are symlinked (by the "register_dataset" "api" class method).
 
-The api provides a stable and sanitised interface from which the downstream pipelines can access the information.
+The api provides a standardised interface from which the downstream pipelines can access the information.
 
 Example
 -------

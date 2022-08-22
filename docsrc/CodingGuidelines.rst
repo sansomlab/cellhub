@@ -51,7 +51,7 @@ Currently we are working to improve and standardise the coding style:
 
 * Logging in R scripts should be performed with the "futile.logger" library.
 
-* If you need to write to stdout from R scripts use message() or warning(). Do not use print() or cat().
+* To write to stdout from R scripts use message() or warning(). Do not use print() or cat().
 
 
 Writing pipelines
@@ -68,20 +68,16 @@ In the notes below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
 1. Paths should never be hardcoded in the pipelines - rather they must be read from the yaml files.
 2. Yaml configuration files should be named pipeline_xxx.yml
 3. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
-4. Pipelines that generate cell-level information for down-stream analysis must read their inputs from the api and register their outputs to the API, see :doc:`API<API>`. If you need information from an upstream pipeline that is not present on the API please raise an issue.
+4. Pipelines that generate cell-level information for down-stream analysis must read their inputs from the api and register their public outputs to the API, see :doc:`API<API>`. If you need information from an upstream pipeline that is not present on the API please raise an issue.
 5. We are documenting the pipelines using the sphinx "autodocs" module so please maintain informative rst docstrings.
 
 
-Cell barcodes
+Cell indexing
 -------------
 
-* We use cell barcodes in the format "UMI-library_id".
+* Tables of per-cell information registered on the API must have columns "barcode" (for the original Cellranger assigned barcode, "-1" suffix not removed) and "library_id". These two columns are used by pipeline_celldb.py to join the tables in the database.
 
-* Barcodes are set upstream e.g. in the market matrix files that are exposed on the API by pipeline_cellranger_multi.py.
-
-* Downstream pipelines shold not need to manipulate barcodes. If you find barcodes being served on the API in an incorrect format please raise an issue.
-
-* We use the field/column name "barcode_id" for the fields/columns that contains the barcodes in tables and databases.
+* Downstream of fetch_cells, when cells are aggregated across libraries, we use unique cell identifiers made by combining the barcode and library id in [AGCT]-library_id format (with the "-1" suffix now removed from the original barcode). The unique cell identifiers are used to populate the anndata.obs.index and the "barcode_id" column in tsv files where needed.
 
 
 
