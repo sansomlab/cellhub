@@ -1,0 +1,275 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>API &#8212; cellhub 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Pipeline ADT normalization" href="../pipelines/pipeline_adt_norm.html" />
+    <link rel="prev" title="API" href="../API.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <span class="target" id="module-cellhub.tasks.api"></span><section id="api">
+<h1>API<a class="headerlink" href="#api" title="Permalink to this heading">¶</a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
+<p>This module contains the code for registering and accessing pipeline outputs
+from a common location.</p>
+<p>There are classes that provide methods for:</p>
+<ol class="arabic simple">
+<li><p>registering pipeline outputs to the common service endpoint</p></li>
+<li><p>discovering the information available from the service endpoint (not yet written)</p></li>
+<li><p>accessing information from the service endpoint (not yet written)</p></li>
+</ol>
+<p>The service endpoint is the folder “api”. We use a rest-like syntax for providing access to the pipline outputs.</p>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">¶</a></h2>
+<section id="registering-outputs-on-the-service-endpoint">
+<h3>Registering outputs on the service endpoint<a class="headerlink" href="#registering-outputs-on-the-service-endpoint" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>All matrices registered on the API that hold per-cell statistics must have “library_id” and “barcode” columns. The library identifiers must correspond with those given in the pipeline_cellranger_multi.yml file. The barcodes field should contain the untouched Cellranger barcodes.</p></li>
+</ul>
+<p>Please see <a class="reference internal" href="../pipelines/pipeline_cellranger_multi.html"><span class="doc">pipeline_cellranger_multi.py</span></a> or <a class="reference internal" href="../pipelines/pipeline_cell_qc.html"><span class="doc">pipeline_cell_qc.py</span></a> source code for examples of how to register results on the API.</p>
+<p>As an example the code used for registering the qcmetrics outputs is reproduced with some comments here:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">cellhub.tasks.api</span> <span class="k">as</span> <span class="nn">api</span>
+
+<span class="n">file_set</span><span class="o">=</span><span class="p">{}</span>
+
+<span class="o">...</span>
+
+<span class="c1"># the set of files to be registered is defined as a dictionary</span>
+<span class="c1"># the keys are arbitrary and will not appear in the api</span>
+
+<span class="n">file_set</span><span class="p">[</span><span class="n">library_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">tsv_path</span><span class="p">,</span>
+                        <span class="s2">&quot;description&quot;</span><span class="p">:</span><span class="s2">&quot;qcmetric table for library &quot;</span> <span class="o">+</span>                                        <span class="n">library_id</span><span class="p">,</span>
+                        <span class="s2">&quot;format&quot;</span><span class="p">:</span><span class="s2">&quot;tsv&quot;</span><span class="p">}</span>
+
+<span class="c1"># an api object is created, passing the pipeline name</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api</span><span class="p">(</span><span class="s2">&quot;cell.qc&quot;</span><span class="p">)</span>
+
+<span class="c1"># the dataset to be deposited is added</span>
+<span class="n">x</span><span class="o">.</span><span class="n">define_dataset</span><span class="p">(</span><span class="n">analysis_name</span><span class="o">=</span><span class="s2">&quot;qcmetrics&quot;</span><span class="p">,</span>
+                 <span class="n">data_subset</span><span class="o">=</span><span class="s2">&quot;filtered&quot;</span><span class="p">,</span>
+                 <span class="n">file_set</span><span class="o">=</span><span class="n">file_set</span><span class="p">,</span>
+                 <span class="n">analysis_description</span><span class="o">=</span><span class="s2">&quot;per library tables of cell GEX qc statistics&quot;</span><span class="p">,</span>
+                 <span class="n">file_format</span><span class="o">=</span><span class="s2">&quot;tsv&quot;</span><span class="p">)</span>
+
+<span class="c1"># the dataset is linked in to the API</span>
+<span class="n">x</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="discovering-available-datasets">
+<h3>Discovering available datasets<a class="headerlink" href="#discovering-available-datasets" title="Permalink to this heading">¶</a></h3>
+<p>At present the API can be browsed on the command line. Programmatic access is expected in a future update.</p>
+</section>
+<section id="accessing-datasets">
+<h3>Accessing datasets<a class="headerlink" href="#accessing-datasets" title="Permalink to this heading">¶</a></h3>
+<p>At present datasets are accessed directly via the “api” endpoint.</p>
+</section>
+</section>
+<section id="class-and-method-documentation">
+<h2>Class and method documentation<a class="headerlink" href="#class-and-method-documentation" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="cellhub.tasks.api.api">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellhub.tasks.api.</span></span><span class="sig-name descname"><span class="pre">api</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">endpoint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'api'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.api.api" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class for defining and registering datasets on the cellhub api.</p>
+<p>When initialising an instance of the class, the pipeline name
+is passed e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">cellhub</span><span class="o">.</span><span class="n">tasks</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;cell_qc&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>pipeline names are sanitised to replace spaces, underscores and hypens with periods.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.api.api.define_dataset">
+<span class="sig-name descname"><span class="pre">define_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">analysis_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analysis_description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_subset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_set</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.api.api.define_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the dataset.</p>
+<p>The “data_subset”, “data_id” and “data_format” parameters are optional.</p>
+<p>The file_set is a dictionary that contains the files to be registered:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;file-format&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;link_name&quot;</span><span class="p">:</span> <span class="s2">&quot;api link name&quot;</span><span class="p">,</span> <span class="c1"># optional</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;free-text&quot;</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>the top level “name” keys are arbitrary and not exposed in the API</p>
+<p>e.g. for cell ranger output the file_set dictionary looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s2">&quot;barcodes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span><span class="s2">&quot;path/to/barcodes.tsv&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;tsv&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;cell barcode file&quot;</span><span class="p">},</span>
+<span class="p">{</span><span class="s2">&quot;features&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span><span class="s2">&quot;path/to/features.tsv&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;tsv&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;features file&quot;</span><span class="p">},</span>
+<span class="p">{</span><span class="s2">&quot;matrix&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span><span class="s2">&quot;path/to/matrix.mtx&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;market-matrix&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Market matrix file&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.api.api.register_dataset">
+<span class="sig-name descname"><span class="pre">register_dataset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.api.api.register_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register the dataset on the service endpoint. The method:</p>
+<ol class="arabic simple">
+<li><p>creates the appropriate folders in the “api” endpoint folder</p></li>
+<li><p>symlinks the source files to the target location</p></li>
+<li><p>constructs and deposits the manifest.yml file</p></li>
+</ol>
+<p>The location at which datasets will be registered is defined as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">api</span><span class="o">/</span><span class="n">pipeline</span><span class="o">.</span><span class="n">name</span><span class="o">/</span><span class="n">analysis_name</span><span class="o">/</span><span class="p">[</span><span class="n">data_subset</span><span class="o">/</span><span class="p">][</span><span class="n">data_id</span><span class="o">/</span><span class="p">][</span><span class="n">data_format</span><span class="o">/</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>(data_subset, data_id and data_format are [optional])</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.api.api.show">
+<span class="sig-name descname"><span class="pre">show</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.api.api.show" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the api object for debugging.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.api.api.reset_endpoint">
+<span class="sig-name descname"><span class="pre">reset_endpoint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.api.api.reset_endpoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clean the dataset endpoint</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">cellhub</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../Installation.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../WorkflowOverview.html">Workflow Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Usage.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IFNbExample.html">IFNb PBMC example</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CodingGuidelines.html">Coding Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../API.html">API</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#class-and-method-documentation">Class and method documentation</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_annotation.html">Pipeline annotation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellbender.html">Pipeline cellbender</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cluster.html">Pipeline cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_dehash.html">Pipeline dehash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_singleR.html">Pipeline singleR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_velocyto.html">Pipeline Velocyto</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../API.html" title="previous chapter">API</a></li>
+      <li>Next: <a href="../pipelines/pipeline_adt_norm.html" title="next chapter">Pipeline ADT normalization</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Sansom lab.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/tasks/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

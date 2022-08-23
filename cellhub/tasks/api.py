@@ -11,7 +11,7 @@ from a common location.
 There are classes that provide methods for:
 
 (1) registering pipeline outputs to the common service endpoint
-(2) discovering the information avaliable from the service endpoint (not yet written)
+(2) discovering the information available from the service endpoint (not yet written)
 (3) accessing information from the service endpoint (not yet written)
 
 The service endpoint is the folder "api". We use a rest-like syntax for providing access to the pipline outputs.
@@ -19,10 +19,12 @@ The service endpoint is the folder "api". We use a rest-like syntax for providin
 Usage
 -----
 
-Registering ouputs on the service endpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Registering outputs on the service endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Please see :doc:`pipeline_cellranger_multi.py</pipelines/pipeline_cellranger_multi>` or :doc:`pipeline_cell_qc.py</pipelines/pipeline_cell_qc>` source code for examples.
+- All matrices registered on the API that hold per-cell statistics must have "library_id" and "barcode" columns. The library identifiers must correspond with those given in the pipeline_cellranger_multi.yml file. The barcodes field should contain the untouched Cellranger barcodes.
+
+Please see :doc:`pipeline_cellranger_multi.py</pipelines/pipeline_cellranger_multi>` or :doc:`pipeline_cell_qc.py</pipelines/pipeline_cell_qc>` source code for examples of how to register results on the API.
 
 As an example the code used for registering the qcmetrics outputs is reproduced with some comments here: ::
 
@@ -54,16 +56,16 @@ As an example the code used for registering the qcmetrics outputs is reproduced 
   x.register_dataset()
 
 
-Discovering avaliable datasets
+Discovering available datasets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TBD.
+At present the API can be browsed on the command line. Programmatic access is expected in a future update.
 
 
 Accessing datasets
 ^^^^^^^^^^^^^^^^^^
 
-For now datasets can be accessed directly via the "api" endpoint. However in future it will likely be recommended to access them via a subclass of the "read" class (not yet written) which will provide sanity checking.
+At present datasets are accessed directly via the "api" endpoint.
 
 
 Class and method documentation

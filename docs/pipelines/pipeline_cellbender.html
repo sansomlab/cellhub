@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Pipeline cellbender &#8212; cellhub 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="pipeline_celldb.html" />
+    <link rel="prev" title="Pipeline annotation" href="pipeline_annotation.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <span class="target" id="module-cellhub.pipeline_cellbender"></span><section id="pipeline-cellbender">
+<h1>Pipeline cellbender<a class="headerlink" href="#pipeline-cellbender" title="Permalink to this heading">¶</a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
+<p>This pipeline uses CellBender to remove ambient UMI counts.</p>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading">¶</a></h3>
+<p>This pipeline is normally run in a seperate e.g. “cellhub_cellbender” directory so that the downstream results can be compared with those from cellranger.</p>
+<p>The pipeline requires a configured <code class="file docutils literal notranslate"><span class="pre">pipeline_cellbender.yml</span></code> file. A default version can be obtained by executing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cellhub</span> <span class="n">cellbender</span> <span class="n">config</span>
+</pre></div>
+</div>
+</section>
+<section id="input">
+<h3>Input<a class="headerlink" href="#input" title="Permalink to this heading">¶</a></h3>
+<p>The location of the cellhub folder containing the cellranger results that will be used as the input for CellBender is be specified in the “pipeline_cellbender.yml” configuration file. Typically the user will have two parallel “cellhub” instances, e.g.:</p>
+<ol class="arabic simple">
+<li><p>“cellhub” &lt;- containing a first cellhub run based on the Cellranger counts (counts registered with “cellhub cellranger_multi make useCounts”).</p></li>
+<li><p>“cellhub_cellbender” &lt;- containing a second cellhub run using CellBender to correct the Cellranger counts from the first run (counts registered with “cellhub cellbender make useCounts”).</p></li>
+</ol>
+</section>
+<section id="running-the-pipeline">
+<h3>Running the pipeline<a class="headerlink" href="#running-the-pipeline" title="Permalink to this heading">¶</a></h3>
+<p>It is recommended to run the cellbender task on a gpu queue.</p>
+<p>On the University of Oxford’s BMRC cluster, this can be achieved with e.g.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cellhub</span> <span class="n">cellbender</span> <span class="n">make</span> <span class="n">cellbender</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p</span> <span class="mi">200</span> <span class="o">--</span><span class="n">cluster</span><span class="o">-</span><span class="n">queue</span><span class="o">=</span><span class="n">short</span><span class="o">.</span><span class="n">qg</span> <span class="o">--</span><span class="n">cluster</span><span class="o">-</span><span class="n">options</span> <span class="s2">&quot;-l gpu=1,gputype=p100&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="pipeline-output">
+<h2>Pipeline output<a class="headerlink" href="#pipeline-output" title="Permalink to this heading">¶</a></h2>
+<p>The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the <span class="xref std std-doc">cellhub.tasks.cellbender module documentation</span> for more details.</p>
+</section>
+<section id="code">
+<h2>Code<a class="headerlink" href="#code" title="Permalink to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.cellbender">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">cellbender</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.cellbender" title="Permalink to this definition">¶</a></dt>
+<dd><p>This task will run the CellBender comand.
+Please visit cellbender.readthedocs.io for further details.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.h5API">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">h5API</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.h5API" title="Permalink to this definition">¶</a></dt>
+<dd><p>Put the h5 files on the API</p>
+<p>Inputs:</p>
+<blockquote>
+<div><p>The input cellbender.dir folder layout is:</p>
+<p>unfiltered “outs”:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">library_id</span><span class="o">/</span><span class="n">cellbender</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+<p>filtered “outs”:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">library_id</span><span class="o">/</span><span class="n">cellbender_filtered</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.mtx">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">mtx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.mtx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert cellbender h5 to mtx format</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.mtxAPI">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">mtxAPI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.mtxAPI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Put the mtx files on the API</p>
+<p>Inputs:</p>
+<blockquote>
+<div><p>The input cellbender.dir folder layout is:</p>
+<p>unfiltered “outs”:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">library_id</span><span class="o">/</span><span class="n">cellbender</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+<p>filtered “outs”:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">library_id</span><span class="o">/</span><span class="n">cellbender_filtered</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.full">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">full</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the full pipeline.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellhub.pipeline_cellbender.useCounts">
+<span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cellbender.</span></span><span class="sig-name descname"><span class="pre">useCounts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cellbender.useCounts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the cellbender counts as the source for downstream analysis.
+This task is not run by default.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">cellhub</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../Installation.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../WorkflowOverview.html">Workflow Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Usage.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IFNbExample.html">IFNb PBMC example</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CodingGuidelines.html">Coding Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../API.html">API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tasks/api.html">API</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_annotation.html">Pipeline annotation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pipeline cellbender</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pipeline-output">Pipeline output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#code">Code</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_cluster.html">Pipeline cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_dehash.html">Pipeline dehash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_singleR.html">Pipeline singleR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_velocyto.html">Pipeline Velocyto</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="pipeline_annotation.html" title="previous chapter">Pipeline annotation</a></li>
+      <li>Next: <a href="pipeline_celldb.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Sansom lab.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/pipelines/pipeline_cellbender.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

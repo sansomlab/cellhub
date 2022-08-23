@@ -19,10 +19,11 @@ The pipeline requires a configured :file:`pipeline_cellbender.yml` file. A defau
 Input
 -----
 
-The location of the cellhub folder containing the cellranger results that will be used as the input for CellBender is be specified in the "pipeline_cellbender.yml" configuration file. Typically the user will have two parallel "cellhub" instances, e.g.: ::  
+The location of the cellhub folder containing the cellranger results that will be used as the input for CellBender is be specified in the "pipeline_cellbender.yml" configuration file. Typically the user will have two parallel "cellhub" instances, e.g.:  
 
-   "cellhub" <- contains a first cellhub run based on the Cellranger counts (counts registered with "cellhub cellranger_multi make useCounts").
-   "cellhub_cellbender" <- contains a second cellhub run using CellBender to correct the Cellranger counts from the first run (counts registered with "cellhub cellbender make useCounts").
+#. "cellhub" <- containing a first cellhub run based on the Cellranger counts (counts registered with "cellhub cellranger_multi make useCounts").
+
+#. "cellhub_cellbender" <- containing a second cellhub run using CellBender to correct the Cellranger counts from the first run (counts registered with "cellhub cellbender make useCounts").
 
 
 Running the pipeline
@@ -30,15 +31,15 @@ Running the pipeline
 
 It is recommended to run the cellbender task on a gpu queue.
 
-On the BMRC cluster, this can be achieved with e.g. ::
+On the University of Oxford's BMRC cluster, this can be achieved with e.g. ::
 
-    cellhub cellbender make full -v5 -p 200 --cluster-queue=short.qg --cluster-options "-l gpu=1,gputype=p100"
+    cellhub cellbender make cellbender -v5 -p 200 --cluster-queue=short.qg --cluster-options "-l gpu=1,gputype=p100"
 
 
 Pipeline output
 ===============
 
-The pipeline registers cleaned h5 files on the cellhub api.
+The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the :doc:`cellhub.tasks.cellbender module documentation <tasks/cellbender>` for more details.
 
 Code
 ====
@@ -86,14 +87,7 @@ if len(sys.argv) > 1:
                     sys.exit(P.main(sys.argv))
 
 
-# ############################################################################ #
-# #################### Calculate seq depth distributions  #################### #
-# ############################################################################ #
-
-
-# e.g. filtered api/cellranger.multi/counts/filtered/GSM2560248/h5/
-# api/cellranger.multi/counts/unfiltered/GSM2560248/h5/
-print(PARAMS)
+# ------------------------------ Pipeline tasks ------------------------------ #
 
 @follows(mkdir("cellbender.dir"))
 @transform(glob.glob(os.path.join(PARAMS["cellhub_location"],
@@ -327,9 +321,7 @@ def mtxAPI(infile, outfile):
     IOTools.touch_file(outfile)
     
 
-
-# ---------------------------------------------------
-# Generic pipeline tasks
+# -------------------------- Generic pipeline tasks -------------------------- #
 
 
 @follows(h5API, mtxAPI)

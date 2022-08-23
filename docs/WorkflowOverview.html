@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Workflow Overview &#8212; cellhub 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage" href="Usage.html" />
+    <link rel="prev" title="Installation" href="Installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="workflow-overview">
+<h1>Workflow Overview<a class="headerlink" href="#workflow-overview" title="Permalink to this heading">¶</a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
+<p>Cellhub is designed to efficiently parallelise the processing of large 10x datasets. Data for each of the capture chip channel sequencing libraries in the experiment is initially processed in parallel (primary and secondary analysis phases). Summary results are then stored in an SQLite database. Cell identifiers are joined with sample metadata, qc statistics and other per-cell information in a virtual table in the database. The data for a set of cells of interest (specified by an SQL query) is extracted into anndata format for downstream analysis. By design, cell QC, pre-processing and integration are left for the user to perform manually. The clustering pipeline can then be used to perform cell clustering (for a selection of resolutions), identify marker genes, perform pathway analysis and export pdf reports and a cellxgene object for inspection. Interoperability between the pipelines is enabled by a structured API.</p>
+<img alt="_images/cellhub.workflow.overview.png" src="_images/cellhub.workflow.overview.png" />
+<p>As shown in the image above, the workflow can be divided into six parts.</p>
+</section>
+<section id="primary-analysis">
+<h2>1. Primary analysis<a class="headerlink" href="#primary-analysis" title="Permalink to this heading">¶</a></h2>
+<p>These pipelines process the raw data to generate count matrices or fetch annotations from externals sources. They register their outputs on the API.</p>
+<ul class="simple">
+<li><p>The workflow typically begins with <a class="reference internal" href="pipelines/pipeline_cellranger_multi.html"><span class="doc">pipeline_cellranger_multi.py</span></a>. Input 10X  channel library identifiers “library_id” and their associated FASTQ files are specified in the pipeline_cellranger_multi.yml configuration file. The reads from the different libraries will be mapped in parallel.</p></li>
+<li><p>CellBender can be run to correct ambient RNA with <a class="reference internal" href="pipelines/pipeline_cellbender.html"><span class="doc">pipeline_cellbender.py</span></a>. Typically, this pipeline will be run in a separate directory so that the downstream results can be compared with those from the uncorrected cellranger run.</p></li>
+<li><p>Velocyto can be run to compute spliced and unspliced counts for RNA-velocity analysis with <a class="reference internal" href="pipelines/pipeline_velocyto.html"><span class="doc">pipeline_velocyto.py</span></a>.</p></li>
+<li><p>Cell identification can be performed with <a class="reference internal" href="pipelines/pipeline_emptydrops.html"><span class="doc">pipeline_emptydrops.py</span></a>. Currently results are not available for use downstream.</p></li>
+</ul>
+</section>
+<section id="secondary-analysis">
+<h2>2. Secondary analysis<a class="headerlink" href="#secondary-analysis" title="Permalink to this heading">¶</a></h2>
+<p>These pipelines start from the outputs of the primary analysis pipelines on the API.</p>
+<ul class="simple">
+<li><p>Per-cell QC statistics are computed in parallel for each channel library using <a class="reference internal" href="pipelines/pipeline_cell_qc.html"><span class="doc">pipeline_cell_qc.py</span></a>. The pipeline computes various statistics including standard metrics such as percentage of mitochondrial reads, numbers of UMIs and numbers of genes per cell. In addition it can compute scores for custom genesets. The pipeline also runs the Scrublet algorithm for doublet prediction.</p></li>
+<li><p>Per-cell celltype predictions are computed in parallel for each channel library using <a class="reference internal" href="pipelines/pipeline_singleR.html"><span class="doc">pipeline_singleR.py</span></a></p></li>
+<li><p>The per-library patterns of ambient RNA can be inspected using <a class="reference internal" href="pipelines/pipeline_ambient_rna.html"><span class="doc">pipeline_ambient_rna.py</span></a>.</p></li>
+<li><p>Cells multiplexed with hash-tags can be de-hashed using <a class="reference internal" href="pipelines/pipeline_dehash.html"><span class="doc">pipeline_dehash.py</span></a></p></li>
+<li><p>If samples included the ADT modality, <a class="reference internal" href="pipelines/pipeline_adt_norm.html"><span class="doc">pipeline_adt_norm.py</span></a> normalizes the antibody counts for the high-quality fetched cells in the previous step. Normalized ADT can be then used for downstream integration. The pipeline implements 3 normalization methodologies: DSB, median-based, and CLR. The user can specify the feature space.</p></li>
+</ul>
+</section>
+<section id="loading-results-into-the-cell-database">
+<h2>3. Loading results into the cell database<a class="headerlink" href="#loading-results-into-the-cell-database" title="Permalink to this heading">¶</a></h2>
+<p>The library and sample metadata, per cell statistics (and demultiplex assignments) etc, are loaded into an sqlite database using <a class="reference internal" href="pipelines/pipeline_celldb.html"><span class="doc">pipeline_celldb.py</span></a>. The pipeline creates a view called “final” which contains the qc and metadata needed for cell selection and downstream analysis.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The user is required to supply a tab-separated sample metadata file (e.g. “samples.tsv”) via a path in the pipeline_celldb.yml configuration file. It should have columns for library_id, sample_id as well as any other relevant experimental metadata such as condition, genotype, age, replicate, sex etc.</p>
+</div>
+</section>
+<section id="fetching-of-cells-for-downstream-analysis">
+<h2>4. Fetching of cells for downstream analysis<a class="headerlink" href="#fetching-of-cells-for-downstream-analysis" title="Permalink to this heading">¶</a></h2>
+<p>Cells are fetched using <a class="reference internal" href="pipelines/pipeline_fetch_cells.html"><span class="doc">pipeline_fetch_cells.py</span></a>. The user specifies the cells that they wish to retrieve from the “final” table (see step 4) via an SQL statement in the pipeline_fetch_cells.yml configuration file. The pipeline will extract the cells and metadata from the original matrices and combine them into an anndata object for downstream analysis.</p>
+<p>It is recommended to fetch cells into a new directory. By design fetching of a single dataset per-directory is supported.</p>
+<p>The pipeline supports fetching of Velocyto results for RNA-velocity analysis.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The retrieved metadata will include a “sample_id” column. From this point onwards it may be natural to think of the “sample_id” as the unit of interest. The “library_ids” remain in the metadata along with all the qc statistics to facilitate downstream investigation of batch effects and cell quality.</p>
+</div>
+</section>
+<section id="assessment-of-cell-quality-pre-processing-and-integration">
+<h2>5.  Assessment of cell quality, pre-processing and integration<a class="headerlink" href="#assessment-of-cell-quality-pre-processing-and-integration" title="Permalink to this heading">¶</a></h2>
+<p>These steps are performed manually.</p>
+<ul class="simple">
+<li><p>Per cell QC statistics and singleR scores can be easily retrieved from the celldb or anndata object for inspection with R or python.</p></li>
+<li><p>It is recommended to perform pre-processing using Scanpy. Strategies for HVG selection and modelling of covariates should be considered by the data analyst on a case by case basis.</p></li>
+<li><p>Integration is normally performed in python with e.g. scVI, harmonpy or BBKNN. Different integration algorithms are needed for different contexts.</p></li>
+</ul>
+</section>
+<section id="clustering-analysis">
+<h2>6. Clustering analysis<a class="headerlink" href="#clustering-analysis" title="Permalink to this heading">¶</a></h2>
+<p>Clustering analysis is performed with pipeline_cluster.py. The pipeline starts from an anndata provided by the user in the format described in the pipeline documentation: <a class="reference internal" href="pipelines/pipeline_cluster.html"><span class="doc">pipeline_cluster</span></a>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">cellhub</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Workflow Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#primary-analysis">1. Primary analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#secondary-analysis">2. Secondary analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#loading-results-into-the-cell-database">3. Loading results into the cell database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fetching-of-cells-for-downstream-analysis">4. Fetching of cells for downstream analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#assessment-of-cell-quality-pre-processing-and-integration">5.  Assessment of cell quality, pre-processing and integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#clustering-analysis">6. Clustering analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Usage.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="IFNbExample.html">IFNb PBMC example</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="CodingGuidelines.html">Coding Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tasks/api.html">API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_annotation.html">Pipeline annotation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cellbender.html">Pipeline cellbender</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cluster.html">Pipeline cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_dehash.html">Pipeline dehash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_singleR.html">Pipeline singleR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_velocyto.html">Pipeline Velocyto</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="Usage.html" title="next chapter">Usage</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Sansom lab.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/WorkflowOverview.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
