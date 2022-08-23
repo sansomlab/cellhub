@@ -38,9 +38,10 @@
 <dd><p>Load an output h5 file into an AnnData object for downstream work.</p>
 <dl>
 <dt>Args:</dt><dd><p>file: The h5 file
-analyzed_barcodes_only: False to load all barcodes, so that the size of</p>
+analyzed_barcodes_only:</p>
 <blockquote>
-<div><p>the AnnData object will match the size of the input raw count matrix.
+<div><p>False to load all barcodes, so that the size of
+the AnnData object will match the size of the input raw count matrix.
 True to load a limited set of barcodes: only those analyzed by the
 algorithm. This allows relevant latent variables to be loaded
 properly into adata.obs and adata.obsm, rather than adata.uns.</p>
@@ -100,6 +101,7 @@ properly into adata.obs and adata.obsm, rather than adata.uns.</p>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_annotation.html">Pipeline annotation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellbender.html">Pipeline cellbender</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_celldb.html">Pipeline celldb</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cluster.html">Pipeline cluster</a></li>

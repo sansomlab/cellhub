@@ -65,29 +65,19 @@ import shutil
 import cellhub.tasks.ambient_rna as ambient_rna
 import cellhub.tasks.control as C
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-# -------------------------- < parse parameters > --------------------------- #
-
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__,__name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
-# Set the location of the cellhub code directory
-if "code_dir" not in PARAMS.keys():
-    PARAMS["code_dir"] = Path(__file__).parents[1]
-else:
-    if PARAMS["code_dir"] != Path(__file__).parents[1]:
-        raise ValueError("Could not set the location of "
-                         "the pipeline code directory")
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 
 # ########################################################################### #

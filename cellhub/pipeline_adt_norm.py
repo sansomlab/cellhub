@@ -67,31 +67,20 @@ import glob
 import cellhub.tasks.control as C
 import cellhub.tasks.api as api
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__, __name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
-# Set the location of the cellhub code directory
-if "code_dir" not in PARAMS.keys():
-    PARAMS["code_dir"] = Path(__file__).parents[1]
-else:
-    if PARAMS["code_dir"] != Path(__file__).parents[1]:
-        raise ValueError("Could not set the location of "
-                         "the pipeline code directory")
-print(PARAMS)
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-# ----------------------- < pipeline configuration > ------------------------ #
 
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 
 # ############################################################################ #
@@ -136,7 +125,7 @@ def gexdepth(infile, outfile):
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_calculate_depth_dist.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --qc_bar=%(qc_barcode)s
@@ -225,7 +214,7 @@ def adtdepth(infile, outfile):
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_calculate_depth_dist.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_calculate_depth_dist.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --rm_feat=%(rm_feat)s
@@ -321,7 +310,7 @@ def adt_plot_norm(infile, outfile):
     out_file = outfile.replace(".sentinel", ".pdf")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_plot_norm.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_plot_norm.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --library_id=%(library_name)s
                  --gex_depth=%(gex_depth)s
@@ -401,7 +390,7 @@ def dsb_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_normalize.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_normalize.R
                  --unfiltered_dir=%(unfiltered_dir)s
                  --filtered_dir=%(filtered_dir)s
                  --library_id=%(library_name)s
@@ -513,7 +502,7 @@ def median_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_get_median_normalization.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_get_median_normalization.R
                  --adt=%(filtered_adt_dir)s
                  --nfeat=%(nfeat)s
                  --rm_feat=%(rm_feat)s
@@ -612,7 +601,7 @@ def clr_norm(infile, outfile):
     out_file = "/".join([os.path.dirname(outfile), "matrix.mtx"])
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/adt_get_clr_normalization.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/adt_get_clr_normalization.R
                  --adt=%(filtered_adt_dir)s
                  --nfeat=%(nfeat)s
                  --rm_feat=%(rm_feat)s

@@ -13,7 +13,8 @@ def anndata_from_h5(file: str,
 
     Args:
         file: The h5 file
-        analyzed_barcodes_only: False to load all barcodes, so that the size of
+        analyzed_barcodes_only: 
+            False to load all barcodes, so that the size of
             the AnnData object will match the size of the input raw count matrix.
             True to load a limited set of barcodes: only those analyzed by the
             algorithm. This allows relevant latent variables to be loaded

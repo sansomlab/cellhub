@@ -81,35 +81,20 @@ import cgatcore.iotools as IOTools
 import cellhub.tasks.control as C
 import cellhub.tasks.fetch_cells as fetch_cells
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_fetch_cells.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_fetch_cells.yml",
-     "pipeline_fetch_cells.yml"])
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-# ------------------------------ < functions > ------------------------------ #
-
-
-# ########################################################################### #
-# ############################# pipeline tasks ############################## #
-# ########################################################################### #
 
 @follows(mkdir("fetch.cells.dir"))
 @files(os.path.join(PARAMS["cellhub_location"],"celldb.dir/csvdb"),

@@ -70,33 +70,19 @@ import pandas as pd
 
 import cellhub.tasks.control as C
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
-# -------------------------- < parse parameters > --------------------------- #
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_velocity.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_velocity.yml",
-     "pipeline_velocity.yml"])
-
-# set the location of the tenx code directory
-PARAMS["code_dir"] = Path(__file__).parents[1]
-
-
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-
-# ########################################################################### #
-# ######## Check input samples file and that the input exists ############### #
-# ########################################################################### #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 
 @originate("input.check.sentinel")

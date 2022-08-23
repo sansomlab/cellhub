@@ -103,17 +103,14 @@ import cellhub.tasks.fetch_cells as fetch_cells
 import cellhub.tasks.TASK as TASK
 import cellhub.tasks.templates as templates
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_cluster.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_cluster.yml",
-     "pipeline_cluster.yml"])
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -135,14 +132,7 @@ if __name__ == "__main__" and not os.path.exists(cellhub_kegg_pathways):
     raise ValueError("cellhub kegg pathways file not found")
 PARAMS["cellhub_kegg_pathways"] = cellhub_kegg_pathways
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-# ------------------------------ < functions > ------------------------------ #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 #endregion
 

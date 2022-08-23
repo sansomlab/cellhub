@@ -48,30 +48,19 @@ import cellhub.tasks.control as C
 import cellhub.tasks.dehash as dehash
 import cellhub.tasks.api as api
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-# -------------------------- < parse parameters > --------------------------- #
-
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__,__name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-
-# ########################################################################### #
-# ############################# pipeline tasks ############################## #
-# ########################################################################### #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 @transform("api/counts/filtered/*/mtx/matrix.mtx.gz",
            regex("api/counts/filtered/(.*)/mtx/matrix.mtx.gz"),

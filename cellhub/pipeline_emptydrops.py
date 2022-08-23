@@ -70,31 +70,20 @@ import pandas as pd
 import cellhub.tasks.control as C
 import cellhub.tasks.TASK as TASK
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__, __name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
-# set the location of the tenx code directory
-PARAMS["code_dir"] = Path(__file__).parents[1]
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-
-# ########################################################################### #
-# ########################## Run EmptyDrops ################################# #
-# ########################################################################### #
 
 @transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
            regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
@@ -124,7 +113,7 @@ def emptyDrops(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
-    statement = '''Rscript %(code_dir)s/R/scripts/emptydrops_run.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_run.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -157,7 +146,7 @@ def meanReads(infile, outfile):
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
-    statement = '''Rscript %(code_dir)s/R/scripts/emptydrops_calculate_mean_reads.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_calculate_mean_reads.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
@@ -167,8 +156,7 @@ def meanReads(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-# ---------------------------------------------------
-# Generic pipeline tasks
+# ----------------------- Full Target and Main Function ---------------------- #
 
 @follows(emptyDrops, meanReads)
 def full():
@@ -177,12 +165,10 @@ def full():
     '''
     pass
 
-
 def main(argv=None):
     if argv is None:
         argv = sys.argv
     P.main(argv)
-
 
 if __name__ == "__main__":
     sys.exit(P.main(sys.argv))

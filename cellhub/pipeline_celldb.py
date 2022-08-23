@@ -48,6 +48,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import glob
+from pathlib import Path
 
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
@@ -59,16 +60,19 @@ import cellhub.tasks.control as C
 import cellhub.tasks.db as DB
 import cellhub.tasks.celldb as celldb
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
 P.control.write_config_files = C.write_config_files
 
-# ----------------------------- parse parameters ----------------------------- #
-
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__,__name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(C.get_parameter_file(__file__))
 
-# ----------------------------- helper functions ----------------------------- #
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
+
+# ----------------------------- Helper Functions ----------------------------- #
 
 def connect():
     '''Helper function to connect to DB'''
@@ -77,11 +81,7 @@ def connect():
     
     return dbhandle
     
-def is_active(param_sub_dict):
-    ''' to work around autodoc issue'''
-    return param_sub_dict["active"]
-
-# ---------------------------- pipeline functions ---------------------------- #
+# ---------------------------- Pipeline Functions ---------------------------- #
 
 @follows(mkdir("celldb.dir"))
 @originate("celldb.dir/sample.load")
@@ -123,7 +123,7 @@ def load_gex_scrublet(outfile):
             glob=x["glob"],
             outfile=outfile)
 
-@active_if(is_active(PARAMS["table_gex_singleR"]))
+@active_if(PARAMS["table_gex_singleR"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/singleR.load")
 def load_singleR(outfile):
@@ -137,7 +137,7 @@ def load_singleR(outfile):
             outfile=outfile)
 
 
-@active_if(is_active(PARAMS["table_gmm_demux"]))
+@active_if(PARAMS["table_gmm_demux"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/gmm.demux.load")
 def load_gmm_demux(outfile):
@@ -153,7 +153,7 @@ def load_gmm_demux(outfile):
             glob=x["glob"],
             outfile=outfile)
 
-@active_if(is_active(PARAMS["table_demuxEM"]))
+@active_if(PARAMS["table_demuxEM"]["active"])
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/demuxEM.load")
 def load_demuxEM(outfile):
