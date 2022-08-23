@@ -76,10 +76,10 @@ information how to use CGAT pipelines.</p>
 <li><p>anndata.layers[“counts”] -&gt; raw counts (a sparse matrix)</p></li>
 <li><p>anndata.layers[“log1p”] -&gt; total count normalised, 1og1p transformed data (a sparse matrix)</p></li>
 <li><p>anndata.obs -&gt; metadata (typically passed through from original cellhub object)</p></li>
-<li><p>anndata.obsm[“X_rdim_name”] -&gt; containing the integrated coordinates (where “rdim_name” matches 
+<li><p>anndata.obsm[“X_rdim_name”] -&gt; containing the integrated coordinates (where “rdim_name” matches
 the “runspec_rdim_name” parameter). TODO: rename this parameter.</p></li>
 </ul>
-<p>It is strongly recommended to retain the information for all of the genes in all of the matrices 
+<p>It is strongly recommended to retain the information for all of the genes in all of the matrices
 (i.e. do not subset to HVGs!). This is important for marker gene discovery and pathway analysis.</p>
 </section>
 </section>
@@ -97,13 +97,16 @@ the “runspec_rdim_name” parameter). TODO: rename this parameter.</p></li>
 <li><p>Marker report</p></li>
 </ol>
 <ul class="simple">
-<li><p>Containing heatmaps, violin plots, expression dotplots, MA and volcano plots for 
+<li><p>Containing heatmaps, violin plots, expression dotplots, MA and volcano plots for
 each cluster.</p></li>
 </ul>
 <ol class="arabic simple" start="3">
 <li><p>xlsx spreadsheets for the marker gene and pathway results</p></li>
 <li><p>Anndata objects ready to be viewed with cellxgene</p></li>
 </ol>
+</section>
+<section id="code">
+<h2>Code<a class="headerlink" href="#code" title="Permalink to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="cellhub.pipeline_cluster.taskSummary">
 <span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cluster.</span></span><span class="sig-name descname"><span class="pre">taskSummary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cluster.taskSummary" title="Permalink to this definition">¶</a></dt>
@@ -220,7 +223,7 @@ see: <a class="reference external" href="https://genomebiology.biomedcentral.com
 <dl class="py function">
 <dt class="sig sig-object py" id="cellhub.pipeline_cluster.findMarkers">
 <span class="sig-prename descclassname"><span class="pre">cellhub.pipeline_cluster.</span></span><span class="sig-name descname"><span class="pre">findMarkers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.pipeline_cluster.findMarkers" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find per-cluster marker genes. Just execute the rank_genes_groups routine, 
+<dd><p>Find per-cluster marker genes. Just execute the rank_genes_groups routine,
 no filtering here.</p>
 </dd></dl>
 
@@ -387,6 +390,7 @@ and geneset tables for each analysis.</p>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../tasks/api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks/cellbender.html">Cellbender tasks</a></li>
 </ul>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
@@ -400,6 +404,7 @@ and geneset tables for each analysis.</p>
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pipeline-output">Pipeline output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#code">Code</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pipeline_dehash.html">Pipeline dehash</a></li>

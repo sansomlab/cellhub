@@ -41,10 +41,10 @@
 <p>This pipeline runs <a class="reference external" href="https://bioconductor.org/packages/release/bioc/html/SingleR.html">singleR</a> for cell prediction. Single R:</p>
 <ol class="arabic simple">
 <li><p>runs at cell level (cells are scored independently)</p></li>
-<li><p>Uses a non-paramentric correlation test (i.e. monotonic transformations of 
+<li><p>Uses a non-paramentric correlation test (i.e. monotonic transformations of
 the test data have no effect).</p></li>
 </ol>
-<p>Given these facts, in cellhub we run singleR on the raw counts upstream to 
+<p>Given these facts, in cellhub we run singleR on the raw counts upstream to
 (a) help with cell QC and (b) save time in the interpretation phase.</p>
 <p>This pipeline operates on the ensembl_ids.</p>
 </section>
@@ -61,9 +61,9 @@ information how to use CGAT pipelines.</p>
 <h3>Inputs<a class="headerlink" href="#inputs" title="Permalink to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Per-sample market matrix files (from the cellhub API).</p></li>
-<li><p>References for singleR  obtained via the R bioconductor ‘celldex’ library. 
-As downloading of the references is very slow, they need to 
-be manually downloaded and “stashed” as rds files in an appropriate location using the 
+<li><p>References for singleR  obtained via the R bioconductor ‘celldex’ library.
+As downloading of the references is very slow, they need to
+be manually downloaded and “stashed” as rds files in an appropriate location using the
 R/scripts/singleR_stash_references.R scripts. This location is then specified in the
 yaml file.</p></li>
 </ol>
@@ -143,6 +143,7 @@ metadata packages.</p>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../tasks/api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks/cellbender.html">Cellbender tasks</a></li>
 </ul>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="pipeline_adt_norm.html">Pipeline ADT normalization</a></li>

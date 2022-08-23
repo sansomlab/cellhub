@@ -39,7 +39,7 @@ On the University of Oxford's BMRC cluster, this can be achieved with e.g. ::
 Pipeline output
 ===============
 
-The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the :doc:`cellhub.tasks.cellbender module documentation <tasks/cellbender>` for more details.
+The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the :doc:`cellhub.tasks.cellbender module documentation <../tasks/cellbender>` for more details.
 
 Code
 ====

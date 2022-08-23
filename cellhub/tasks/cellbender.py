@@ -1,3 +1,14 @@
+"""
+Cellbender tasks
+================
+
+Overview
+--------
+
+This module contains helper functions for pipeline_cellbender.py
+
+"""
+
 import tables
 import numpy as np
 import scipy.sparse as sp
@@ -9,7 +20,8 @@ from typing import Dict, Optional
 
 def anndata_from_h5(file: str,
                     analyzed_barcodes_only: bool = True) -> 'anndata.AnnData':
-    """Load an output h5 file into an AnnData object for downstream work.
+    """
+    Load an output h5 file into an AnnData object for downstream work.
 
     Args:
         file: The h5 file

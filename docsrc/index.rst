@@ -50,6 +50,7 @@ Tasks module documentation
    :maxdepth: 2
 
    tasks/api.rst
+   tasks/cellbender.rst
 
 
 Pipeline documentation
