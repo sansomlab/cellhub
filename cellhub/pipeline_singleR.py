@@ -63,23 +63,25 @@ import glob
 from pathlib import Path
 import pandas as pd
 from ruffus import *
+from cgatcore import experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.TASK as TASK
 import cellhub.tasks.fetch_cells as fetch_cells
 
 import cellhub.tasks.api as api
 
+
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(C.get_parameter_file(__file__))
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -93,6 +95,9 @@ def genSingleRjobs():
     '''
 
     mtx_paths = glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz")
+    
+    if len(mtx_paths) == 0:
+        raise ValueError("No input files found on api/counts")
 
     references = [x.strip() for x in PARAMS["reference_data"].split(",")]
 
@@ -148,7 +153,17 @@ def concatenate(infile, outfile):
        Concatenate the label predictions across all the samples.
     '''
     
+        
+    print("***************************")
+    print(infile)
+    print("***************************")
+    print(outfile)
+    print("*********************************")
+    
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    print(">>>>>>>>>>>>")
+    print(spec.outdir)
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory"])
@@ -196,6 +211,7 @@ def summary(infile, outfile):
        Make a summary table that can be included in the cell
        metadata packages.
     '''
+
     
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 

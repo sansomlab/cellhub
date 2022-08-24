@@ -1,13 +1,45 @@
-from cgatcore import experiment as E
-from pathlib import Path
+'''
+Parameters submodule 
+====================
+
+Overview
+--------
+
+Helper functions for configuring the pipeline parameters.
+
+Functions
+---------
+
+'''
+
+
+
 import shutil
 import os
 import sys
+from pathlib import Path
+import logging
+
+# ------------------------------ Set up logging ------------------------------ #
+
+# We don't seem to be able to import (or pass) cgatcore.experiment here
+# without breaking the logging for the main script.
+
+L = logging.getLogger(__name__)
+log_handler = logging.StreamHandler(sys.stdout)
+log_handler.setFormatter(logging.Formatter('%(asctime)s @tasks.parameters: %(message)s'))
+log_handler.setLevel(logging.INFO)
+L.addHandler(log_handler)
+L.setLevel(logging.INFO)
+
+
+# --------------------------------- Functions -------------------------------- #
 
 def write_config_files(pipeline_path, general_path):
     '''
     Retrieve default yaml configuration file from:
-    cellhub/yaml/pipeline_name.yml
+        cellhub/yaml/pipeline_[name].yml
+    
     '''
 
     paths = [os.path.join(Path(pipeline_path).parents[0], "yaml")]
@@ -15,14 +47,14 @@ def write_config_files(pipeline_path, general_path):
 
     for dest in config_files:
         if os.path.exists(dest):
-            E.warn("file `%s` already exists - skipped" % dest)
+            L.warn("file `%s` already exists - skipped" % dest)
             continue
 
         for path in paths:
             src = os.path.join(path, dest)
             if os.path.exists(src):
                 shutil.copyfile(src, dest)
-                E.info("created new configuration file `%s` " % dest)
+                L.info("created new configuration file `%s` " % dest)
                 break
         else:
             raise ValueError(
@@ -34,6 +66,9 @@ def get_parameter_file(pipeline_path):
     '''
     Return the local yml file path if the pipeline is being executed,
     otherwise return the location of the yml file in the repo.
+    
+    Note that a local yaml file is mandatory for pipeline execution.
+    
     '''
 
     pipeline_name = os.path.basename(pipeline_path)
@@ -46,7 +81,7 @@ def get_parameter_file(pipeline_path):
             # We require a local configuration file to exist
 
             yml_file = pipeline_name.replace(".py", ".yml")
-            E.info("Using local yml file: " + yml_file)
+            L.info("Using local yml file: " + yml_file)
 
             if not os.path.exists(yml_file):
 
@@ -63,7 +98,7 @@ def get_parameter_file(pipeline_path):
             # - allow the file to be parsed by the interpreter (config)
             # - allow sphinx autodocs call to importlib.import_module (-M)     
             
-            E.info("Using the default configuration file")
+            L.info("Using the default configuration file")
             
             yml_file = os.path.join(os.path.dirname(pipeline_path),
                                   "yaml",
@@ -84,15 +119,10 @@ def get_parameter_file(pipeline_path):
         yml_file = os.path.join(os.path.dirname(pipeline_path),
                                 "yaml",
                                 pipeline_name.replace(".py", ".yml"))
-        E.warn("Using default yml file: " + yml_file)
+        L.warn("Using default yml file: " + yml_file)
 
         if not os.path.exists(yml_file):
             raise ValueError("default configuration file missing")
             
 
     return(yml_file)
-
-
-
-
-

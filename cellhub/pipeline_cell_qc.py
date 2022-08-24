@@ -57,27 +57,35 @@ from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.api as api
+
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(C.get_parameter_file(__file__))
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+
+# ----------------------------- Preflight checks ----------------------------- #
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == "make":
+        inputs = glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz")
+        if len(inputs) == 0:
+            raise ValueError('No input files found on api/counts. (Counts from '
+                             'the upstream pipeline can be registered with '
+                            '"cellhub [upstream_pipeline_name] make useCounts")')
+
+
 # ------------------------------ Pipeline Tasks ------------------------------ #
-
-
-# ############################################# #
-# ######## Calculate QC metrics ############### #
-# ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
 @transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),
@@ -169,9 +177,6 @@ def qcmetricsAPI(infiles, outfile):
     x.register_dataset()
 
 
-# ############################################# #
-# ######## Calculate doublet scores ########### #
-# ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
 @transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),

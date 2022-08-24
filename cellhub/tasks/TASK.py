@@ -5,7 +5,7 @@ import pandas as pd
 
 def get_resources(memory="4G", cpu=1, PARAMS={"resources_mempercore":False}):
     '''calculate the resource requirements and return a
-       dictonary that can be used to update the local variables'''
+       dictionary that can be used to update the local variables'''
 
     if not memory.endswith("G"):
         raise ValueError("Memory must be specified as XXG")

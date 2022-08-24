@@ -67,18 +67,18 @@ from cellhub.tasks import templates
 from cellhub.tasks import resources
 from cellhub.tasks import TASK
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.cellranger as cellranger
 import cellhub.tasks.api as api
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(C.get_parameter_file(__file__))
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -110,8 +110,11 @@ def taskSummary(infile, outfile):
 @active_if(PARAMS["input"] == "mkfastq")
 @follows(mkdir("cellranger.multi.dir"))
 @originate("cellranger.multi.dir/config.sentinel")
-def makeConfig(outfile):
-    '''Read parameters from yml file for the whole experiment and save config files as csv.'''
+def config(outfile):
+    '''
+    Read parameters from yml file for the whole experiment and save 
+    per-library config files as csv.
+    '''
 
     # check if references exist
     if PARAMS["run_gene-expression"]:
@@ -206,7 +209,6 @@ def makeConfig(outfile):
         filename = "cellranger.multi.dir/" + library_id + ".csv"
 
         lib_df = pd.DataFrame(libsample_params)
-        print(lib_df)
 
         lib_df.drop('description', axis=1, inplace=True)
 
@@ -215,7 +217,8 @@ def makeConfig(outfile):
         smp_df = pd.DataFrame()
         for i in lib_columns:
             tmp = lib_df[i].str.split(',', expand=True)
-            smp_df = smp_df.append(tmp.T)
+            #smp_df = smp_df.append(tmp.T)
+            smp_df = pd.concat([smp_df, tmp.T])
 
             # filter out gex rows from libraries table if run_gene-expression = false
             mask = smp_df.feature_types == 'Gene Expression'
@@ -273,13 +276,28 @@ def makeConfig(outfile):
 # ############################ run cellranger multi ######################### #
 # ########################################################################### #
 
-@follows(makeConfig)
-@transform("cellranger.multi.dir/*.csv",
-           regex(r".*/([^.]*).*.csv"),
-           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
+def cellrangerMultiJobs():
+
+    csv_files = glob.glob("cellranger.multi.dir/*.csv")
+    
+    for csv_file in csv_files:
+    
+        library_id = os.path.basename(csv_file).replace(".csv", "")
+        
+        outfile = os.path.join("cellranger.multi.dir", 
+                               library_id + "-cellranger.multi.sentinel")
+        
+        yield  [csv_file, outfile]
+
+
+@follows(config)
+#@transform("cellranger.multi.dir/*.csv",
+#           regex(r".*/([^.]*).*.csv"),
+#           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
+@files(cellrangerMultiJobs)
 def cellrangerMulti(infile, outfile):
     '''
-    Execute the cellranger multi pipleline for first sample.
+    Execute the cellranger multi pipeline for first sample.
     '''
 
     # read id_tag from file name

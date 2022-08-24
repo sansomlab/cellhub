@@ -68,16 +68,16 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 import pandas as pd
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(C.get_parameter_file(__file__))
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]

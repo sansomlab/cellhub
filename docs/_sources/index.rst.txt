@@ -49,6 +49,7 @@ Tasks module documentation
 .. toctree::
    :maxdepth: 2
 
+   tasks/parameters.rst
    tasks/api.rst
    tasks/cellbender.rst
 
