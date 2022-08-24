@@ -1,6 +1,6 @@
 # cellhub
 
-A scaleable workflow for the analysis of large-scale single cell datasets using compute clusters.
+A scaleable workflow for the analysis of single cell datasets using compute clusters.
 
 ## Workflow overview
 
