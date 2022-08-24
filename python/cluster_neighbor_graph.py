@@ -53,24 +53,14 @@ print(args)
 
 
 # ########################################################################### #
-# ############## Create outdir and set results file ######################### #
-# ########################################################################### #
-
-# write folder
-#results_file = args.outdir + "/" + "paga_anndata.h5ad"
-
-
-# ########################################################################### #
 # #########################  Make the anndata object ######################### #
 # ########################################################################### #
 
 sourceAdata = ad.read_h5ad(args.source_anndata, backed='r')
 
 # make the anndata and populate the obs and vars
-adata = ad.AnnData(obs = sourceAdata.obs[["barcode_id"]].copy())
-
-#adata.obs = sourceAdata.obs.copy()
-#adata.var = sourceAdata.var.copy()
+adata = ad.AnnData(shape = (sourceAdata.shape[0],0))
+adata.obs.index = sourceAdata.obs.index.copy()
 
 rdims = "X_" + args.reduced_dims_name
 

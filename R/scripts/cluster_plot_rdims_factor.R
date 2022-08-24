@@ -73,10 +73,26 @@ rownames(plot_data) <- plot_data$barcode_id
 
 if(opt$metadata!="none")
 {
-    meta_data <- read.table(opt$metadata, sep="\t", header=TRUE, row.names="barcode_id")
-    meta_data$barcode_id <- NULL
+    meta_data <- read.table(opt$metadata, sep="\t", header=TRUE)
+    mdcols <- colnames(meta_data)
+    
+    if("barcode_id" %in% mdcols)
+    {
+      rownames(meta_data) <- meta_data$barcode_id
+      meta_data$barcode_id <- NULL
+    } else if("barcode" %in% mdcols & "library_id" %in% mdcols)
+    {
+      rownames(meta_data) <- paste(gsub("-1$","",meta_data$barcode),
+                                   meta_data$library_id, sep="-")
+      
+      meta_data$barcode <- NULL
+      meta_data$library_id <- NULL
+    } else {
+      stop('metadata must have "barcode_id" column or "barcode" + "library_id" columns')
+    }
+    
     meta_cols <- colnames(meta_data)
-
+    
     if(length(intersect(rownames(plot_data), rownames(meta_data))) < length(rownames(plot_data)))
     {
         stop("Not all cell barcodes are present in the given metadata table")
@@ -88,6 +104,8 @@ if(opt$metadata!="none")
         colnames(plot_data) <- c(plot_cols, meta_cols)
     }
 }
+
+
 
 if ("cluster" %in% colnames(plot_data)){
     cluster_col = "cluster"

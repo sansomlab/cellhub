@@ -10,6 +10,11 @@ pandas
 ruffus
 scanorama
 scanpy
+scvelo
 scipy
 scrublet
 pyyaml
+GMM-demux
+hnswlib
+sqlalchemy
+drmaa

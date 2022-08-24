@@ -67,34 +67,21 @@ from cellhub.tasks import templates
 from cellhub.tasks import resources
 from cellhub.tasks import TASK
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.cellranger as cellranger
 import cellhub.tasks.api as api
 
-# Override function to collect config files
-P.control.write_config_files = C.write_config_files
+# -------------------------- Pipeline Configuration -------------------------- #
 
-# -------------------------- < parse parameters > --------------------------- #
+# Override function to collect config files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__, __name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
-# set the location of the pipeline code directory
-if "code_dir" not in PARAMS.keys():
-    PARAMS["code_dir"] = Path(__file__).parents[1]
-else:
-    if PARAMS["code_dir"] != Path(__file__).parents[1]:
-        raise ValueError("Could not set the location of "
-                         "the pipeline code directory")
-
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # ----------------------- < helper functions > ------------------------ #
 
@@ -123,8 +110,11 @@ def taskSummary(infile, outfile):
 @active_if(PARAMS["input"] == "mkfastq")
 @follows(mkdir("cellranger.multi.dir"))
 @originate("cellranger.multi.dir/config.sentinel")
-def makeConfig(outfile):
-    '''Read parameters from yml file for the whole experiment and save config files as csv.'''
+def config(outfile):
+    '''
+    Read parameters from yml file for the whole experiment and save 
+    per-library config files as csv.
+    '''
 
     # check if references exist
     if PARAMS["run_gene-expression"]:
@@ -219,7 +209,6 @@ def makeConfig(outfile):
         filename = "cellranger.multi.dir/" + library_id + ".csv"
 
         lib_df = pd.DataFrame(libsample_params)
-        print(lib_df)
 
         lib_df.drop('description', axis=1, inplace=True)
 
@@ -228,7 +217,8 @@ def makeConfig(outfile):
         smp_df = pd.DataFrame()
         for i in lib_columns:
             tmp = lib_df[i].str.split(',', expand=True)
-            smp_df = smp_df.append(tmp.T)
+            #smp_df = smp_df.append(tmp.T)
+            smp_df = pd.concat([smp_df, tmp.T])
 
             # filter out gex rows from libraries table if run_gene-expression = false
             mask = smp_df.feature_types == 'Gene Expression'
@@ -286,13 +276,28 @@ def makeConfig(outfile):
 # ############################ run cellranger multi ######################### #
 # ########################################################################### #
 
-@follows(makeConfig)
-@transform("cellranger.multi.dir/*.csv",
-           regex(r".*/([^.]*).*.csv"),
-           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
+def cellrangerMultiJobs():
+
+    csv_files = glob.glob("cellranger.multi.dir/*.csv")
+    
+    for csv_file in csv_files:
+    
+        library_id = os.path.basename(csv_file).replace(".csv", "")
+        
+        outfile = os.path.join("cellranger.multi.dir", 
+                               library_id + "-cellranger.multi.sentinel")
+        
+        yield  [csv_file, outfile]
+
+
+@follows(config)
+#@transform("cellranger.multi.dir/*.csv",
+#           regex(r".*/([^.]*).*.csv"),
+#           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
+@files(cellrangerMultiJobs)
 def cellrangerMulti(infile, outfile):
     '''
-    Execute the cellranger multi pipleline for first sample.
+    Execute the cellranger multi pipeline for first sample.
     '''
 
     # read id_tag from file name
@@ -335,94 +340,24 @@ def cellrangerMulti(infile, outfile):
     P.run(statement)
     IOTools.touch_file(outfile)
 
+
 @transform(cellrangerMulti,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
-           r"\1/out.dir/\2/post.process.mtx.sentinel")
-def postProcessMtx(infile, outfile):
-    '''
-    Post-process the cellranger multi matrices to split the
-    counts for the GEX, ADT and HTO modalities into seperate
-    market matrices.
-
-    The cellbarcode are reformatted to the "UMI-LIBRARY_ID" syntax.
-
-    Inputs:
-
-        The input cellranger.multi.dir folder layout is:
-
-        unfiltered "outs": ::
-            library_id/outs/multi/count/raw_feature_bc_matrix/
-
-        filtered "outs": :: 
-            library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
-
-    Outputs:
-
-        library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
-
-        unfiltered: ::
-            out.dir/library_id/unfiltered/mtx/[GEX|ADT|HTO]/
-
-        filtered: ::
-            out.dir/library_id/filtered/sample_id/mtx/[GEX|ADT|HTO]/
-
-    '''
-
-    out_dir = os.path.dirname(outfile)
-
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
-
-    # 1. deal with unfiltered count data
-    matrix_location = os.path.join("cellranger.multi.dir", library_id,
-                                   "outs/multi/count/raw_feature_bc_matrix")
-
-    output_location = os.path.join("cellranger.multi.dir/out.dir/",
-                                   library_id,
-                                   "unfiltered",
-                                   "mtx")
-
-    cellranger.get_counts(matrix_location,
-                          output_location,
-                          library_id)
-
-    # 2. deal with per sample libraries
-    per_sample_loc = os.path.join("cellranger.multi.dir",
-                                  library_id,
-                                  "outs/per_sample_outs/")
-
-    per_sample_dirs = glob.glob(per_sample_loc + "*")
-
-    for per_sample_dir in per_sample_dirs:
-
-        matrix_location = os.path.join(per_sample_dir,
-                                       "count/sample_filtered_feature_bc_matrix")
-
-        sample_id = os.path.basename(per_sample_dir)
-
-        output_location = os.path.join("cellranger.multi.dir/out.dir/",
-                                       library_id,
-                                       "filtered",
-                                       sample_id,
-                                       "mtx")
-
-        cellranger.get_counts(matrix_location,
-                              output_location,
-                              library_id)
-
-
-    IOTools.touch_file(outfile)
-
-
-
-@transform(postProcessMtx,
-           regex(r"(.*)/out.dir/(.*)/post.process.mtx.sentinel"),
-           r"\1/out.dir/\2/register.mtx.sentinel")
+           r"\1/register.mtx.sentinel")
 def mtxAPI(infile, outfile):
     '''
     Register the post-processed mtx files on the API endpoint
+    
+    Inputs:
+
+    The input cellranger.multi.dir folder layout is:
+
+    unfiltered "outs": ::
+        library_id/outs/multi/count/raw_feature_bc_matrix/
+
+    filtered "outs": :: 
+        library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+    
     '''
 
     # 1. register the GEX, ADT and HTO count matrices
@@ -440,45 +375,69 @@ def mtxAPI(infile, outfile):
                                  "description": "Market matrix file"}
                      }
 
-    library_id = outfile.split("/")[-2]
 
-    source_loc = os.path.dirname(infile)
+    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
 
-    for data_subset in ["unfiltered", "filtered"]:
+    # 1. deal with unfiltered count data
+    matrix_location = os.path.join("cellranger.multi.dir", library_id,
+                                   "outs/multi/count/raw_feature_bc_matrix")
 
+    idx = 0
+    to_register = {idx:{"type":"unfiltered", 
+                        "path":matrix_location, 
+                        "id": library_id}}
 
-        for modality in ["GEX", "ADT", "HTO"]:
+    # 2. deal with the filtered data
+    
+    # 2. deal with per sample libraries
+    per_sample_loc = os.path.join("cellranger.multi.dir",
+                                  library_id,
+                                  "outs/per_sample_outs/")
 
-            if data_subset == "filtered":
-                data_subset_path = data_subset + "/" + library_id
-            else:
-                data_subset_path = data_subset
+    per_sample_dirs = glob.glob(per_sample_loc + "*")
 
-            mtx_loc = os.path.join(source_loc,
-                                   data_subset_path,
-                                   "mtx",
-                                   modality)
+    for per_sample_dir in per_sample_dirs:
 
-            if os.path.exists(mtx_loc):
+        matrix_location = os.path.join(per_sample_dir,
+                                       "count/sample_filtered_feature_bc_matrix")
 
-                mtx_x = mtx_template.copy()
-                mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
-                mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
-                mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+        sample_or_library_id = os.path.basename(per_sample_dir)
 
-                x.define_dataset(analysis_name=modality,
-                          data_subset=data_subset,
-                          data_id=library_id,
-                          data_format="mtx",
-                          file_set=mtx_x,
-                          analysis_description="Cellranger count GEX output")
+        idx += 1
+        to_register[idx] = {"type":"filtered",
+                            "path":matrix_location,
+                            "id": sample_or_library_id}
+    
+    
+    for key, mtx in to_register.items():
 
-                x.register_dataset()
+        mtx_loc = to_register[key]["path"]
+        subset = to_register[key]["type"]
+        id = to_register[key]["id"]
+
+        if os.path.exists(mtx_loc):
+
+            mtx_x = mtx_template.copy()
+            mtx_x["barcodes"]["path"] = os.path.join(mtx_loc, "barcodes.tsv.gz")
+            mtx_x["features"]["path"] = os.path.join(mtx_loc, "features.tsv.gz")
+            mtx_x["matrix"]["path"] =  os.path.join(mtx_loc, "matrix.mtx.gz")
+
+            x.define_dataset(analysis_name="counts",
+                             data_subset=subset,
+                             data_id=id,
+                             data_format="mtx",
+                             file_set=mtx_x,
+                             analysis_description="Cellranger count GEX output")
+
+            x.register_dataset()
+
+    IOTools.touch_file(outfile)
+
 
 
 @transform(cellrangerMulti,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
-           r"\1/out.dir/\2/register.h5.sentinel")
+           r"\1/register.h5.sentinel")
 def h5API(infile, outfile):
     '''
     Put the h5 files on the API
@@ -507,8 +466,8 @@ def h5API(infile, outfile):
 
     h5_template = {"h5": {"path":"path/to/barcodes.tsv",
                                  "format": "h5",
-                                 "description": "10X h5 count file"}
-                     }
+                                 "link_name": "data.h5",
+                                 "description": "10X h5 count file"}}
 
     # 1. deal with unfiltered count data
     h5_location = os.path.join("cellranger.multi.dir", library_id,
@@ -698,7 +657,6 @@ def vdjAPI(infile, outfile):
 
                 x.register_dataset()
 
-
 #
 # ---------------------------------------------------
 # Generic pipeline tasks
@@ -710,6 +668,21 @@ def full():
     Run the full pipeline.
     '''
     pass
+
+
+@follows(mtxAPI, h5API)
+@files(None,"use.cellranger.sentinel")
+def useCounts(infile, outfile):
+    '''
+        Set the cellranger counts as the source for downstream analysis.
+        This task is not run by default.
+    '''
+    
+    if os.path.exists("api/counts"):
+        raise ValueError("Counts have already been registered to the API")
+
+    else:
+        os.symlink("cellranger.multi/counts", "api/counts")
 
 
 def main(argv=None):

@@ -16,9 +16,8 @@ from scipy import sparse
 import logging
 import sys
 
-# ########################################################################### #
-# ###################### Set up the logging ################################# #
-# ########################################################################### #
+
+# ------------------------------ Set up logging ------------------------------ #
 
 #logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 L = logging.getLogger(__name__)
@@ -31,9 +30,7 @@ L.setLevel(logging.INFO)
 sc.settings.verbosity = 3  # verbosity: errors (0), warnings (1), info (2), hints (3)
 
 
-# ########################################################################### #
-# ######################## Parse the arguments ############################## #
-# ########################################################################### #
+# ---------------------------- Parse the arguments --------------------------- #
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--anndata", default="anndata.h5ad", type=str,
@@ -48,32 +45,19 @@ args = parser.parse_args()
 L.info("Running with arguments:")
 print(args)
 
-# ########################################################################### #
-# ############## Create outdir and set results file ######################### #
-# ########################################################################### #
 
-
-# figures folder
-#sc.settings.figdir = args.outdir
-
-#sc.settings.set_figure_params(dpi=300, dpi_save=300)
-
-# ########################################################################### #
-# ############################### Run PAGA ################################## #
-# ########################################################################### #
+# ------------------------------- Make the UMAP ------------------------------ #
 
 adata = anndata.read_h5ad(args.anndata)
 
-# compute clusters
 sc.tl.umap(adata,
            min_dist = float(args.mindist))
 
 umap  = pd.DataFrame(adata.obsm["X_umap"], columns=["UMAP_1", "UMAP_2"])
-umap["barcode_id"] = adata.obs["barcode_id"].values
+umap["barcode_id"] = adata.obs.index.values
 
 umap.to_csv(os.path.join(args.outdir,
                       "umap." + args.mindist + ".tsv.gz"), sep="\t",
          index=False)
-
 
 L.info("Complete")

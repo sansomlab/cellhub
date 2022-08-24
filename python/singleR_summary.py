@@ -53,11 +53,11 @@ for tab in tables:
     col_name = "singleR_" + reference_abbreviations[ref]
     
     labs = pd.read_csv(tab, sep="\t")
-    labs.index=labs["barcode_id"]
+    labs.index=labs[["barcode","library_id"]]
     
     if start:
-        out = labs[["barcode_id", "pruned.labels"]]
-        out.columns = ["barcode_id", col_name]
+        out = labs[["barcode", "library_id", "pruned.labels"]]
+        out.columns = ["barcode", "library_id", col_name]
         start = False
     else:
         out[col_name] = labs.loc[out.index, "pruned.labels"]

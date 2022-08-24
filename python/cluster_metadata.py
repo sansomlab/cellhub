@@ -45,7 +45,8 @@ print(args)
 adata = ad.read_h5ad(args.source_anndata, backed='r')
 
 L.info("Saving the metadata")
-adata.obs.to_csv(args.outfile, sep="\t", index=False)    
+adata.obs.to_csv(args.outfile, sep="\t", index=True,
+                 index_label="barcode_id")    
 
 outdir = os.path.dirname(args.outfile)
 

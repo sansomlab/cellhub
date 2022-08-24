@@ -79,6 +79,9 @@ The pipeline produces the following outputs:
 4. Anndata objects ready to be viewed with cellxgene
 
 
+Code
+====
+
 """
 
 #region Imports and Configuration
@@ -98,22 +101,19 @@ from ruffus import *
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.fetch_cells as fetch_cells
 import cellhub.tasks.TASK as TASK
 import cellhub.tasks.templates as templates
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_cluster.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_cluster.yml",
-     "pipeline_cluster.yml"])
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -135,14 +135,7 @@ if __name__ == "__main__" and not os.path.exists(cellhub_kegg_pathways):
     raise ValueError("cellhub kegg pathways file not found")
 PARAMS["cellhub_kegg_pathways"] = cellhub_kegg_pathways
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-# ------------------------------ < functions > ------------------------------ #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 #endregion
 
@@ -177,6 +170,11 @@ def preflight(infile, outfile):
     else:
         conserved = ""
         
+    if PARAMS["run_genesets"]:
+        geneids = "--gene_ids"
+    else:
+        geneids = ""
+        
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory_standard"], PARAMS=PARAMS)
         
@@ -188,6 +186,7 @@ def preflight(infile, outfile):
                    --reduced_dims_name=%(source_rdim_name)s
                    --max_reduced_dims=%(max_rdims)s
                    %(conserved)s
+                   %(geneids)s
                    --conserved_factor=%(markers_conserved_factor)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **locals())

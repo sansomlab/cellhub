@@ -44,37 +44,26 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 import cgatcore.database as database
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.dehash as dehash
 import cellhub.tasks.api as api
 
-# Override function to collect config files
-P.control.write_config_files = C.write_config_files
+# -------------------------- Pipeline Configuration -------------------------- #
 
-# -------------------------- < parse parameters > --------------------------- #
+# Override function to collect config files
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__,__name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-
-# ########################################################################### #
-# ############################# pipeline tasks ############################## #
-# ########################################################################### #
-
-@transform("api/cellranger.multi/ADT/filtered/*/mtx/matrix.mtx.gz",
-           regex("api/cellranger.multi/ADT/filtered/(.*)/mtx/matrix.mtx.gz"),
+@transform("api/counts/filtered/*/mtx/matrix.mtx.gz",
+           regex("api/counts/filtered/(.*)/mtx/matrix.mtx.gz"),
            r"dehash.dir/gmm.demux.dir/\1.gmm.demux.sentinel")
 def gmmDemux(infile, outfile):
     '''
@@ -163,8 +152,8 @@ def gmmAPI(infiles, outfile):
     x.register_dataset()
 
 
-@transform("api/cellranger.multi/ADT/filtered/*/mtx/matrix.mtx.gz",
-           regex("api/cellranger.multi/ADT/filtered/(.*)/mtx/matrix.mtx.gz"),
+@transform("api/counts/filtered/*/mtx/matrix.mtx.gz",
+           regex("api/counts/filtered/(.*)/mtx/matrix.mtx.gz"),
            r"dehash.dir/demuxEM.dir/\1.demuxEM.hash.count.csv.sentinel")
 def hashCountCSV(infile, outfile):
     '''
@@ -215,11 +204,11 @@ def demuxEM(infile, outfile):
     '''
 
     outdir = os.path.dirname(outfile)
-    sample = os.path.basename(infile).replace(".demuxEM.hash.count.csv.sentinel","")
+    library_id = os.path.basename(infile).replace(".demuxEM.hash.count.csv.sentinel","")
 
-    h5_file = os.path.join("api/cellranger.multi/counts/unfiltered",
-                       sample,
-                       "h5/raw_feature_bc_matrix.h5")
+    h5_file = os.path.join("api/counts/unfiltered",
+                       library_id,
+                       "h5/data.h5")
 
     hash_count_file = infile.replace(".sentinel",".gz")
 
@@ -229,7 +218,7 @@ def demuxEM(infile, outfile):
                            --min-signal-hashtag=10
                             %(h5_file)s
                             %(hash_count_file)s
-                            dehash.dir/demuxEM.dir/%(sample)s
+                            dehash.dir/demuxEM.dir/%(library_id)s
                  '''
 
     P.run(statement)
@@ -248,10 +237,10 @@ def parseDemuxEM(infile, outfile):
         import pegasusio as pegio
 
         demuxEM_dir = os.path.dirname(infile)
-        sample = os.path.basename(infile).replace(".demuxEM.sentinel","")
+        library_id = os.path.basename(infile).replace(".demuxEM.sentinel","")
 
         x = pegio.read_input(os.path.join(demuxEM_dir,
-                                             sample + '.out.demuxEM.zarr.zip'))
+                                             library_id  + '.out.demuxEM.zarr.zip'))
 
         outpath = outfile.replace(".parse.demuxEM.sentinel",".tsv.gz")
 
@@ -264,11 +253,13 @@ def parseDemuxEM(infile, outfile):
 
         out = pd.concat([x.obs[["demux_type","assignment"]], rp], axis=1)
 
-        out.index = [ x + "-" + sample for x in out.index ]
+        out.index = [ x + "-1" for x in out.index ]
 
         out.columns = [ "demuxEM_" + x for x in out.columns ]
+        
+        out["library_id"] = library_id 
 
-        out.to_csv(outpath, index_label="barcode_id", sep="\t")
+        out.to_csv(outpath, index_label="barcode", sep="\t")
 
         IOTools.touch_file(outfile)
 

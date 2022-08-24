@@ -47,7 +47,6 @@ Code
 
 '''
 
-
 from ruffus import *
 from ruffus.combinatorics import *
 import sys
@@ -58,42 +57,39 @@ from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.api as api
 
+
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
-
-
-# -------------------------- < parse parameters > --------------------------- #
+P.control.write_config_files = chparam.write_config_files
 
 # load options from the yml file
-parameter_file = C.get_parameter_file(__file__, __name__)
-PARAMS = P.get_parameters(parameter_file)
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
-# Set the location of the cellhub code directory
-if "code_dir" not in PARAMS.keys():
-    PARAMS["code_dir"] = Path(__file__).parents[1]
-else:
-    if PARAMS["code_dir"] != Path(__file__).parents[1]:
-        raise ValueError("Could not set the location of "
-                         "the pipeline code directory")
+# set the location of the code directory
+PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-# ----------------------- < pipeline configuration > ------------------------ #
 
-# handle pipeline configuration
+# ----------------------------- Preflight checks ----------------------------- #
+
 if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
+    if sys.argv[1] == "make":
+        inputs = glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz")
+        if len(inputs) == 0:
+            raise ValueError('No input files found on api/counts. (Counts from '
+                             'the upstream pipeline can be registered with '
+                            '"cellhub [upstream_pipeline_name] make useCounts")')
 
 
-# ############################################# #
-# ######## Calculate QC metrics ############### #
-# ############################################# #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+@transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/qcmetric.dir/\1.sentinel")
 def qcmetrics(infile, outfile):
     '''This task will run R/calculate_qc_metrics.R,
@@ -132,12 +128,12 @@ def qcmetrics(infile, outfile):
         "M" in PARAMS["resources_job_memory"] ):
         job_memory = PARAMS["resources_job_memory"]
 
-    log_file = outfile.replace(".tsv.gz", ".log")
+    log_file = outfile.replace(".sentinel", ".log")
 
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
-    statement = '''Rscript %(code_dir)s/R/scripts/qc_metrics.R
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/qc_metrics.R
                  --cellranger_dir=%(cellranger_dir)s
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
@@ -181,13 +177,10 @@ def qcmetricsAPI(infiles, outfile):
     x.register_dataset()
 
 
-# ############################################# #
-# ######## Calculate doublet scores ########### #
-# ############################################# #
 
 @follows(mkdir("cell.qc.dir"))
-@transform(glob.glob("api/cellranger.multi/GEX/filtered/*/mtx/matrix.mtx.gz"),
-           regex(r".*/.*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
+@transform(glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz"),
+           regex(r".*/.*/.*/(.*)/mtx/matrix.mtx.gz"),
            r"cell.qc.dir/scrublet.dir/\1.sentinel")
 def scrublet(infile, outfile):
     '''This task will run python/run_scrublet.py,
@@ -229,7 +222,7 @@ def scrublet(infile, outfile):
     outdir = Path(outfile).parent
 
     # Formulate and run statement
-    statement = '''python %(code_dir)s/python/run_scrublet.py
+    statement = '''python %(cellhub_code_dir)s/python/qc_scrublet.py
                    --cellranger_dir=%(cellranger_dir)s
                    %(subset_option)s
                    --library_id=%(library_name)s

@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>IFNb PBMC example &#8212; cellhub 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Coding Guidelines" href="CodingGuidelines.html" />
+    <link rel="prev" title="Usage" href="Usage.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="ifnb-pbmc-example">
+<h1>IFNb PBMC example<a class="headerlink" href="#ifnb-pbmc-example" title="Permalink to this heading">¶</a></h1>
+<section id="setting-up">
+<h2>Setting up<a class="headerlink" href="#setting-up" title="Permalink to this heading">¶</a></h2>
+<section id="clone-the-example-template-to-a-local-folder">
+<h3>1. Clone the example template to a local folder<a class="headerlink" href="#clone-the-example-template-to-a-local-folder" title="Permalink to this heading">¶</a></h3>
+<p>Clone the folders and files for the example into a local folder.</p>
+<blockquote>
+<div><p>cp -r /path/to/cellhub/examples/ifnb_pbmc/* .</p>
+</div></blockquote>
+<p>This will create 3 folders:</p>
+<ul class="simple">
+<li><p>“cellhub” where the preprocessing pipelines will be run and where the cellhub database will be created</p></li>
+<li><p>“integration” where integration is to be performed.</p></li>
+<li><p>“cluster” where we can perform downstream analysis with “cellhub cluster”.</p></li>
+</ul>
+</section>
+</section>
+<section id="running-the-pre-processing-pipelines-and-creating-the-database">
+<h2>Running the pre-processing pipelines and creating the database<a class="headerlink" href="#running-the-pre-processing-pipelines-and-creating-the-database" title="Permalink to this heading">¶</a></h2>
+<section id="running-cellranger">
+<h3>2. Running Cellranger<a class="headerlink" href="#running-cellranger" title="Permalink to this heading">¶</a></h3>
+<p>The first step is to configure and run pipeline_cellranger_multi. We already have a pre-configured yml file so we can skip this step but the syntax is included for reference here and also for the other steps:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># enter the cellhub directory</span>
+
+<span class="n">cd</span> <span class="n">cellhub</span>
+
+<span class="c1"># cellhub cellranger_multi config</span>
+</pre></div>
+</div>
+<p>Edit the pipeline_cellranger_multi.yml file as appropriate to point to folders containing fastq files extracted from the original BAM files submitted by <a class="reference external" href="https://doi.org/10.1038/nbt.4042">Kang et. al.</a> to GEO (GSE96583). The GEO identifiers are: unstimulated (GSM2560248) and stimulated (GSM2560249). The fastqs can be extracted with the <a class="reference external" href="https://support.10xgenomics.com/docs/bamtofastq">10X bamtofastq tool</a>.</p>
+<p>We can run the pipeline as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cellhub</span> <span class="n">cellranger_multi</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+<p>Finally, the count matrices must be manually registered on the API for downstream analysis:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cellhub</span> <span class="n">cellranger</span> <span class="n">useCounts</span>
+</pre></div>
+</div>
+</section>
+<section id="running-the-cell-qc-pipeline">
+<h3>3. Running the cell qc pipeline<a class="headerlink" href="#running-the-cell-qc-pipeline" title="Permalink to this heading">¶</a></h3>
+<p>Next we run the cell qc pipeline:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub cell_qc config</span>
+
+<span class="n">cellhub</span> <span class="n">cell_qc</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</section>
+<section id="running-emptydrops-and-investigating-ambient-rna-optional">
+<h3>4. Running emptydrops and investigating ambient RNA (optional)<a class="headerlink" href="#running-emptydrops-and-investigating-ambient-rna-optional" title="Permalink to this heading">¶</a></h3>
+<p>If desired we can run emptydrops:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub emptydrops config</span>
+
+<span class="n">cellhub</span> <span class="n">emptydrops</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+<p>And investigate the ambient rna:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub ambient_rna config</span>
+
+<span class="n">cellhub</span> <span class="n">ambient_rna</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</section>
+<section id="run-pipeline-singler">
+<h3>5. Run pipeline_singleR<a class="headerlink" href="#run-pipeline-singler" title="Permalink to this heading">¶</a></h3>
+<p>Single R is run on all the cells so that the results are avaliable to help with QC
+as well as downstream analysis:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub singleR config</span>
+
+<span class="n">cellhub</span> <span class="n">singleR</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+<p>As noted: <a class="reference internal" href="pipelines/pipeline_singleR.html"><span class="doc">in the pipeline_singleR inputs section</span></a> the celldex references
+neede to be stashed before the pipeline is run.</p>
+</section>
+<section id="loading-the-cell-statistics-into-the-celldb">
+<h3>6. Loading the cell statistics into the celldb<a class="headerlink" href="#loading-the-cell-statistics-into-the-celldb" title="Permalink to this heading">¶</a></h3>
+<p>The cell QC statistics and metadata (“samples.tsv”) are next loaded into a local sqlite database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub celldb config</span>
+
+<span class="n">cellhub</span> <span class="n">celldb</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</section>
+<section id="run-pipeline-annotation">
+<h3>7. Run pipeline_annotation<a class="headerlink" href="#run-pipeline-annotation" title="Permalink to this heading">¶</a></h3>
+<p>This  pipeline retrieves Ensembl and KEGG annotations needed for downstream analysis.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cellhub annotation config</span>
+
+<span class="n">cellhub</span> <span class="n">annotation</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p10</span>
+</pre></div>
+</div>
+<p>Please note that the specified Ensembl version should match that used for the cellranger reference trancriptome.</p>
+</section>
+</section>
+<section id="performing-cell-qc">
+<h2>Performing cell QC<a class="headerlink" href="#performing-cell-qc" title="Permalink to this heading">¶</a></h2>
+<section id="assessment-of-cell-quality">
+<h3>8. Assessment of cell quality<a class="headerlink" href="#assessment-of-cell-quality" title="Permalink to this heading">¶</a></h3>
+<p>This step is left to the reader to perform manually because it needs to be carefully tailored to individual datasets.</p>
+</section>
+</section>
+<section id="performing-downstream-analysis">
+<h2>Performing downstream analysis<a class="headerlink" href="#performing-downstream-analysis" title="Permalink to this heading">¶</a></h2>
+<section id="fetch-cells-for-integration">
+<h3>9. Fetch cells for integration<a class="headerlink" href="#fetch-cells-for-integration" title="Permalink to this heading">¶</a></h3>
+<p>We use pipeline_fetch_cells to retrieve the cells we want for downstream analysis. (QC thresholds and e.g. desired samples are specified in the pipeline_fetch_cells.yml) file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># It is recommended to fetch the cells in to a seperate directory for integration.</span>
+<span class="n">cd</span> <span class="o">../</span><span class="n">integration</span>
+
+<span class="c1"># cellhub fetch_cells config</span>
+<span class="n">cellhub</span> <span class="n">fetch_cells</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p20</span>
+</pre></div>
+</div>
+</section>
+<section id="integration">
+<h3>10. Integration<a class="headerlink" href="#integration" title="Permalink to this heading">¶</a></h3>
+<p>Run the provided jupyter notebook to perform a basic Harmony integration of the data and to save it in the appropriate anndata format (see <a class="reference internal" href="pipelines/pipeline_cluster.html"><span class="doc">in the pipeline_cluster inputs section</span></a>) is provided.</p>
+</section>
+<section id="clustering-analysis">
+<h3>11. Clustering analysis<a class="headerlink" href="#clustering-analysis" title="Permalink to this heading">¶</a></h3>
+<p>Cluster analysis is performed with pipeline cluster (a seperate directory is recommended for this so that multiple clustering runs can be performed as required).:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># change into the clustering directory</span>
+<span class="n">cd</span> <span class="o">../</span><span class="n">cluster</span><span class="o">.</span><span class="n">dir</span>
+
+<span class="c1"># checkout the yml file</span>
+<span class="n">cellhub</span> <span class="n">cluster</span> <span class="n">config</span>
+
+<span class="c1"># a suitable yml file has been provided so we can now launch the pipeline</span>
+<span class="n">cellhub</span> <span class="n">cluster</span> <span class="n">make</span> <span class="n">full</span> <span class="o">-</span><span class="n">v5</span> <span class="o">-</span><span class="n">p200</span>
+</pre></div>
+</div>
+<p>The pdf reports and excel files generated by the pipeline can be found in the “reports.dir” subfolder.</p>
+<p>For interactive visulation, the results are provided in cellxgene format. To view the cellxgene.h5ad files, you will first need toinstall cellxgene with “pip install cellxgene”. The cellxgene viewer can then be launched with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># substitute &quot;{x}&quot; with the number integrated components used for the clustering run.</span>
+<span class="n">cellxgene</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">upgrade</span><span class="o">-</span><span class="n">check</span> <span class="n">launch</span> <span class="n">out</span><span class="o">.</span><span class="p">{</span><span class="n">x</span><span class="p">}</span><span class="o">.</span><span class="n">comps</span><span class="o">.</span><span class="n">dir</span><span class="o">/</span><span class="n">cellxgene</span><span class="o">.</span><span class="n">h5ad</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">cellhub</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="WorkflowOverview.html">Workflow Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage.html">Usage</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">IFNb PBMC example</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#setting-up">Setting up</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-the-pre-processing-pipelines-and-creating-the-database">Running the pre-processing pipelines and creating the database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performing-cell-qc">Performing cell QC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performing-downstream-analysis">Performing downstream analysis</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="CodingGuidelines.html">Coding Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tasks/parameters.html">Parameters submodule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks/api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks/cellbender.html">Cellbender tasks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_annotation.html">Pipeline annotation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cellbender.html">Pipeline cellbender</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_celldb.html">Pipeline celldb</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_cluster.html">Pipeline cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_dehash.html">Pipeline dehash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_singleR.html">Pipeline singleR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipelines/pipeline_velocyto.html">Pipeline Velocyto</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Usage.html" title="previous chapter">Usage</a></li>
+      <li>Next: <a href="CodingGuidelines.html" title="next chapter">Coding Guidelines</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Sansom lab.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/IFNbExample.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

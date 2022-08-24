@@ -41,18 +41,25 @@ message("reading metadata")
 metadata <- read.table(opt$metadata, header=T, sep="\t",
                        row.names="barcode_id")
 
+add_row_idx <- function(x)
+{
+    row.names(x) <- paste(gsub("-1$","",x$barcode), 
+                           x$library_id, sep="-")
+    x$barcode <- NULL
+    x$library_id <- NULL
+    x
+}
+
 message("reading scores")
-scores <- read.table(opt$scores, header=T, sep="\t",
-                       row.names="barcode_id")
+scores <- read.table(opt$scores, header=T, sep="\t")
+scores <- add_row_idx(scores)
 
 message("reading predictions]")
-predictions <- read.table(opt$labels, header=T, sep="\t",
-                          row.names="barcode_id")
+predictions <- read.table(opt$labels, header=T, sep="\t")
+predictions <- add_row_idx(predictions)
 
 scores <- scores[rownames(metadata), ]
 predictions <- predictions[rownames(metadata), ]
-
-scores$barcode_id <- NULL
 
 predictions$scores <- as.matrix(scores)
 

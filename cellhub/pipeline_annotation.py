@@ -68,34 +68,23 @@ from ruffus import *
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.TASK as TASK
 import cellhub.tasks.api as api
 
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_annotation.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_annotation.yml",
-     "pipeline_annotation.yml"])
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-# ------------------------------ < functions > ------------------------------ #
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
 
 # ########################################################################### #

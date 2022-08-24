@@ -6,7 +6,7 @@ stopifnot(require(optparse),
           require(tibble),
           require(scater),
           require(Matrix),
-	  require(BiocParallel)
+	        require(BiocParallel)
 #	  require(cellqc)
 )
 
@@ -45,6 +45,7 @@ option_list <- list(
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
+print("Boom")
 
 # Logger ------
 
@@ -80,10 +81,11 @@ ngenes <- colSums(counts(s) > 0)
 # Total UMI counts
 total_UMI <- colSums(counts(s))
 
+print("boom")
 
 
 # Create dataframe
-cell_qc <- tibble(barcode_id = colData(s)$Barcode,
+cell_qc <- tibble(barcode = colData(s)$Barcode,
                   library_id=opt$library_id,
                   ngenes = ngenes,
                   total_UMI= total_UMI)
@@ -197,10 +199,10 @@ pct_genesets <- pct_genesets[,grep("_percent", colnames(pct_genesets))]
 colnames(pct_genesets) <- gsub("^subsets_", "", colnames(pct_genesets))
 colnames(pct_genesets) <- gsub("_percent$", "", colnames(pct_genesets))
 pct_genesets <- pct_genesets %>% as_tibble()
-pct_genesets$barcode_id <- colData(s)$Barcode
+pct_genesets$barcode <- colData(s)$Barcode
 
 # Append to QC table
-cell_qc <- left_join(cell_qc, pct_genesets, by = "barcode_id")
+cell_qc <- left_join(cell_qc, pct_genesets, by = "barcode")
 
 
 # Compute mitoribo ratio ------
@@ -220,10 +222,10 @@ if(FALSE) {
 	# Calculate mitoribo ratio
 	flog.info("Calculating mitoribo ratio...")
 	mitoribo_ratio <- GetMitRibRatio(m)
-	mitoribo_ratio$barcode_id <- colData(s)$Barcode
+	mitoribo_ratio$barcode <- colData(s)$Barcode
 
 	# Append to QC table
-	cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode_id")
+	cell_qc <- left_join(cell_qc, mitoribo_ratio, by = "barcode")
 }
 
 # Label barcodes ------
@@ -234,14 +236,14 @@ if (!is.null(opt$barcodes_to_label_as_True)){
   colnames(input_lists) <- c("name", "file")
   for (i in 1:nrow(input_lists)) {
     bc <- read.csv(gzfile(input_lists$file[i]), sep="\t", header = FALSE)
-    colnames(bc) <- c("barcode_id", "library_id")
+    colnames(bc) <- c("barcode", "library_id")
 
     # Filter barcodes from current library_id in list_temp
     bc <- bc[bc$library_id %in% opt$library_id,]
 
     # Label barcodes in output dataframe
     cell_qc$newcol <- "False"
-    cell_qc$newcol[cell_qc$barcode_id %in% bc$barcode_id] <- "True"
+    cell_qc$newcol[cell_qc$barcode %in% bc$barcode] <- "True"
 
     # Set column name in output
     colname <- input_lists$name[i]
@@ -249,13 +251,6 @@ if (!is.null(opt$barcodes_to_label_as_True)){
   }
 }
 
-## SNS May 2021 - no longer necessary, this is now down upstream
-##
-## Format ouput to match tables in other pipelines from the cellhub repository
-## colnames(cell_qc)[colnames(cell_qc)=="barcode"] <- "BARCODE"
-## Add the barcode_id column
-## in pipeline cellranger multi
-## cell_qc$barcode_id <- paste(cell_qc$BARCODE, cell_qc$library_id, sep="-")
 
 # Write table
 flog.info("Writing output table")

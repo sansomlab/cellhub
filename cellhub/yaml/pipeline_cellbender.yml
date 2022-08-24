@@ -7,15 +7,18 @@
 # ---------------
 
 # Project name
-projectname: scRNAseq analyse ambient RNA profiles
+projectname: Cellbender
 
 # Author
 author: Sansom lab
 
-input_libraries: cellranger.multi.dir/libraries.tsv
-
-# [optional] a list of cell barcodes to exclude
-excludelist: None
+cellhub:
+  # The folder containing the cellhub instance
+  # where cellranger has been run.
+  # It is recommended to start a cellhub run with cellbender 
+  # in clean folder so that it can be compared with the 
+  # uncorrected results.
+  location: ../cellhub
 
 # compute resource options
 # ------------------------

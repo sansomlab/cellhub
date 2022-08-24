@@ -12,8 +12,8 @@ stopifnot(
 # Options ----
 
 option_list <- list(
-  make_option(c("--h5file"), default="10x.h5",
-              help="A 10x h5 file"),
+  make_option(c("--mtxdir"), default="matrix.dir",
+              help="The location of the 10x mtx directory"),
   make_option(c("--sample"), default="none",
               help="The name of the sample"),
   make_option(c("--refstashdir"),
@@ -32,9 +32,11 @@ message("Running with options:\n")
 print(opt)
 
 message("Reading in the count data")
-sce <- read10xCounts(opt$h5file)
-sample_suffix = paste0("-", opt$sample)
-colnames(sce) <- gsub("-1$", sample_suffix, colData(sce)$Barcode)
+sce <- read10xCounts(opt$mtxdir)
+
+# sample_suffix = paste0("-", opt$sample)
+# colnames(sce) <- gsub("-1$", sample_suffix, colData(sce)$Barcode)
+colnames(sce) <- colData(sce)$Barcode
 
 message("Loading the reference dataset: ", opt$reference)
 
@@ -42,6 +44,11 @@ ref_path = file.path(opt$refstashdir, paste(opt$reference,"rds",sep="."))
 print(ref_path)
 ref.se <- readRDS(ref_path)
 
+if (grepl("ENSMUSG", rownames(ref.se)[1]))
+{
+  message("cleaning up mouse ensembl indentifiers")
+  rownames(ref.se) <- gsub("ENSMUSG", "ENSG", rownames(ref.se))
+}
 message("setting up the parallel environment")
 multicoreParam <- MulticoreParam(workers = opt$workers)
 
@@ -53,7 +60,8 @@ pred <- SingleR(test = sce,
                 BPPARAM = multicoreParam)
 
 message("saving the labels")
-labels <- data.frame(barcode_id=rownames(pred),
+labels <- data.frame(barcode=rownames(pred),
+                     library_id=rep(opt$sample,nrow(pred)),
                      first.labels=pred$first.labels,
                      labels=pred$labels,
                      pruned.labels=pred$pruned.labels)
@@ -64,7 +72,8 @@ write.table(labels,
             sep="\t", quote=FALSE)
 
 message("saving the scores")
-scores <- data.frame(barcode_id=rownames(pred))
+scores <- data.frame(barcode=rownames(pred),
+                     library_id=rep(opt$sample,nrow(pred)))
 scores <- cbind(scores, data.frame(pred$scores))
 
 write.table(scores,

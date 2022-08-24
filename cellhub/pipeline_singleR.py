@@ -34,7 +34,7 @@ To obtain a configuration file run "cellhub singleR config".
 Inputs
 ------
 
-1. Per-sample h5 files (from the cellhub API).
+1. Per-sample market matrix files (from the cellhub API).
 
 2. References for singleR  obtained via the R bioconductor 'celldex' library. 
    As downloading of the references is very slow, they need to 
@@ -63,60 +63,51 @@ import glob
 from pathlib import Path
 import pandas as pd
 from ruffus import *
+from cgatcore import experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.control as C
+import cellhub.tasks.parameters as chparam
 import cellhub.tasks.TASK as TASK
 import cellhub.tasks.fetch_cells as fetch_cells
 
 import cellhub.tasks.api as api
 
+
+# -------------------------- Pipeline Configuration -------------------------- #
+
 # Override function to collect config files
-P.control.write_config_files = C.write_config_files
+P.control.write_config_files = chparam.write_config_files
 
-
-# -------------------------- < parse parameters > --------------------------- #
-
-# load options from the config file
-PARAMS = P.get_parameters(
-    ["%s/pipeline_singleR.yml" % os.path.splitext(__file__)[0],
-     "../pipeline_singleR.yml",
-     "pipeline_singleR.yml"])
+# load options from the yml file
+P.parameters.HAVE_INITIALIZED = False
+PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
+# ------------------------------ Pipeline Tasks ------------------------------ #
 
-# ----------------------- < pipeline configuration > ------------------------ #
-
-# handle pipeline configuration
-if len(sys.argv) > 1:
-        if(sys.argv[1] == "config") and __name__ == "__main__":
-                    sys.exit(P.main(sys.argv))
-
-# ------------------------------ < functions > ------------------------------ #
-
-# ########################################################################### #
-# ############################# pipeline tasks ############################## #
-# ########################################################################### #
 
 def genSingleRjobs():
     '''
        generate the singleR jobs
     '''
 
-    sample_h5s = glob.glob("api/cellranger.multi/counts/filtered/*/h5/sample_filtered_feature_bc_matrix.h5")
+    mtx_paths = glob.glob("api/counts/filtered/*/mtx/matrix.mtx.gz")
+    
+    if len(mtx_paths) == 0:
+        raise ValueError("No input files found on api/counts")
 
     references = [x.strip() for x in PARAMS["reference_data"].split(",")]
 
-    for h5_path in sample_h5s:
+    for mtx_path in mtx_paths:
 
-        sample = os.path.basename(Path(h5_path).parents[1])
+        sample = os.path.basename(Path(mtx_path).parents[1])
 
         for reference in references:
 
-            yield [h5_path,
+            yield [mtx_path,
                    os.path.join("singleR.dir",
                                 reference,
                                 sample + ".sentinel")]
@@ -138,9 +129,10 @@ def singleR(infile, outfile):
     Path(outfile).parents[0]).replace(".ref.dir","")
 
     sample = os.path.basename(outfile).split(".")[0]
+    mtxdir = os.path.dirname(infile)
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/singleR_run.R
-                        --h5file=%(infile)s
+                        --mtxdir=%(mtxdir)s
                         --sample=%(sample)s
                         --reference=%(reference)s
                         --refstashdir=%(reference_stash_dir)s
@@ -161,7 +153,17 @@ def concatenate(infile, outfile):
        Concatenate the label predictions across all the samples.
     '''
     
+        
+    print("***************************")
+    print(infile)
+    print("***************************")
+    print(outfile)
+    print("*********************************")
+    
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    
+    print(">>>>>>>>>>>>")
+    print(spec.outdir)
 
     job_threads, job_memory, r_memory = TASK.get_resources(
         memory=PARAMS["resources_memory"])
@@ -182,7 +184,7 @@ def concatenate(infile, outfile):
         label_table = os.path.join(outdir, "labels.tsv.gz")
         
         statement = '''zcat %(ref_path)s/%(label_glob)s
-                       | awk 'NR!=1 { while (/^barcode_id/) getline; } 1 {print}'  
+                       | awk 'NR!=1 { while (/^barcode/) getline; } 1 {print}'  
                        | gzip -c > %(label_table)s
                     '''  % locals()
                     
@@ -192,7 +194,7 @@ def concatenate(infile, outfile):
         score_table = os.path.join(outdir, "scores.tsv.gz")
         
         statement = '''zcat %(ref_path)s/%(score_glob)s
-                       | awk 'NR!=1 { while (/^barcode_id/) getline; } 1 {print}'  
+                       | awk 'NR!=1 { while (/^barcode/) getline; } 1 {print}'  
                        | gzip -c > %(score_table)s
                     '''  % locals()
                     
@@ -209,6 +211,7 @@ def summary(infile, outfile):
        Make a summary table that can be included in the cell
        metadata packages.
     '''
+
     
     spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
 
@@ -242,7 +245,7 @@ def summary(infile, outfile):
 @follows(summary)
 @files(concatenate,
        "singleR.dir/api.sentinel")
-def singleRapi(infiles, outfile):
+def singleRAPI(infiles, outfile):
     '''
         Add the singleR results to the cellhub API.
     '''
@@ -294,7 +297,7 @@ def singleRapi(infiles, outfile):
 # ########################################################################### #
 
 
-@follows(singleRapi)
+@follows(singleRAPI)
 def full():
     pass
 

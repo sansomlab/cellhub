@@ -86,7 +86,8 @@ else:
 
 adata.obs["cluster_id"] = adata.obs[args.algorithm]
 
-adata.obs[["barcode_id","cluster_id"]].to_csv(os.path.join(args.outdir,
-                          "scanpy.clusters.tsv.gz"), sep="\t", index=False)
+adata.obs[["cluster_id"]].to_csv(os.path.join(args.outdir,
+                          "scanpy.clusters.tsv.gz"), sep="\t", 
+                                              index=True, index_label="barcode_id")
 
 L.info("Complete")
