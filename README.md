@@ -1,11 +1,11 @@
 # cellhub
 
-Tools for the alignment, quantification, database ingest, and retrieval of multimodal single-cell sequencing data for downstream analysis.
+A scaleable workflow for the analysis of large-scale single cell datasets using compute clusters.
+
+## Workflow overview
+
+<img src="docsrc/images/cellhub.workflow.overview.png" width="600" />
 
 ## Documentation
 
-For installation and usage please see the [cellhub docs](docs/cellhub.pdf)
-
-## General schema
-
-![Overview data flow](https://github.com/COMBATOxford/cellhub-devel/blob/cellranger/docs/cellhub-devel-schema.png?raw=true)
+For installation and usage please see the [cellhub docs](docs/index.html)
