@@ -39,19 +39,25 @@ Coding style
 
 Currently we are working to improve and standardise the coding style:
 
-* Python code should be `pep8 <https://www.python.org/dev/peps/pep-0008/>`_ compliant. Compliance checks will be enforced soon.
+Python
+^^^^^^
 
-* R code should follow the `tidyverse style guide <https://style.tidyverse.org>`_. Please do not use right-hand assignment.
+* Python code should be `pep8 <https://www.python.org/dev/peps/pep-0008/>`_ compliant. Compliance checks will be enforced soon.
 
 * Arguments to Python scripts should be parsed with argparse.
 
-* Arguments to R scripts should be parsed with optparse or supplied via yaml files.
+* Logging in Python scripts should be performed with the standard library "logging" module, written to stdout and redirected to a log file in the pipeline task.
 
-* Logging in Python scripts should be performed with the standard library "logging" module.
+R
+^
 
-* Logging in R scripts should be performed with the "futile.logger" library.
+* R code should follow the `tidyverse style guide <https://style.tidyverse.org>`_. Please do not use right-hand assignment.
 
-* To write to stdout from R scripts use message() or warning(). Do not use print() or cat().
+* Arguments to R scripts should be parsed with optparse.
+
+* Logging in R scripts should be performed with the "futile.logger" library, written to stdout and redirect to a log file specified in the pipeline task.
+
+* Otherwise, to write to stdout from R scripts use message() or warning(). Do not use print() or cat().
 
 
 Writing pipelines

@@ -57,18 +57,17 @@ from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.api as api
+import cellhub.tasks as T
 
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -167,7 +166,7 @@ def qcmetricsAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.api("cell.qc")
+    x = T.api("cell.qc")
 
     x.define_dataset(analysis_name="qcmetrics",
               data_subset="filtered",
@@ -260,7 +259,7 @@ def scrubletAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.api("cell.qc")
+    x = T.api("cell.qc")
 
     x.define_dataset(analysis_name="scrublet",
               data_subset="filtered",

@@ -67,17 +67,16 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 import pandas as pd
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
+import cellhub.tasks as T
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -110,7 +109,7 @@ def emptyDrops(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_run.R
@@ -143,7 +142,7 @@ def meanReads(infile, outfile):
 
     log_file = outfile.replace("sentinel","log")
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_calculate_mean_reads.R

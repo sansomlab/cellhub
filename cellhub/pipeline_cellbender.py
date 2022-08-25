@@ -46,31 +46,29 @@ Code
 
 '''
 
-
 from ruffus import *
 from ruffus.combinatorics import *
 import sys
 import os
-from cgatcore import pipeline as P
-import cgatcore.iotools as IOTools
 from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
-import cellhub.tasks.api as api
+from cgatcore import pipeline as P
+import cgatcore.iotools as IOTools
+
+import cellhub.tasks as T
 
 import scanpy as sc
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -91,9 +89,9 @@ def cellbender(infile, outfile):
     Please visit cellbender.readthedocs.io for further details.
     '''
     
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
         PARAMS=PARAMS)
         
@@ -153,7 +151,7 @@ def h5API(infile, outfile):
             library_id/cellbender_filtered.h5
 
     '''
-    x = api.api("cellbender")
+    x = T.api("cellbender")
 
     out_dir = os.path.dirname(outfile)
 
@@ -214,9 +212,9 @@ def mtx(infile, outfile):
         Convert cellbender h5 to mtx format
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
         PARAMS=PARAMS)
         
@@ -266,7 +264,7 @@ def mtxAPI(infile, outfile):
             library_id/cellbender_filtered.h5
 
     '''
-    x = api.api("cellbender")
+    x = T.api("cellbender")
 
     out_dir = os.path.dirname(outfile)
 

@@ -67,21 +67,17 @@ from cgatcore import experiment as E
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
-import cellhub.tasks.fetch_cells as fetch_cells
-
-import cellhub.tasks.api as api
+import cellhub.tasks as T
 
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -119,9 +115,9 @@ def singleR(infile, outfile):
        Perform cell identity prediction with singleR.
     '''
     
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         cpu=PARAMS["resources_cores"],
         memory=PARAMS["resources_memory"])
 
@@ -160,12 +156,12 @@ def concatenate(infile, outfile):
     print(outfile)
     print("*********************************")
     
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
     
     print(">>>>>>>>>>>>")
     print(spec.outdir)
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["resources_memory"])
     
     
@@ -213,9 +209,9 @@ def summary(infile, outfile):
     '''
 
     
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
+    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
 
-    job_threads, job_memory, r_memory = TASK.get_resources(
+    job_threads, job_memory, r_memory = T.get_resources(
         memory=PARAMS["resources_memory"])
     
     
@@ -267,7 +263,7 @@ def singleRAPI(infiles, outfile):
             "description":"single R prediction scores",
             "format":"tsv"}
         
-        x = api.api("singleR")
+        x = T.api("singleR")
 
         x.define_dataset(analysis_name=reference,
               #data_subset=reference,
@@ -284,7 +280,7 @@ def singleRAPI(infiles, outfile):
         "description":"cross-reference summary of pruned.labels",
         "format":"tsv"}
     
-    x = api.api("singleR")    
+    x = T.api("singleR")    
     
     x.define_dataset(analysis_name="summary",
               file_set=file_set,

@@ -1,44 +1,4 @@
 import os
-import math
-import types
-import pandas as pd
-
-def get_resources(memory="4G", cpu=1, PARAMS={"resources_mempercore":False}):
-    '''calculate the resource requirements and return a
-       dictionary that can be used to update the local variables'''
-
-    if not memory.endswith("G"):
-        raise ValueError("Memory must be specified as XXG")
-
-    gb_requested = int(memory[:-1])
-    
-    mpc = PARAMS["resources_mempercore"]
-
-    mem_gb = int(math.ceil(gb_requested / float(cpu) ))
-
-    if not mpc:
-    
-       ncpu = cpu
-    
-    else:
-        # memory is requested via the core count
-        # the number of GB per core is given in the resources_mempercore
-        # (note that the schedule will simply ignore the job_memory)
-        if not isinstance(mpc, int):
-            raise ValueError("resources_mempercore must be False or integer")
-
-        cpu_needed_for_mem_request = math.ceil(gb_requested / mpc)
-        ncpu = max(cpu, cpu_needed_for_mem_request)
-
-
-    spec = {"job_memory": str(mem_gb) + "G",
-            "job_threads": ncpu,
-            "r_memory": gb_requested * 1000}
-
-    return(spec["job_threads"],
-           spec["job_memory"],
-           spec["r_memory"])
-
 
 def get_vars(infile, outfile, PARAMS, make_outdir=True):
     '''
@@ -113,3 +73,44 @@ def get_vars(infile, outfile, PARAMS, make_outdir=True):
             SPEC["nclusters"] = len(SPEC["clusters"])
 
     return([types.SimpleNamespace(**SPEC), SPEC])
+
+
+# def get(infile, outfile, PARAMS):
+#     '''
+#     Make a dictionary of commonly need paths and parameteres
+#     '''
+
+#     parts = outfile.split("/")
+#     nparts = len(parts)
+
+#     spec = { "sample_name": parts[0].split(".")[0],
+#              "seurat_object": os.path.join(parts[0], "begin.rds"),
+#              "outdir": os.path.dirname(outfile),
+#              "indir": os.path.dirname(infile),
+#              "resolutions" : [x.strip()
+#                               for x in
+#                               PARAMS["runspecs_cluster_resolutions"].split(",")]
+#              }
+
+#     # take care of making the output directory.
+#     if not os.path.exists(spec["outdir"]):
+#         os.mkdir(spec["outdir"])
+
+#     if outfile.endswith(".sentinel"):
+#         spec["log_file"] = outfile.replace(".sentinel", ".log")
+
+#     # if we are in the component directory
+#     if nparts >= 3:
+
+#         spec["components"] = parts[1].split(".")[1]
+#         graph_path = os.path.join(parts[0], parts[1], "graph.rds")
+
+#         if os.path.exists(graph_path):
+#             spec["graph"] =  graph_path
+
+#     # if we are in the cluster directory
+#     if nparts >= 4:
+
+#         spec["resolution"] = parts[2][len("cluster."):-len(".dir")]
+
+#     return(spec)
