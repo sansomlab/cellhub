@@ -91,12 +91,12 @@ def get_parameter_file(pipeline_path):
                                 'out a local copy of the default file')
                 
                 
-        elif sys.argv[1] in ["config", "-M", "-b"] :
+        elif sys.argv[1] in ["config", "-M", "-b", "-T"] :
             
             # necessary to:
             # - allow the file to be parsed by the interpreter (config)
             # - allow sphinx autodocs call to importlib.import_module (-M) 
-            # - allow readthedocs to work (-b)
+            # - allow readthedocs to work (-b, -T)
             
             L.info("Using the default configuration file")
             
