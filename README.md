@@ -12,4 +12,4 @@ For installation and usage please see the [cellhub docs](docs/index.html)
 
 ## Status
 
-Alpha.
+This is alpha (pre-release) software.
