@@ -4,9 +4,7 @@ Workflow Overview
 Introduction
 ------------
 
-Cellhub is designed to efficiently parallelise the processing of large 10x datasets. Data for each of the capture chip channel sequencing libraries in the experiment is initially processed in parallel (primary and secondary analysis phases). Summary results are then stored in an SQLite database. Cell identifiers are joined with sample metadata, qc statistics and other per-cell information in a virtual table in the database. The data for a set of cells of interest (specified by an SQL query) is extracted into anndata format for downstream analysis. By design, cell QC, pre-processing and integration are left for the user to perform manually. The clustering pipeline can then be used to perform cell clustering (for a selection of resolutions), identify marker genes, perform pathway analysis and export pdf reports and a cellxgene object for inspection. Interoperability between the pipelines is enabled by a structured API.
-
-
+Cellhub is designed to efficiently parallelise the processing of large 10x datasets on compute clusters. Data for each of the capture chip channel sequencing libraries in the experiment is initially processed in parallel (primary and secondary analysis phases). Summary results are then stored in an SQLite database. Cell identifiers are joined with sample metadata, qc statistics and other per-cell information in a virtual table in the database. The data for a set of cells of interest (specified by an SQL query) is extracted into anndata format for downstream analysis. By design, cell QC, pre-processing and integration are left for the user to perform manually. The clustering pipeline can then be used to perform cell clustering (for a selection of resolutions), identify marker genes, perform pathway analysis and export pdf reports and a cellxgene object for inspection. Interoperability between the pipelines is enabled by a structured API.
 
 .. image:: images/cellhub.workflow.overview.png
 
