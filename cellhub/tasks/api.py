@@ -5,6 +5,8 @@ API
 Overview
 --------
 
+The primary and secondary analysis pipelines define and register their outputs via a common api. The api comprises of an "api" folder into which pipeline outputs are symlinked (by the "register_dataset" "api" class method).
+
 This module contains the code for registering and accessing pipeline outputs
 from a common location.
 

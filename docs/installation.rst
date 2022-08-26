@@ -1,7 +1,6 @@
 Installation
 ============
 
-
 Dependencies
 ------------
 
@@ -9,7 +8,8 @@ Core dependencies include:
 
 - Cellranger (from 10X Genomics) >= 6.0
 - Python3
-- Various Python packages (see python/requirements.txt)
+- The cgat-core pipeline framework
+- Python packages as per python/requirements.txt
 - R >= 4.0
 - Various R libraries (see R/install.packages.R)
 - Latex

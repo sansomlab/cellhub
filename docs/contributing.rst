@@ -1,5 +1,7 @@
-Coding Guidelines
-=================
+Contributing
+============
+
+Contributions to the code and documentation are welcome from all.
 
 Repository layout
 -----------------
@@ -34,10 +36,10 @@ Repository layout
      - TBD
 
 
-Coding style
-------------
+Style guide
+-----------
 
-Currently we are working to improve and standardise the coding style:
+Currently we are working to improve and standardise the coding style.
 
 Python
 ^^^^^^
@@ -79,7 +81,9 @@ In the notes below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
 Writing pipeline tasks
 ----------------------
 
-In cellub, we structure our pipeline tasks as follows:
+Helper functions for writing pipelines and tasks live in the :doc:`cellhub.tasks module<tasks/api>`.
+
+In cellhub, pipeline tasks are written using the :doc:`cellhub.tasks.setup module<tasks/api>` as follows:
 
 .. code-block:: python
 
@@ -112,7 +116,7 @@ In cellub, we structure our pipeline tasks as follows:
         IOTools.touch_file(outfile)
 
 
-As shown in the  example, we adopt the following conventions:
+As shown in the example, the following conventions are adopted:
 
 #. The task output is an empty sentinel file. It will only be written if
    the task returns without an error. This ensures that the pipeline does not
@@ -157,25 +161,7 @@ We work around this by overriding the cgat-core functionality using a helper fun
 Default yml files must be located at the path cellhub/yaml/pipeline_xxx.yml
 
 
-Writing and compiling the documentation
----------------------------------------
+Compiling the documentation locally
+-----------------------------------
 
-The source files for the documentation are found in::
-
-  docsrc
-
-The documentation source files for the pipelines can be found in::
-
-  docsrc/pipelines
-
-To build the documentation cd to the docsrc folder and run::
-
-  make github
-
-This will build the documentation and copy the latex output to the "docs" folder. You then need to cd to the "docs" folder and run::
-
-  make
-
-To compile the pdf.
-
-When the repo is made public we will switch to using html documentation on readthedocs. Unfortunately there is no straightforward solution for private html hosting.
+To be described.

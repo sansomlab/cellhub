@@ -3,78 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to cellhub's documentation!
-===================================
+cellhub: a single-cell data analysis superhighway
+=================================================
 
-Installation
-------------
+Cellhub provides an end-to-end scaleable workflow for the pre-processing, warehousing and analysis of data from millions of single-cells. It aims to brings together best practice solutions, including for read alignment (`Cellranger <https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger`_>), ambient RNA correction (`CellBender <https://github.com/broadinstitute/CellBender>`_), de-multiplexing and de-hashing (`GMMDemux <https://github.com/CHPGenetics/GMM-Demux>`_), cell type prediction (`singleR <https://bioconductor.org/packages/release/bioc/html/SingleR.html>`_) and cluster analysis (`Scanpy <https://scanpy.readthedocs.io/en/stable/>`_) into a cohesive set of easy to use analysis pipelines. It relies on the `cgat-core workflow management system <https://github.com/cgat-developers/cgat-core>`_ to leverage the power of high-performance compute clusters for high-throughput parallel processing. Pipelines cross-talk via a defined API allowing for easily extension or modification of the workflow. Cells and their associated qc-statistics and metadata are indexed in a central SQLite database from which arbitrary subsets can be easily fetched for downstream analysis in `anndata format <https://anndata.readthedocs.io/en/latest/>`_. The clustering pipeline allows rapid evaluation of different pre-processing and integration strategies at different clustering resolutions, through generation of pdf reports and `cellxgene <https://github.com/chanzuckerberg/cellxgene>` objects.
 
-.. toctree::
-   :maxdepth: 2
+Cellhub was originally developed to support the single-cell component of the `University of Oxford's COMBAT COVID-19 project<https://doi.org/10.1016/j.cell.2022.01.012>`_. 
 
-   Installation.rst
-
-
-Overview
---------
+Cellhub is currently alpha software. More detailed examples and tutorials will follow soon.
 
 .. toctree::
    :maxdepth: 2
 
-   WorkflowOverview.rst
-   Usage.rst
-
-Examples
---------
-
-.. toctree::
-   :maxdepth: 2
-
-   IFNbExample.rst
-
-
-Coding guidelines
------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   CodingGuidelines.rst
-   API.rst
-
-
-Tasks module documentation
---------------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   tasks/parameters.rst
-   tasks/setup.rst
-   tasks/api.rst
-   tasks/profile.rst
-   tasks/cellbender.rst
-
-
-Pipeline documentation
-----------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   pipelines/pipeline_adt_norm.rst
-   pipelines/pipeline_ambient_rna.rst
-   pipelines/pipeline_annotation.rst
-   pipelines/pipeline_cellbender.rst
-   pipelines/pipeline_celldb.rst
-   pipelines/pipeline_cellranger_multi.rst
-   pipelines/pipeline_cell_qc.rst
-   pipelines/pipeline_cluster.rst
-   pipelines/pipeline_dehash.rst
-   pipelines/pipeline_emptydrops.rst
-   pipelines/pipeline_fetch_cells.rst
-   pipelines/pipeline_singleR.rst
-   pipelines/pipeline_velocyto.rst
+   overview.rst
+   installation.rst
+   usage.rst
+   examples.rst
+   pipelines.rst
+   api.rst
+   tasks.rst
+   contributing.rst
 
 Indices and tables
 ------------------
