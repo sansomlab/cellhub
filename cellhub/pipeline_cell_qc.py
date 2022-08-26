@@ -37,7 +37,7 @@ This pipeline requires:
 
 
 Pipeline output
-===============
+---------------
 The pipeline returns:
 * qcmetrics.dir folder with per-input qcmetrics.tsv.gz table
 * scrublet.dir folder with per-input scrublet.tsv.gz table
@@ -98,10 +98,10 @@ def qcmetrics(infile, outfile):
     - Calculate the percentage of UMIs for genesets provided
     - Label barcodes as True/False based on whether they are part or not of a set of lists of barcodes provided
     '''
-
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
+    
+    t = T.setup(infile, outfile, PARAMS, 
+                memory=PARAMS["resources_job_memory"], 
+                cpu=PARAMS["resources_threads"])
 
     # Get cellranger directory and id
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
@@ -121,14 +121,6 @@ def qcmetrics(infile, outfile):
       barcodes_to_label_as_True = PARAMS["calculate_qc_metrics_barcodes_to_label_as_True"]
       barcodes_to_label_as_True = '''--barcodes_to_label_as_True=%(barcodes_to_label_as_True)s''' % locals()
 
-    # Other settings
-    job_threads = PARAMS["resources_threads"]
-    if ("G" in PARAMS["resources_job_memory"] or
-        "M" in PARAMS["resources_job_memory"] ):
-        job_memory = PARAMS["resources_job_memory"]
-
-    log_file = outfile.replace(".sentinel", ".log")
-
     out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
@@ -140,8 +132,9 @@ def qcmetrics(infile, outfile):
                  --outfile=%(out_file)s
                  %(genesets_file)s
                  %(barcodes_to_label_as_True)s
-              '''
-    P.run(statement)
+              ''' % dict(PARAMS, **t.var, **locals())
+              
+    P.run(statement, **t.resources)
 
     # Create sentinel file
     IOTools.touch_file(outfile)
@@ -189,9 +182,7 @@ def scrublet(infile, outfile):
     Check the scrublet section in the pipeline.yml to specify other parameters
     '''
 
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
+    t = T.setup(infile, outfile, PARAMS, memory="50G", cpu=3)
 
     library_name = os.path.basename(outfile)[:-len(".sentinel")]
     cellranger_dir = os.path.dirname(infile)
@@ -209,17 +200,6 @@ def scrublet(infile, outfile):
     min_gene_variability_pctl = PARAMS["scrublet_min_gene_variability_pctl"]
     n_prin_comps = PARAMS["scrublet_n_prin_comps"]
 
-    # Other settings
-    job_threads = PARAMS["resources_threads"]
-    if ("G" in PARAMS["resources_job_memory"] or
-        "M" in PARAMS["resources_job_memory"] ):
-        job_memory = PARAMS["resources_job_memory"]
-
-    job_threads=3
-    job_memory="50G"
-    log_file = outfile.replace(".sentinel", ".log")
-    outdir = Path(outfile).parent
-
     # Formulate and run statement
     statement = '''python %(cellhub_code_dir)s/python/qc_scrublet.py
                    --cellranger_dir=%(cellranger_dir)s
@@ -232,9 +212,9 @@ def scrublet(infile, outfile):
                    --n_prin_comps=%(n_prin_comps)s
                    --outdir=%(outdir)s
                    &> %(log_file)s
-                '''
+                ''' % dict(PARAMS, **t.var, **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
 
     # Create sentinel file
     IOTools.touch_file(outfile)

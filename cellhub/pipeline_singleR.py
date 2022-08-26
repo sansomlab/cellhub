@@ -115,11 +115,9 @@ def singleR(infile, outfile):
        Perform cell identity prediction with singleR.
     '''
     
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = T.get_resources(
-        cpu=PARAMS["resources_cores"],
-        memory=PARAMS["resources_memory"])
+    t = T.setup(infile, outfile, PARAMS,
+        memory=PARAMS["resources_memory"],
+        cpu=PARAMS["resources_cores"])
 
     reference = os.path.basename(
     Path(outfile).parents[0]).replace(".ref.dir","")
@@ -135,9 +133,10 @@ def singleR(infile, outfile):
                         --workers=%(resources_cores)s
                         --outdir=%(outdir)s
                         &> %(log_file)s
-                        ''' % dict(PARAMS, **SPEC, **locals())
+                        ''' % dict(PARAMS, **t.var, **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
+    
     IOTools.touch_file(outfile)
 
 
@@ -149,19 +148,7 @@ def concatenate(infile, outfile):
        Concatenate the label predictions across all the samples.
     '''
     
-        
-    print("***************************")
-    print(infile)
-    print("***************************")
-    print(outfile)
-    print("*********************************")
-    
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
-    
-    print(">>>>>>>>>>>>")
-    print(spec.outdir)
-
-    job_threads, job_memory, r_memory = T.get_resources(
+    t = T.setup(infile, outfile, PARAMS,
         memory=PARAMS["resources_memory"])
     
     
@@ -172,7 +159,7 @@ def concatenate(infile, outfile):
     for reference in references:
         ref_path = os.path.join("singleR.dir", reference)
 
-        outdir = os.path.join(spec.outdir, reference)
+        outdir = os.path.join(t.outdir, reference)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
             
@@ -196,8 +183,9 @@ def concatenate(infile, outfile):
                     
         stats.append(statement)
     
-    P.run(stats)
+    P.run(stats, **t.resources)
     IOTools.touch_file(outfile)
+
 
 @transform(concatenate,
            regex(r"(.*)/labels.sentinel"),
@@ -208,12 +196,8 @@ def summary(infile, outfile):
        metadata packages.
     '''
 
-    
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = T.get_resources(
+    t = T.setup(infile, outfile, PARAMS,
         memory=PARAMS["resources_memory"])
-    
     
     references = [x.strip() for x in PARAMS["reference_data"].split(",")]
     
@@ -221,7 +205,7 @@ def summary(infile, outfile):
     
     for reference in references:
 
-        ref_dir = os.path.join(spec.outdir, reference)
+        ref_dir = os.path.join(t.outdir, reference)
         label_table = os.path.join(ref_dir, "labels.tsv.gz")
         label_tables.append(label_table)
   
@@ -233,10 +217,12 @@ def summary(infile, outfile):
                    --label_tables=%(label_tables)s
                    --outfile=%(out_file)s
                    &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
+                ''' % dict(PARAMS, **t.var, **locals())
     
-    P.run(statement)
+    P.run(statement, **t.resources)
+    
     IOTools.touch_file(outfile)
+
 
 @follows(summary)
 @files(concatenate,

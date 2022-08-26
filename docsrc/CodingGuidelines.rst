@@ -67,15 +67,69 @@ The pipelines live in the "cellhub" python module.
 
 Auxiliary task functions live in the "cellhub/task" python sub-module.
 
-.. note:: Tasks of more than a few lines should be abstracted into appropriately named sub-modules.
-
 In the notes below "xxx" denotes the name of a pipeline such as e.g. "cell_qc".
 
 1. Paths should never be hardcoded in the pipelines - rather they must be read from the yaml files.
-2. Yaml configuration files should be named pipeline_xxx.yml
+2. Yaml configuration files are named pipeline_xxx.yml
 3. The output of individual pipelines should be written to a subfolder name "xxx.dir" to keep the root directory clean (it should only contain these directories and the yml configuration files!).
 4. Pipelines that generate cell-level information for down-stream analysis must read their inputs from the api and register their public outputs to the API, see :doc:`API<API>`. If you need information from an upstream pipeline that is not present on the API please raise an issue.
-5. We are documenting the pipelines using the sphinx "autodocs" module so please maintain informative rst docstrings.
+5. We are documenting the pipelines using the sphinx "autodocs" module: please maintain informative rst docstrings.
+
+
+Writing pipeline tasks
+----------------------
+
+In cellub, we structure our pipeline tasks as follows:
+
+.. code-block:: python
+
+    import ruffus
+    import cgatcore.pipeline as P
+    import cgatcore.iotools as IOTools
+    import cellhub.tasks as T
+    
+    PARAMS = P.get_parameters(....)
+    
+    @files("a.txt", "results.dir/my_task.sentinel")
+    def my_task(infile, outfile):
+        '''Example task'''
+    
+        t = T.setup(infile, outfile, PARAMS,
+                    memory="4GB", cpu=1, make_outdir=True)
+        
+        results_file = outfile.replace(".sentinel", ".tsv.gz")
+        
+        statement = ''' python code.py
+                        --arg1=%(infile)s
+                        --args=%(parameter_x)s
+                        --arg2=%(outdir)s
+                        --arg3=%(results_file)s
+                        &> %(log_file)s
+                    ''' % dict(PARAMS, **t.var, **locals())
+                    
+        P.run(statement, **t.resources)
+        
+        IOTools.touch_file(outfile)
+
+
+As shown in the  example, we adopt the following conventions:
+
+#. The task output is an empty sentinel file. It will only be written if
+   the task returns without an error. This ensures that the pipeline does not
+   proceed with partial results.
+
+#. An instance, "t", of the cellhub.tasks.setup class is created. Based on the arguments 
+   provided, it is populated with useful variables (see above), including the parsed resource requirements.
+   By default, the class constructor will create the output directory (if it does not already
+   exist) based on the outfile name.
+   
+#. The stderr and stdout are captured to a log file. By default t.log_file is populated
+   with the outfile name with ".sentinel" replaced by ".log". 
+   
+#. The statement is substituted with variables from the PARAMS, t.var and locals() dictionaries as
+   required. Note that variable names must be unique across the dictionaries provided.
+   
+#. The resources needed are passed to P.run() as kwargs via the t.resources dictionary.
 
 
 Cell indexing

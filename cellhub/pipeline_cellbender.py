@@ -85,16 +85,13 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
            r"cellbender.dir/{subdir[0][1]}/cellbender.sentinel")
 def cellbender(infile, outfile):
     '''
-    This task will run the CellBender comand.
+    This task will run the CellBender command.
     Please visit cellbender.readthedocs.io for further details.
     '''
     
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = T.get_resources(
-        memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
-        PARAMS=PARAMS)
-        
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cpu"])
+    
     sample = str(os.path.basename(Path(infile).parents[1]))
     
     if PARAMS["cellbender_cuda"]:
@@ -122,10 +119,9 @@ def cellbender(infile, outfile):
                  --learning-rate=%(cellbender_learning_rate)s
                  --low-count-threshold=%(cellbender_low_count_threshold)s
                  &> %(log_file)s
-              ''' % dict(PARAMS, **SPEC, **locals())
-    
-    #print(statement)        
-    P.run(statement)
+              ''' % dict(PARAMS, **t.var, **locals())
+         
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 
@@ -212,11 +208,8 @@ def mtx(infile, outfile):
         Convert cellbender h5 to mtx format
     '''
 
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = T.get_resources(
-        memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
-        PARAMS=PARAMS)
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cpu"])
         
     statements = []
     
@@ -225,21 +218,21 @@ def mtx(infile, outfile):
     
     for type, path in to_process.items():
     
-        h5 = os.path.join(spec.outdir, path)    
-        mtx_dir = os.path.join(spec.outdir, type)
+        h5 = os.path.join(t.outdir, path)    
+        mtx_dir = os.path.join(t.outdir, type)
         
-        log_name = spec.log_file.replace("mtx", "mtx." + type)
+        log_name = t.log_file.replace("mtx", "mtx." + type)
     
         # Formulate and run statement
         stat = '''python %(cellhub_code_dir)s/python/cellbender_export_mtx.py
                        --cellbender_h5=%(h5)s
                        --mtx_dir=%(mtx_dir)s
                      &> %(log_name)s
-                    ''' % dict(PARAMS, **SPEC, **locals())
+                    ''' % dict(PARAMS, **t.var, **locals())
                     
         statements.append(stat)
     
-    P.run(statements)
+    P.run(statements, **t.resources)
 
     IOTools.touch_file(outfile)
 

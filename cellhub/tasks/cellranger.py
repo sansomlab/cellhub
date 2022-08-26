@@ -1,3 +1,14 @@
+"""
+cellranger.py
+=============
+
+Helper functions for pipeline_cellranger.py
+
+Code
+====
+
+"""
+
 import pandas as pd
 import numpy as np
 import gzip

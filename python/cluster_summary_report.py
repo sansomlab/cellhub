@@ -8,7 +8,7 @@ import shutil
 #from shutil import copyfile
 from types import SimpleNamespace
 from cgatcore import pipeline as P
-import cellhub.tasks.TASK as TASK
+#import cellhub.tasks.TASK as TASK
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -56,15 +56,12 @@ cellhub_code_dir = Path(__file__).parents[1]
 source_dir = os.path.join(cellhub_code_dir,
                           "cellhub/reports/cluster_summary")
 
-# get the task specification
-#spec, SPEC = TASK.get_vars(args.infile, args.outfile, PARAMS)
 outfile_name = os.path.basename(args.outfile)
 
 jobName = outfile_name[:-len(".pdf")]
 
 outdir = os.path.dirname(args.outfile)
 rundir = Path(outdir).parents[0]
-
 
 
 latexVars = args.latexvars

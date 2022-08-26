@@ -68,6 +68,8 @@ def gmmDemux(infile, outfile):
     '''
     Run gmmDemux
     '''
+    
+    t = T.setup(infile, outfile, PARAMS, make_outdir=False)
 
     library_id = os.path.basename(outfile)[:-len(".gmm.demux.sentinel")]
 
@@ -85,8 +87,6 @@ def gmmDemux(infile, outfile):
     else:
         HTOs = PARAMS["hto_names"]
 
-    log_file = outfile.replace(".sentinel", ".log")
-
     statement = '''GMM-demux %(input_mtx)s
                              %(HTOs)s
                              --threshold %(gmm_demux_threshold)s
@@ -96,9 +96,9 @@ def gmmDemux(infile, outfile):
                              --summary %(gmm_demux_ncells)s
                              --report %(gmm_working_dir)s/report
                 &> %(log_file)s
-                '''
+                ''' % dict(PARAMS, **t.var, **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
 
     # parse the output to something more sensible
     # output has columns
@@ -202,7 +202,8 @@ def demuxEM(infile, outfile):
     Run demuxEM
     '''
 
-    outdir = os.path.dirname(outfile)
+    t = T.setup(infile, outfile, PARAMS, make_outdir = False)
+    
     library_id = os.path.basename(infile).replace(".demuxEM.hash.count.csv.sentinel","")
 
     h5_file = os.path.join("api/counts/unfiltered",
@@ -220,7 +221,7 @@ def demuxEM(infile, outfile):
                             dehash.dir/demuxEM.dir/%(library_id)s
                  '''
 
-    P.run(statement)
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 
@@ -292,7 +293,6 @@ def demuxemAPI(infiles, outfile):
               analysis_description="per library tables of demuxEM results")
 
     x.register_dataset()
-
 
 
 # ########################################################################### #

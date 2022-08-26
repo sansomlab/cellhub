@@ -21,7 +21,9 @@ query: >-
 resources:
   # memory to be used for tasks: cellSubsets,
   # can be set to none | e.g. 40G
-  memory: none
+  memory: 16GB
+  
+  mempercore: 16GB
 
 
 matrix:

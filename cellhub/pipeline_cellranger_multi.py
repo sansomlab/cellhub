@@ -36,7 +36,7 @@ This pipeline requires:
 
 
 Pipeline output
-===============
+---------------
 
 The pipeline returns:
 * the output of cellranger multi

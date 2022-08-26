@@ -78,10 +78,18 @@ def main(argv=None):
                 sorted([os.path.basename(x)[len("pipeline_"):-len(".py")] for x in pipelines]),
                 3)))
         return
-
+    
     command = argv[1]
     command = re.sub("-", "_", command)
     pipeline = "pipeline_{}".format(command)
+
+    if argv[2] == "profile":
+    
+        import cellhub.tasks.profile as p
+        
+        p.profile(pipeline + ".log", show_fields=False)
+        
+        return
 
     # remove 'cellhub' from sys.argv
     del sys.argv[0]

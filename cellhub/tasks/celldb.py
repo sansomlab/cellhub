@@ -1,3 +1,14 @@
+"""
+celldb.py
+=========
+
+Helper functions for pipeline_celldb.py
+
+Code
+====
+
+"""
+
 import os
 from cgatcore import pipeline as P
 from cgatcore import database as database
@@ -20,6 +31,10 @@ def load(table_name,
          index=None,
          outfile="celldb.dir/out.load"):
     '''load a table or set of tables into the celldb database'''
+
+
+    job_memory = "16G"
+    job_threads = 1
 
     # 1. concatenate separate tables if
     #    a directory has been passed

@@ -2,26 +2,82 @@
 setup.py
 ========
 
-A parent class to hold routine task variables. Can be extended to meet the needs of the different 
-pipelines.
+A parent class to help setup pipeline tasks. It can be extended to meet the needs of the different 
+pipelines. The class is used to obtain a task object that:
 
-Variables can be accessed by name from class instances or from the var dictionary.
+* defines job resource requirements
+* provides access to variables (by name or via a .var dictionary)
+* creates an outfolder based on the outfile name
 
 """
 
 import os
 import math
-import types
 import pandas as pd
 
 class setup():
     '''
-    A class for routine setup of pipeline task by:
+    A class for routine setup of pipeline tasks.
     
-    - defining commonly used variables
-    - creating essential folders
-    
+    Args:
+        infile: The task infile path or None
+        outfile: The task outfile path (typically ends with ".sentinel")
+        memory: The total memory needed for execution of the task. If no
+            unit is given, gigabytes are assumed. Recognised units are
+            "M" for megabyte and "G" for gigabytes. 4 gigabytes can be
+            requested by passing "4", "4GB" or "4096M". Default = "4GB".
+        cpu: The number of cpu cores required (used to populate job_threads)
+        make_outdir: True|False. Default = True.
+        expose_var: True|False. 
+            Should the self.var dictionary be created from self.__dict__.
+            Default = True.
+
+    Attributes:
+        job_threads: The number of threads that will be requested
+        job_memory: The amount of memory that will be requested per thread
+        resources: A dictionary with keys "job_threads" and "job_memory" for populating
+            the P.run() kwargs, e.g. ``P.run(statement, **t.resources)``
+        outname: The os.path.basename of outfile
+        outdir: The os.path.dirname of outfile
+        indir: If an infile path is given, the os.path.dirname of the  infile.
+        inname: If an infile path is given, the os.path.basename of the infile.
+        log_file: If the outfile path ends with ".sentinel"
+
     '''
+    
+    def parse_mem(self, memory):
+        '''
+        Return an integer that represents the amount of memory
+        needed by the task in gigabytes.
+        '''
+    
+        if memory in [None, "None", "none", 
+                      False, "False", "false", 
+                      ""]:
+        
+            # set the default
+            G = 4
+        
+        elif isinstance(memory, int):
+        
+            G = int(memory)
+        
+        elif memory.endswith("G"):
+        
+            G = int(memory[:-1])
+            
+        elif memory.endswith("M"):
+        
+            G = int(memory[:-1]) / 1000
+            
+        else:
+            raise ValueError(
+                'Memory request not recognised. Please specify the memory '
+                'required in gigabytes (G) or megabytes (M), e.g. "4G" or '
+                '"4000M". If a unit is not specified, G will be assumed')
+            
+        return(G)
+    
     
     def set_resources(self, PARAMS, memory="4G", cpu=1):
         '''
@@ -29,16 +85,14 @@ class setup():
         dictionary that can be used to update the local variables
         '''
 
-        if not memory.endswith("G"):
-            raise ValueError("Memory must be specified as XXG")
+        gb_requested = self.parse_mem(memory)
 
-        gb_requested = int(memory[:-1])
-        
+        # CGAT-core expects memory to be specified per core
         mem_gb = int(math.ceil(gb_requested / float(cpu) ))
 
-
         if "resources_mempercore" in PARAMS.keys():
-            mpc = PARAMS["resources_mempercore"]
+        
+            mpc = self.parse_mem(PARAMS["resources_mempercore"])
 
             if not mpc:
             
@@ -66,32 +120,25 @@ class setup():
 
     def __init__(self, infile, outfile, PARAMS,
                  memory="4G", cpu=1,
-                 make_outdir=True):
+                 make_outdir=True,
+                 expose_var=True):
     
         self.set_resources(PARAMS, memory=memory, cpu=cpu)
-
-        self.var = {}
 
         # self.outfile = os.path.relpath(outfile)
         # self.var["outfile"] = self.outfile
 
-        self.outdir = os.path.dirname(outfile) 
-        self.var["outdir"] = self.outdir
-         
+        self.outdir = os.path.dirname(outfile)          
         self.outname = os.path.basename(outfile)
-        self.var["outname"] = self.outname
-
 
         if not infile is None:
         
             # self.infile = os.path.relpath(infile)
             # self.var["infile"] = self.infile
             
-            self.indir = os.path.dirname(infile)
-            self.var["indir"] = self.indir    
+            self.indir = os.path.dirname(infile) 
             
             self.inname = os.path.basename(infile)
-            self.var["inname"] = self.inname
 
         if make_outdir:
 
@@ -102,7 +149,9 @@ class setup():
         if outfile.endswith(".sentinel"):
         
             self.log_file = outfile.replace(".sentinel", ".log")
-            self.var["log_file"] = self.log_file
+        
+        if expose_var:
+            self.var = self.__dict__
 
       
 

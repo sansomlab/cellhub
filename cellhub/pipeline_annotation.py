@@ -97,16 +97,15 @@ def fetchEnsembl(infile, outfile):
        access.
     '''
 
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS,
-                               make_outdir = False)
+    t = T.setup(infile, outfile, PARAMS, make_outdir = False)
 
     if PARAMS["annotation_ensembl_host"] == "default":
         ensembl_host = ""
     else:
         ensembl_host = "--ensemblhost=%(annotation_ensembl_host)s" % PARAMS
 
-    if not os.path.exists(spec.outdir):
-        os.mkdir(spec.outdir)
+    if not os.path.exists(t.outdir):
+        os.mkdir(t.outdir)
 
     # Some clusters do not support internet access from execution nodes
     to_cluster = False
@@ -117,7 +116,7 @@ def fetchEnsembl(infile, outfile):
                     --species=%(annotation_species)s
                     --outdir=%(outdir)s
                     &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
+                ''' % dict(PARAMS, **t.var, **locals())
 
     P.run(statement)
 
@@ -156,11 +155,10 @@ def fetchKegg(infile, outfile):
        Fetch the Kegg pathway annotations. This task requires internet access.
     '''
 
-    spec, SPEC = T.get_vars(infile, outfile, PARAMS,
-                               make_outdir = False)
+    t = T.setup(infile, outfile, PARAMS, make_outdir = False)
 
-    if not os.path.exists(spec.outdir):
-        os.mkdir(spec.outdir)
+    if not os.path.exists(t.outdir):
+        os.mkdir(t.outdir)
 
     # Some clusters do not support internet access from execution nodes
     to_cluster = False
@@ -171,7 +169,7 @@ def fetchKegg(infile, outfile):
                     --species=%(annotation_species)s
                     --outfile=%(outfile_name)s
                     &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
+                ''' % dict(PARAMS, **t.var, **locals())
 
     P.run(statement)
     IOTools.touch_file(outfile)

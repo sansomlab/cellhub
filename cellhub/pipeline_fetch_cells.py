@@ -79,7 +79,6 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
 import cellhub.tasks as T
-import cellhub.tasks.fetch_cells as fetch_cells
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
@@ -95,14 +94,14 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # ------------------------------ Pipeline Tasks ------------------------------ #
 
-
-@follows(mkdir("fetch.cells.dir"))
 @files(os.path.join(PARAMS["cellhub_location"],"celldb.dir/csvdb"),
        "fetch.cells.dir/cell.table.sentinel")
 def fetchCells(infile, outfile):
     '''Fetch the table of the user's desired cells from the database
        effectively, cell-metadata tsv table.
     '''
+    
+    t = T.setup(infile, outfile, PARAMS)
 
     cell_table = outfile.replace(".sentinel", ".tsv.gz")
 
@@ -125,7 +124,8 @@ def fetchCells(infile, outfile):
                   | gzip -c
                   > %(cell_table)s'''
 
-    P.run(statement)
+    P.run(statement, **t.resources)
+    
     IOTools.touch_file(outfile)
 
 
@@ -134,7 +134,6 @@ def fetchCells(infile, outfile):
 # ########################################################################### #
 
 
-@follows(mkdir("anndata.dir"))
 @files(fetchCells,
        "anndata.dir/gex.sentinel")
 def GEX(infile, outfile):
@@ -145,10 +144,10 @@ def GEX(infile, outfile):
     TODO: support down-sampling
     '''
 
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resource_memory"])
+
     cell_table = infile.replace(".sentinel", ".tsv.gz")
     api_path = os.path.join(PARAMS["cellhub_location"],"api")
-    outdir = os.path.dirname(outfile)   
-    log_file = outfile.replace(".sentinel", ".log")
 
     statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
                    --cells=%(cell_table)s
@@ -157,9 +156,9 @@ def GEX(infile, outfile):
                    --outname=gex.h5ad
                    --outdir=%(outdir)s
                    &> %(log_file)s
-                '''
+                ''' % dict(PARAMS, **t.var, **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
 
 
@@ -167,7 +166,6 @@ def GEX(infile, outfile):
 # # ######################### fetch ADT data ################################## #
 # # ########################################################################### #
 
-@follows(mkdir("anndata.dir"))
 @active_if(PARAMS["ADT_fetch"])
 @files(fetchCells,
        "anndata.dir/adt.sentinel")
@@ -179,10 +177,11 @@ def ADT(infile, outfile):
     TODO: support down-sampling
     '''
 
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resource_memory"])
+
     cell_table = infile.replace(".sentinel", ".tsv.gz")
     api_path = os.path.join(PARAMS["cellhub_location"],"api")
     outdir = os.path.dirname(outfile)   
-    log_file = outfile.replace(".sentinel", ".log")
 
     statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
                    --cells=%(cell_table)s
@@ -191,9 +190,9 @@ def ADT(infile, outfile):
                    --outdir=%(outdir)s
                    --outname=adt.h5ad
                    &> %(log_file)s
-                '''
+                ''' % dict(PARAMS, **t.var, **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
 
 
