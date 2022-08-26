@@ -1,5 +1,5 @@
 '''
-Report.py
+report.py
 =========
 
 Functions and variable definitions to help with generation of latex reports

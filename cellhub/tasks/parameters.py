@@ -1,6 +1,6 @@
 '''
-Parameters submodule 
-====================
+parameters.py
+=============
 
 Overview
 --------

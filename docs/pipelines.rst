@@ -1,5 +1,5 @@
-Pipeline documentation
-----------------------
+Pipelines
+---------
 
 .. toctree::
    :maxdepth: 2

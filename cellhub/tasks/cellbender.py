@@ -1,6 +1,6 @@
 """
-Cellbender tasks
-================
+cellbender.py
+=============
 
 Overview
 --------

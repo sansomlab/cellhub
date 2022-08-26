@@ -1,6 +1,8 @@
 
-cellhub.tasks module
---------------------
+cellhub.tasks
+-------------
+
+This sub-module provides helper classes and functions for configuring and running the pipelines.
 
 .. toctree::
    :maxdepth: 2
@@ -10,11 +12,3 @@ cellhub.tasks module
    tasks/api.rst
    tasks/profile.rst
    tasks/cellbender.rst
-
-
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

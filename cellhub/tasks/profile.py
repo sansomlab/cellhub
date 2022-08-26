@@ -1,6 +1,6 @@
 '''
 profile.py
-----------
+==========
 
 Parse the pipeline.log file from a cgat-core pipeline and
 summarise information on task resource usage.
