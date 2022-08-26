@@ -1,3 +1,14 @@
+'''
+dehash.py
+=========
+
+Helper functions for pipeline_dehash.py
+
+code
+====
+
+'''
+
 import pandas as pd
 import numpy as np
 import os

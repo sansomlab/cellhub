@@ -50,7 +50,9 @@ Tasks module documentation
    :maxdepth: 2
 
    tasks/parameters.rst
+   tasks/setup.rst
    tasks/api.rst
+   tasks/profile.rst
    tasks/cellbender.rst
 
 

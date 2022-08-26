@@ -1,3 +1,14 @@
+"""
+cellxgene.py
+=============
+
+Helper functions for creating cellxgene objects.
+
+Code
+====
+
+"""
+
 import pandas as pd
 import numpy as np
 

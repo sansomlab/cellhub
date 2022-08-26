@@ -56,18 +56,17 @@ import cgatcore.iotools as iotools
 import cgatcore.database as database
 import cgatcore.csv2db as csv2db
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.db as DB
+import cellhub.tasks as T
 import cellhub.tasks.celldb as celldb
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -90,7 +89,7 @@ def load_samples(outfile):
 
     x = PARAMS["table_sample"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             outfile=outfile)
@@ -103,7 +102,7 @@ def load_gex_qcmetrics(outfile):
 
     x = PARAMS["table_gex_qcmetrics"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
@@ -117,7 +116,7 @@ def load_gex_scrublet(outfile):
 
     x = PARAMS["table_gex_scrublet"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
@@ -131,7 +130,7 @@ def load_singleR(outfile):
 
     x = PARAMS["table_gex_singleR"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             outfile=outfile)
@@ -147,7 +146,7 @@ def load_gmm_demux(outfile):
 
     x = PARAMS["table_gmm_demux"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],
@@ -161,7 +160,7 @@ def load_demuxEM(outfile):
 
     x = PARAMS["table_demuxEM"]
 
-    DB.load(x["name"],
+    celldb.load(x["name"],
             x["path"],
             db_url=PARAMS["database_url"],
             glob=x["glob"],

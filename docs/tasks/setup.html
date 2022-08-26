@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>setup.py &mdash; cellhub 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API" href="api.html" />
+    <link rel="prev" title="Parameters submodule" href="parameters.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> cellhub
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../Installation.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../WorkflowOverview.html">Workflow Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Usage.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IFNbExample.html">IFNb PBMC example</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CodingGuidelines.html">Coding Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../API.html">API</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters submodule</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">setup.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profile.html">profile.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profile.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="profile.html#code">Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellbender.html">Cellbender tasks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_adt_norm.html">Pipeline ADT normalization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_ambient_rna.html">Pipeline ambient rna</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_annotation.html">Pipeline annotation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellbender.html">Pipeline cellbender</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_celldb.html">Pipeline celldb</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cellranger_multi.html">Pipeline Cellranger Multi</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cell_qc.html">Pipeline Cell QC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_cluster.html">Pipeline cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_dehash.html">Pipeline dehash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_emptydrops.html">Pipeline Emptydrops</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_fetch_cells.html">Pipeline fetch cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_singleR.html">Pipeline singleR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipelines/pipeline_velocyto.html">Pipeline Velocyto</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">cellhub</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>setup.py</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tasks/setup.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <span class="target" id="module-cellhub.tasks.setup"></span><section id="setup-py">
+<h1>setup.py<a class="headerlink" href="#setup-py" title="Permalink to this heading"></a></h1>
+<p>A parent class to help setup pipeline tasks. It can be extended to meet the needs of the different
+pipelines. The class is used to obtain a task object that:</p>
+<ul class="simple">
+<li><p>defines job resource requirements</p></li>
+<li><p>provides access to variables (by name or via a .var dictionary)</p></li>
+<li><p>creates an outfolder based on the outfile name</p></li>
+</ul>
+<dl class="py class">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellhub.tasks.setup.</span></span><span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">PARAMS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'4G'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_outdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expose_var</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.setup.setup" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class for routine setup of pipeline tasks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>infile</strong> – The task infile path or None</p></li>
+<li><p><strong>outfile</strong> – The task outfile path (typically ends with “.sentinel”)</p></li>
+<li><p><strong>memory</strong> – The total memory needed for execution of the task. If no
+unit is given, gigabytes are assumed. Recognised units are
+“M” for megabyte and “G” for gigabytes. 4 gigabytes can be
+requested by passing “4”, “4GB” or “4096M”. Default = “4GB”.</p></li>
+<li><p><strong>cpu</strong> – The number of cpu cores required (used to populate job_threads)</p></li>
+<li><p><strong>make_outdir</strong> – True|False. Default = True.</p></li>
+<li><p><strong>expose_var</strong> – True|False.
+Should the self.var dictionary be created from self.__dict__.
+Default = True.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.job_threads">
+<span class="sig-name descname"><span class="pre">job_threads</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.job_threads" title="Permalink to this definition"></a></dt>
+<dd><p>The number of threads that will be requested</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.job_memory">
+<span class="sig-name descname"><span class="pre">job_memory</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.job_memory" title="Permalink to this definition"></a></dt>
+<dd><p>The amount of memory that will be requested per thread</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.resources">
+<span class="sig-name descname"><span class="pre">resources</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.resources" title="Permalink to this definition"></a></dt>
+<dd><p>A dictionary with keys “job_threads” and “job_memory” for populating
+the P.run() kwargs, e.g. <code class="docutils literal notranslate"><span class="pre">P.run(statement,</span> <span class="pre">**t.resources)</span></code></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.outname">
+<span class="sig-name descname"><span class="pre">outname</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.outname" title="Permalink to this definition"></a></dt>
+<dd><p>The os.path.basename of outfile</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.outdir">
+<span class="sig-name descname"><span class="pre">outdir</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.outdir" title="Permalink to this definition"></a></dt>
+<dd><p>The os.path.dirname of outfile</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.indir">
+<span class="sig-name descname"><span class="pre">indir</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.indir" title="Permalink to this definition"></a></dt>
+<dd><p>If an infile path is given, the os.path.dirname of the  infile.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.inname">
+<span class="sig-name descname"><span class="pre">inname</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.inname" title="Permalink to this definition"></a></dt>
+<dd><p>If an infile path is given, the os.path.basename of the infile.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.log_file">
+<span class="sig-name descname"><span class="pre">log_file</span></span><a class="headerlink" href="#cellhub.tasks.setup.setup.log_file" title="Permalink to this definition"></a></dt>
+<dd><p>If the outfile path ends with “.sentinel”</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.parse_mem">
+<span class="sig-name descname"><span class="pre">parse_mem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">memory</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.setup.setup.parse_mem" title="Permalink to this definition"></a></dt>
+<dd><p>Return an integer that represents the amount of memory
+needed by the task in gigabytes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellhub.tasks.setup.setup.set_resources">
+<span class="sig-name descname"><span class="pre">set_resources</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">PARAMS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'4G'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cellhub.tasks.setup.setup.set_resources" title="Permalink to this definition"></a></dt>
+<dd><p>calculate the resource requirements and return a
+dictionary that can be used to update the local variables</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="parameters.html" class="btn btn-neutral float-left" title="Parameters submodule" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Sansom lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

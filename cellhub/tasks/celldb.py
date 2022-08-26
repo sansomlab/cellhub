@@ -1,49 +1,139 @@
-import pandas as pd
-import numpy as np
+"""
+celldb.py
+=========
 
-def preprocess_cellranger_stats(infile, outfile):
-    libraries = pd.read_csv(infile, sep='\t')
-    libraries.set_index("library_id", inplace=True)
+Helper functions for pipeline_celldb.py
 
-    ss = []
+Code
+====
 
-    for library_id in libraries.index:
-        cellranger_summary = "/".join(["cellranger.multi.dir", library_id,
-                                       "outs/per_sample_outs", library_id,
-                                       "metrics_summary.csv"])
-        map_sum = pd.read_csv(cellranger_summary, sep=',')
+"""
 
-        # (need the group name to ensure entries are unique)
-        map_sum = map_sum.replace(np.nan, 'na', regex=True)
-        map_sum["id"] =  map_sum["Library or Sample"] + \
-                         "_" + map_sum["Library Type"] + \
-                         "_" + map_sum["Group Name"] + \
-                         "_" + map_sum["Metric Name"]
+import os
+from cgatcore import pipeline as P
+from cgatcore import database as database
+from cgatcore import csv2db as csv2db
 
-        map_sum["id"] = [ x.replace(' ','_').lower() for x in map_sum["id"].values]
-        map_sum.index = map_sum["id"]
+def getColumnNames(dbhandle, tablename):
 
-        sub_map_sum = pd.DataFrame(map_sum["Metric Value"]).transpose()
-
-        col_names = []
-        for col in sub_map_sum.columns:
-
-            x = sub_map_sum[col].values[0]
-
-            if x[-1:]=="%":
-                col_names.append(col + "_pct")
-                x = x.replace("%","")
-            else:
-                col_names.append(col)
-
-            x = x.replace(",","")
+    statement = "PRAGMA table_info(%s);" % tablename
+    cc = database.executewait(dbhandle, statement, retries=20)
+    columns = [x[1] for x in cc.fetchall()]
+    cc.close()
+    
+    return columns
 
 
-            sub_map_sum[col] = pd.to_numeric(x)
-        sub_map_sum.columns = col_names
-        sub_map_sum['library_id'] = library_id
+def load(table_name,
+         table_path,
+         db_url="sqlite:///./celldb.dir/csvdb",
+         glob="*.tsv.gz",
+         index=None,
+         outfile="celldb.dir/out.load"):
+    '''load a table or set of tables into the celldb database'''
 
-        ss.append(sub_map_sum)
 
-    summary = pd.concat(ss)
-    summary.to_csv(outfile, sep = '\t', index=False)
+    job_memory = "16G"
+    job_threads = 1
+
+    # 1. concatenate separate tables if
+    #    a directory has been passed
+    #
+    if not os.path.isfile(table_path):
+        '''concatenate a set of tables'''
+
+        table_file = outfile.replace(".load", ".tsv.gz")
+
+        regex_filename = glob.replace("*",".*/(.*)")
+
+        statement = '''python -m cgatcore.tables
+                               --regex-filename "%(regex_filename)s"
+                               --cat "filename"
+                               %(table_path)s/%(glob)s
+                       | gzip -c
+                       > %(table_file)s
+                    '''
+
+        P.run(statement)
+
+    else:
+        table_file = table_path
+
+    # 2. load the table into the database
+    #
+    if index is not None:
+        idx_stat = " ".join([ "-i " + x + " "
+                 for x in index.split(",")])
+    else:
+        idx_stat = ""
+
+    # table headers are sanitised to replace
+    # spaces and hypens with underscores
+
+    if table_file.endswith(".gz"):
+        cat = "zcat"
+    else:
+        cat = "cat"
+
+    statement='''%(cat)s %(table_file)s
+                 | grep -v ^#
+                 | sed '1!b;s/[ -]/_/g'
+                 | python -m cgatcore.csv2db
+                          --retry
+                          --database-url=%(db_url)s
+                          --table=%(table_name)s
+                          %(idx_stat)s
+                 > %(outfile)s
+              '''
+
+    P.run(statement)
+    
+    # Create indexes on expected columns
+    
+    # Connect to the db
+    flavour = csv2db.get_flavour(db_url)
+    tablename = csv2db.quote_tablename(table_name,flavour=flavour)
+    dbhandle = database.connect(url=db_url)
+    
+    # Check the table exists and fetch the column names
+    if not tablename in database.getTables(dbhandle):
+    
+        raise ValueError("table: %s not found in the database")
+    
+
+    columns = getColumnNames(dbhandle, tablename)
+        
+    def _addIndex(dbhandle, tablename, index_name, index_columns):
+    
+        try:
+            statement = "DROP index IF EXISTS " + index_name
+            cc = database.executewait(dbhandle, statement, retries=20)
+            cc.close()
+            statement = "CREATE index %s ON %s(%s)" % (index_name, 
+                                                       tablename, 
+                                                       index_columns)
+            
+            cc = database.executewait(dbhandle, statement, retries=20)
+            cc.close()
+            
+        except Exception as ex:
+            print("adding index %s failed: %s" % (index_name, ex))
+            raise ValueError("Failed to add the index")
+        
+    # Add cell_id index
+    if "library_id" in columns and "barcode" in columns:
+
+        idx_name = tablename + "_cell_id"
+        _addIndex(dbhandle, tablename, idx_name, "library_id, barcode")
+
+    # Add library_id index
+    if "library_id" in columns:
+
+        idx_name = tablename + "_library_id"
+        _addIndex(dbhandle, tablename, idx_name, "library_id")
+    
+    # Add sample_id index 
+    if "sample_id" in columns:
+
+        idx_name = tablename + "_sample_id"
+        _addIndex(dbhandle, tablename, idx_name, "sample_id")

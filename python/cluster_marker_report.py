@@ -10,8 +10,8 @@ import pandas as pd
 #from shutil import copyfile
 from types import SimpleNamespace
 from cgatcore import pipeline as P
-import cellhub.tasks.TASK as TASK
-import cellhub.tasks.templates as templates
+import cellhub.tasks.cluster as C
+from cellhub.tasks.report import template as template
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -58,7 +58,7 @@ def _add_figure(plot_file=None,
                     "caption": caption
     }
 
-    fig_tex = textwrap.dedent(templates.figure % heatmap_fig)
+    fig_tex = textwrap.dedent(template.figure % heatmap_fig)
 
     return fig_tex
   
@@ -80,7 +80,7 @@ cellhub_code_dir = Path(__file__).parents[1]
 source_dir = os.path.join(cellhub_code_dir,
                           "cellhub/reports/cluster_marker")
 
-spec, SPEC = TASK.get_vars(args.latexvars, args.outfile, PARAMS)
+t = C.setup(args.latexvars, args.outfile, PARAMS)
 
 latexVars = args.latexvars
 
@@ -98,26 +98,23 @@ tex.append('''\\input %(source_dir)s/clusterMarkerReport.tex''')
 
 # <----------------------------- overview plots ----------------------------> #
 
-tex.append(templates.subsection % {"title": "overview plots"})
+tex.append(template.subsection % {"title": "overview plots"})
 
-tex.append(_add_figure(os.path.join(spec.cluster_dir, "rdims.visualisation.dir",
+tex.append(_add_figure(os.path.join(t.cluster_dir, "rdims.visualisation.dir",
                             "umap.mindist_" + str(PARAMS["umap_mindist"]) +\
                             ".cluster_id"),
                         width = "1", height= ".9",
-            caption = "UMAP coloured by cluster  (resolution " + spec.resolution + ")"))
+            caption = "UMAP coloured by cluster  (resolution " + t.resolution + ")"))
 
 tex.append('''\clearpage''')
 
-tmh = os.path.join(spec.cluster_dir, "markers.dir",
+tmh = os.path.join(t.cluster_dir, "markers.dir",
                     "markers.summary.heatmap")
-
-print("*****")
-print(tmh)
 
 if(os.path.exists(tmh + ".png")):
     tex.append(_add_figure(tmh,
                 width = "1", height= "0.9",
-                caption = "Marker summary heatmap (resolution " + spec.resolution + ")"))
+                caption = "Marker summary heatmap (resolution " + t.resolution + ")"))
 
 tex.append('''\clearpage''')
 
@@ -128,28 +125,28 @@ for clust in clusters_with_markers:
     if str(clust) == "911":
         continue
 
-    tex.append(templates.subsection % {"title": "Markers for cluster: " + str(clust)})
+    tex.append(template.subsection % {"title": "Markers for cluster: " + str(clust)})
 
     fig = "heatmap"
-    tex.append(_add_figure(os.path.join(spec.cluster_dir, "marker.plots.dir",
+    tex.append(_add_figure(os.path.join(t.cluster_dir, "marker.plots.dir",
                                 "cluster." + str(clust) + "." + fig),
                 width = "1", height= "0.25",
                 caption = "cluster " + str(clust) + " " + fig))
 
     # fig = "dotplot"
-    # tex.append(_add_figure(os.path.join(spec.cluster_dir, "marker.plots.dir",
+    # tex.append(_add_figure(os.path.join(t.cluster_dir, "marker.plots.dir",
     #                             "cluster." + str(clust) + "." + fig),
     #             width = "1", height= "0.3",
     #             caption = "cluster " + str(clust) + " " +fig))
 
     fig = "rdims"
-    tex.append(_add_figure(os.path.join(spec.cluster_dir, "marker.plots.dir",
+    tex.append(_add_figure(os.path.join(t.cluster_dir, "marker.plots.dir",
                                 "cluster." + str(clust) + "." + fig),
                 width = "1", height= "0.5",
                 caption = "cluster " + str(clust) + " expression dot plot"))
 
     # add the scatter plots.
-    tex.append(_add_figure(os.path.join(spec.cluster_dir,
+    tex.append(_add_figure(os.path.join(t.cluster_dir,
                                 "de.plots.dir",
                                 "dePlots." + str(clust)),
                 width = "1", height= "0.9",
@@ -157,7 +154,7 @@ for clust in clusters_with_markers:
 
     # Add the violin plots
     fig = "violins"
-    tex.append(_add_figure(os.path.join(spec.cluster_dir, "marker.plots.dir",
+    tex.append(_add_figure(os.path.join(t.cluster_dir, "marker.plots.dir",
                                 "cluster." + str(clust) + "." + fig),
                 width = "1", height= "0.7",
                 caption = "cluster " + str(clust) + " " + fig))

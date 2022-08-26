@@ -67,17 +67,16 @@ from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 import pandas as pd
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
+import cellhub.tasks as T
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -85,73 +84,64 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 # ------------------------------ Pipeline Tasks ------------------------------ #
 
 
-@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
-           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
+@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"emptydrops.dir/emptydrops.dir/\1/emptydrops.sentinel")
 def emptyDrops(infile, outfile):
     ''' Run Rscript to run EmptyDrops on each library '''
 
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    t = T.setup(infile, outfile, PARAMS,
+                memory=PARAMS["emptydrops_memory"], 
+                cpu=PARAMS["emptydrops_slots"])
 
     options = {}
     options["FDR"] = float(PARAMS["emptydrops_FDR"])
-    options["outdir"] = outdir
+    options["outdir"] = t.outdir
     options["cellrangerDir"] = os.path.dirname(infile)
 
-    # # remove excludelisted cells if required
-    # if 'excludelist' in libraries.columns:
-    #     options["excludelist"] = libraries.loc[library_name, "excludelist"]
-
-    task_yaml_file = os.path.abspath(os.path.join(outdir, "emptydrops.yml"))
+    task_yaml_file = os.path.abspath(os.path.join(t.outdir, "emptydrops.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
-
-    log_file = outfile.replace("sentinel","log")
-
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
+        
+    log_file = t.log_file
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_run.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
 
-    P.run(statement)
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 
 
-@transform("api/cellranger.multi/GEX/unfiltered/*/mtx/matrix.mtx.gz",
-           regex(r".*/.*/GEX/unfiltered/(.*)/mtx/matrix.mtx.gz"),
+@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+           regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"emptydrops.dir/meanreads.dir/\1/meanreads.sentinel")
 def meanReads(infile, outfile):
     ''' Calculate the mean reads per cell '''
 
-    outdir = os.path.dirname(outfile)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    t = T.setup(infile, outfile, PARAMS,
+                memory=PARAMS["emptydrops_memory"], 
+                cpu=PARAMS["emptydrops_slots"])
 
     options = {}
-    options["outdir"] = outdir
+    options["outdir"] = t.outdir
     options["cellrangerDir"] = os.path.dirname(infile)
 
-    task_yaml_file = os.path.abspath(os.path.join(outdir, "calculate_mean_reads.yml"))
+    task_yaml_file = os.path.abspath(os.path.join(t.outdir, 
+                                                  "calculate_mean_reads.yml"))
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
 
-    log_file = outfile.replace("sentinel","log")
-
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["emptydrops_memory"], cpu=PARAMS["emptydrops_slots"])
+    log_file = t.log_file
 
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/emptydrops_calculate_mean_reads.R
                    --task_yml=%(task_yaml_file)s
                    --log_filename=%(log_file)s
                 '''
 
-    P.run(statement)
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 

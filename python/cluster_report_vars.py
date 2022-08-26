@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from types import SimpleNamespace
 from cgatcore import pipeline as P
-import cellhub.tasks.TASK as TASK
+import cellhub.tasks.cluster as C
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -49,7 +49,7 @@ PARAMS = P.get_parameters(
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # get the task specification
-spec, SPEC = TASK.get_vars(args.infile, args.outfile, PARAMS)
+t = C.setup(args.infile, args.outfile, PARAMS)
 outfile_name = os.path.basename(args.outfile)
 
 # initialise the namespace & alias the path function
@@ -58,13 +58,13 @@ p = os.path.join
 
 # <---------------------------- base variables -----------------------------> #
 
-x.outdir = spec.outdir
-x.clusterDir = spec.cluster_dir
-x.compDir = spec.component_dir
+x.outdir = t.outdir
+x.clusterDir = t.cluster_dir
+x.compDir = t.component_dir
 x.rdimsVisMethodShort = "umap"
 x.clusterDirBaseName = os.path.basename(x.clusterDir)
-x.nComponents = spec.components
-x.resolution = spec.resolution
+x.nComponents = t.components
+x.resolution = t.resolution
 x.sample = Path(args.outfile).parts[0].split(".")[0]
 x.sample = x.sample.replace("_", "\\_")
 
@@ -131,7 +131,7 @@ else:
 
 # <-------------------------- depreceated variables ------------------------> #
 
-#x.sampleDir = spec.sample_dir
+#x.sampleDir = t.sample_dir
 # x.phateDir = p(x.compDir, "phate.dir")
 # x.velocityDir = p(x.compDir, "velocity.dir")
 # x.qcMinGenes = PARAMS["qc_mingenes"]

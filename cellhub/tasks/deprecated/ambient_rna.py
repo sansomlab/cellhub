@@ -30,9 +30,9 @@ def per_input(infile, outfile, PARAMS):
     options["outdir"] = outdir
     options["library_name"] = library_id
 
-    # remove blacklisted cells if required
-    if PARAMS["blacklist"] is not None:
-        options["blacklist"] = PARAMS["blacklist"]
+    # remove excludelisted cells if required
+    if PARAMS["excludelist"] is not None:
+        options["excludelist"] = PARAMS["excludelist"]
 
     # Write yml file
     task_yaml_file = os.path.abspath(os.path.join(outdir,
@@ -41,9 +41,6 @@ def per_input(infile, outfile, PARAMS):
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
 
-    # output_dir = os.path.abspath(outdir)
-    # knit_root_dir = os.getcwd()
-    # fig_path =  os.path.join(output_dir, "fig.dir/")
 
     # Other settings
     log_file = outfile.replace("sentinel","log")
@@ -84,9 +81,6 @@ def compare(infiles, outfile, PARAMS):
     with open(task_yaml_file, 'w') as yaml_file:
         yaml.dump(options, yaml_file)
 
-    # output_dir = os.path.abspath(outdir)
-    # knit_root_dir = os.getcwd()
-    # fig_path =  os.path.join(output_dir, "fig.dir/")
 
     # Other settings
     log_file = outfile.replace("sentinel","log")

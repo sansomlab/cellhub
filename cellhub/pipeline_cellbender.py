@@ -46,31 +46,29 @@ Code
 
 '''
 
-
 from ruffus import *
 from ruffus.combinatorics import *
 import sys
 import os
-from cgatcore import pipeline as P
-import cgatcore.iotools as IOTools
 from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
-import cellhub.tasks.api as api
+from cgatcore import pipeline as P
+import cgatcore.iotools as IOTools
+
+import cellhub.tasks as T
 
 import scanpy as sc
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -87,16 +85,13 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
            r"cellbender.dir/{subdir[0][1]}/cellbender.sentinel")
 def cellbender(infile, outfile):
     '''
-    This task will run the CellBender comand.
+    This task will run the CellBender command.
     Please visit cellbender.readthedocs.io for further details.
     '''
     
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
-        PARAMS=PARAMS)
-        
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cpu"])
+    
     sample = str(os.path.basename(Path(infile).parents[1]))
     
     if PARAMS["cellbender_cuda"]:
@@ -124,10 +119,9 @@ def cellbender(infile, outfile):
                  --learning-rate=%(cellbender_learning_rate)s
                  --low-count-threshold=%(cellbender_low_count_threshold)s
                  &> %(log_file)s
-              ''' % dict(PARAMS, **SPEC, **locals())
-    
-    #print(statement)        
-    P.run(statement)
+              ''' % dict(PARAMS, **t.var, **locals())
+         
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 
@@ -153,7 +147,7 @@ def h5API(infile, outfile):
             library_id/cellbender_filtered.h5
 
     '''
-    x = api.api("cellbender")
+    x = T.api("cellbender")
 
     out_dir = os.path.dirname(outfile)
 
@@ -214,11 +208,8 @@ def mtx(infile, outfile):
         Convert cellbender h5 to mtx format
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS)
-
-    job_threads, job_memory, r_memory = TASK.get_resources(
-        memory=PARAMS["resources_memory"], cpu=PARAMS["resources_cpu"],
-        PARAMS=PARAMS)
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cpu"])
         
     statements = []
     
@@ -227,21 +218,21 @@ def mtx(infile, outfile):
     
     for type, path in to_process.items():
     
-        h5 = os.path.join(spec.outdir, path)    
-        mtx_dir = os.path.join(spec.outdir, type)
+        h5 = os.path.join(t.outdir, path)    
+        mtx_dir = os.path.join(t.outdir, type)
         
-        log_name = spec.log_file.replace("mtx", "mtx." + type)
+        log_name = t.log_file.replace("mtx", "mtx." + type)
     
         # Formulate and run statement
         stat = '''python %(cellhub_code_dir)s/python/cellbender_export_mtx.py
                        --cellbender_h5=%(h5)s
                        --mtx_dir=%(mtx_dir)s
                      &> %(log_name)s
-                    ''' % dict(PARAMS, **SPEC, **locals())
+                    ''' % dict(PARAMS, **t.var, **locals())
                     
         statements.append(stat)
     
-    P.run(statements)
+    P.run(statements, **t.resources)
 
     IOTools.touch_file(outfile)
 
@@ -266,7 +257,7 @@ def mtxAPI(infile, outfile):
             library_id/cellbender_filtered.h5
 
     '''
-    x = api.api("cellbender")
+    x = T.api("cellbender")
 
     out_dir = os.path.dirname(outfile)
 

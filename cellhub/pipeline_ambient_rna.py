@@ -62,17 +62,16 @@ import pandas as pd
 import yaml
 import shutil
 
-import cellhub.tasks.ambient_rna as ambient_rna
-import cellhub.tasks.parameters as chparam
+import cellhub.tasks as T
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -98,7 +97,40 @@ def ambient_rna_per_input(infile, outfile):
     - See more details of the output in the ambient_rna_per_library.R
     '''
 
-    ambient_rna.per_input(infile, outfile, PARAMS)
+    t = T.setup(infile, outfile, PARAMS, 
+                memory=PARAMS["resources_job_memory"], 
+                cpu=PARAMS["resources_threads"])
+
+    library_id = str(Path(outfile).parents[0])
+
+    # Create options dictionary
+    options = {}
+    options["umi"] = int(PARAMS["ambientRNA_umi"])
+    options["cellranger_dir"] = t.indir
+    options["outdir"] = t.outdir
+    options["library_name"] = library_id
+
+    # remove excludelisted cells if required
+    if "excludelist" in PARAMS.keys():
+    
+        if PARAMS["excludelist"] is not None:
+            options["excludelist"] = PARAMS["excludelist"]
+
+    # Write yml file
+    task_yaml_file = os.path.abspath(os.path.join(t.outdir,
+                                                  "ambient_rna.yml"))
+
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+    # Formulate and run statement
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/ambient_rna_per_library.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                ''' % dict(PARAMS, **t.var, **locals())
+
+    P.run(statement, **t.resources)
+    
     IOTools.touch_file(outfile)
 
 
@@ -114,7 +146,34 @@ def ambient_rna_compare(infiles, outfile):
     - See more details of the output in the ambient_rna_compare.R
     '''
 
-    ambient_rna.compare(infiles, outfile, PARAMS)
+    t = T.setup(None, outfile, PARAMS, 
+                memory=PARAMS["resources_job_memory"], 
+                cpu=PARAMS["resources_threads"])
+
+    library_indir = ",".join([os.path.dirname(x) for x in infiles])
+    library_id = ",".join([str(os.path.basename(Path(x).parents[0]))
+                           for x in infiles])
+
+    # Create options dictionary
+    options = {}
+    options["library_indir"] = library_indir
+    options["library_id"] = library_id
+    options["library_table"] = "input_libraries.tsv"
+    options["outdir"] = t.outdir
+
+    # Write yml file
+    task_yaml_file = os.path.abspath(os.path.join(t.outdir, "ambient_rna_compare.yml"))
+    with open(task_yaml_file, 'w') as yaml_file:
+        yaml.dump(options, yaml_file)
+
+    # Formulate and run statement
+    statement = '''Rscript %(cellhub_code_dir)s/R/scripts/ambient_rna_compare.R
+                   --task_yml=%(task_yaml_file)s
+                   --log_filename=%(log_file)s
+                ''' % dict(PARAMS, **t.var, **locals())
+    
+    P.run(statement, **t.resources) 
+
     IOTools.touch_file(outfile)
 
 

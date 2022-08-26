@@ -53,7 +53,6 @@ Code
 
 '''
 
-
 from ruffus import *
 from ruffus.combinatorics import *
 import sys
@@ -64,17 +63,16 @@ from pathlib import Path
 import pandas as pd
 import glob
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.api as api
+import cellhub.tasks as T
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -159,7 +157,7 @@ def gexdepthAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.api("adt_norm")
+    x = T.api("adt_norm")
 
     x.define_dataset(analysis_name="depth_metrics",
               data_subset="gex",
@@ -248,7 +246,7 @@ def adtdepthAPI(infiles, outfile):
                                 library_id,
                                 "format":"tsv"}
 
-    x = api.api("adt_norm")
+    x = T.api("adt_norm")
 
     x.define_dataset(analysis_name="depth_metrics",
               data_subset="adt",
@@ -422,7 +420,7 @@ def dsbAPI(infile, outfile):
     '''
     Register the ADT normalized mtx files on the API endpoint
     '''
-    x = api.api("adt_norm")
+    x = T.api("adt_norm")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",
@@ -523,7 +521,7 @@ def medianAPI(infile, outfile):
     '''
     Register the ADT normalized mtx files on the API endpoint
     '''
-    x = api.api("adt_norm")
+    x = T.api("adt_norm")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",
@@ -622,7 +620,7 @@ def clrAPI(infile, outfile):
     '''
     Register the CLR-normalized ADT mtx files on the API endpoint
     '''
-    x = api.api("adt_norm")
+    x = T.api("adt_norm")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",

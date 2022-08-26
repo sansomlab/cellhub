@@ -68,18 +68,16 @@ from ruffus import *
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks.parameters as chparam
-import cellhub.tasks.TASK as TASK
-import cellhub.tasks.api as api
+import cellhub.tasks as T
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -99,16 +97,15 @@ def fetchEnsembl(infile, outfile):
        access.
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS,
-                               make_outdir = False)
+    t = T.setup(infile, outfile, PARAMS, make_outdir = False)
 
     if PARAMS["annotation_ensembl_host"] == "default":
         ensembl_host = ""
     else:
         ensembl_host = "--ensemblhost=%(annotation_ensembl_host)s" % PARAMS
 
-    if not os.path.exists(spec.outdir):
-        os.mkdir(spec.outdir)
+    if not os.path.exists(t.outdir):
+        os.mkdir(t.outdir)
 
     # Some clusters do not support internet access from execution nodes
     to_cluster = False
@@ -119,7 +116,7 @@ def fetchEnsembl(infile, outfile):
                     --species=%(annotation_species)s
                     --outdir=%(outdir)s
                     &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
+                ''' % dict(PARAMS, **t.var, **locals())
 
     P.run(statement)
 
@@ -142,7 +139,7 @@ def ensemblAPI(infile, outfile):
                                "format":"tsv"}
     }
     
-    x = api.api("annotation")
+    x = T.api("annotation")
 
     x.define_dataset(analysis_name="ensembl",
               file_set=file_set,
@@ -158,11 +155,10 @@ def fetchKegg(infile, outfile):
        Fetch the Kegg pathway annotations. This task requires internet access.
     '''
 
-    spec, SPEC = TASK.get_vars(infile, outfile, PARAMS,
-                               make_outdir = False)
+    t = T.setup(infile, outfile, PARAMS, make_outdir = False)
 
-    if not os.path.exists(spec.outdir):
-        os.mkdir(spec.outdir)
+    if not os.path.exists(t.outdir):
+        os.mkdir(t.outdir)
 
     # Some clusters do not support internet access from execution nodes
     to_cluster = False
@@ -173,7 +169,7 @@ def fetchKegg(infile, outfile):
                     --species=%(annotation_species)s
                     --outfile=%(outfile_name)s
                     &> %(log_file)s
-                ''' % dict(PARAMS, **SPEC, **locals())
+                ''' % dict(PARAMS, **t.var, **locals())
 
     P.run(statement)
     IOTools.touch_file(outfile)
@@ -193,7 +189,7 @@ def keggAPI(infile, outfile):
                                "format":"tsv"}
     }
 
-    x = api.api("annotation")
+    x = T.api("annotation")
 
     x.define_dataset(analysis_name="kegg",
               file_set=file_set,

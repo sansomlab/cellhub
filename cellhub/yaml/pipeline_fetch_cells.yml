@@ -15,10 +15,17 @@ cellhub:
     where pct_mitochondrial < 10
     and ngenes > 200;
 
+# compute resource options
+# ------------------------
 resources:
-  # memory to be used for tasks: cellSubsets,
-  # can be set to none | e.g. 40G
-  memory: none
+  # Memory options for the different steps
+  memory: 16GB
+  
+  # Is memory allocated by core on the cluster?
+  # If not, set to "False"
+  # If true, set to the  value of the available
+  #    memory/core, e.g. 16GB
+  mempercore: 16GB
 
 matrix:
   # column in cell_info from db (using query above) that corresponds to the

@@ -36,7 +36,7 @@ This pipeline requires:
 
 
 Pipeline output
-===============
+---------------
 
 The pipeline returns:
 * the output of cellranger multi
@@ -63,22 +63,17 @@ import pandas as pd
 import numpy as np
 
 # import local pipeline utility functions
-from cellhub.tasks import templates
-from cellhub.tasks import resources
-from cellhub.tasks import TASK
-
-import cellhub.tasks.parameters as chparam
+import cellhub.tasks as T
 import cellhub.tasks.cellranger as cellranger
-import cellhub.tasks.api as api
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
-P.control.write_config_files = chparam.write_config_files
+P.control.write_config_files = T.write_config_files
 
 # load options from the yml file
 P.parameters.HAVE_INITIALIZED = False
-PARAMS = P.get_parameters(chparam.get_parameter_file(__file__))
+PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
@@ -291,9 +286,6 @@ def cellrangerMultiJobs():
 
 
 @follows(config)
-#@transform("cellranger.multi.dir/*.csv",
-#           regex(r".*/([^.]*).*.csv"),
-#           r"cellranger.multi.dir/\1-cellranger.multi.sentinel")
 @files(cellrangerMultiJobs)
 def cellrangerMulti(infile, outfile):
     '''
@@ -362,7 +354,7 @@ def mtxAPI(infile, outfile):
 
     # 1. register the GEX, ADT and HTO count matrices
 
-    x = api.api("cellranger.multi")
+    x = T.api("cellranger.multi")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",
@@ -455,7 +447,7 @@ def h5API(infile, outfile):
             library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
 
     '''
-    x = api.api("cellranger.multi")
+    x = T.api("cellranger.multi")
 
     out_dir = os.path.dirname(outfile)
 
@@ -613,7 +605,7 @@ def vdjAPI(infile, outfile):
     Register the post-processed VDJ contigfiles on the API endpoint
     '''
 
-    x = api.api("cellranger.multi")
+    x = T.api("cellranger.multi")
 
     vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv.gz",
                                            "format": "csv",

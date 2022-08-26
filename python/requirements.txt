@@ -18,3 +18,7 @@ GMM-demux
 hnswlib
 sqlalchemy
 drmaa
+leidenalg
+fa2
+sphinx
+tables
