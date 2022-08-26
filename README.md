@@ -4,7 +4,7 @@ A scaleable workflow for the analysis of single cell datasets using compute clus
 
 ## Workflow overview
 
-<img src="docsrc/images/cellhub.workflow.overview.png" width="600" />
+<img src="docs/images/cellhub.workflow.overview.png" width="600" />
 
 ## Documentation
 
