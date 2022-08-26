@@ -8,7 +8,7 @@ A scaleable workflow for the analysis of single cell datasets using compute clus
 
 ## Documentation
 
-For installation and usage please see the [cellhub docs](docs/index.html)
+For installation and usage please see the [cellhub docs](https://cellhub.readthedocs.io/)
 
 ## Status
 
