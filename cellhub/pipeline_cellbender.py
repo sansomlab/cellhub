@@ -90,7 +90,7 @@ def cellbender(infile, outfile):
     '''
     
     t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
-                cpu=PARAMS["resources_cpu"])
+                cpu=PARAMS["resources_ncpu"])
     
     sample = str(os.path.basename(Path(infile).parents[1]))
     
@@ -209,7 +209,7 @@ def mtx(infile, outfile):
     '''
 
     t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"],
-                cpu=PARAMS["resources_cpu"])
+                cpu=PARAMS["resources_ncpu"])
         
     statements = []
     
