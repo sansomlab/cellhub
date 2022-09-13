@@ -31,7 +31,7 @@ Installation
 
 .. code-block:: Bash
      
-     git clone https://sansomlab/cellhub.git
+     git clone https://github.com/sansomlab/cellhub.git
      cd cellhub
      python setup.py develop
 
