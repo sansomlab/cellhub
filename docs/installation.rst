@@ -31,19 +31,19 @@ Installation
 
 .. code-block:: Bash
      
-     git clone https://github.com/COMBATOxford/cellhub-devel.git
-     cd cellhub-devel
+     git clone https://sansomlab/cellhub.git
+     cd cellhub
      python setup.py develop
 
 .. note:: Running "python setup.py develop" is necessary to allow pipelines to be launched via the "cellhub" command.
 
 3. In the same virtual or conda environment as cgat-core install the required python packages::
 
-     pip install -r cellhub-devel/python/requirements.txt
+     pip install -r cellhub/python/requirements.txt
 
 4. To install the required R packages (the "BiocManager" and "devtools" libraries must be pre-installed)::
 
-     Rscript cellhub-devel/R/install.packages.R
+     Rscript cellhub/R/install.packages.R
      
 5. Install the cellhub R library::
 
