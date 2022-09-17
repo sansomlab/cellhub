@@ -145,13 +145,13 @@ table:
       #
       # sql_query: >-
       #   CREATE VIEW final AS
-      #   SELECT s.*, qc.*, scrub.*, gd.*
-      #   FROM gex_qcmetrics qc
-      #   LEFT JOIN gex_scrublet scrub
-      #   USING (library_id, barcode)
-      #   LEFT JOIN gmm_demux gd
-      #   USING (library_id, barcode)
-      #   LEFT JOIN souporcell sp
-      #   USING (library_id, barcode)
-      #   LEFT JOIN sample s
-      #   on qc.library_id = s.library_id AND gd.gmm_call = s.hto_id;
+      #   SELECT s.*, qc.*, scrub.*, sp.*
+      #  CREATE VIEW final AS
+      #  SELECT s.*, qc.*, scrub.*, sp.*
+      #  FROM gex_qcmetrics qc
+      #  LEFT JOIN sample s
+      #  USING (library_id)
+      #  LEFT JOIN gex_scrublet scrub
+      #  USING (library_id, barcode)
+      #  LEFT JOIN souporcell sp
+      #  USING (library_id, barcode); 
