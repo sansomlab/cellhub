@@ -144,8 +144,6 @@ table:
       #     on library_id AND hto_id ***
       #
       # sql_query: >-
-      #   CREATE VIEW final AS
-      #   SELECT s.*, qc.*, scrub.*, sp.*
       #  CREATE VIEW final AS
       #  SELECT s.*, qc.*, scrub.*, sp.*
       #  FROM gex_qcmetrics qc
