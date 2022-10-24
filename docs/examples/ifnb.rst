@@ -40,7 +40,7 @@ We can run the pipeline as follows: ::
 
 Finally, the count matrices must be manually registered on the API for downstream analysis: ::
 
-  cellhub cellranger useCounts
+  cellhub cellranger_multi make useCounts
 
 
 3. Running the cell qc pipeline
