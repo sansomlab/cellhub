@@ -206,37 +206,29 @@ def config(outfile):
         lib_df = pd.DataFrame(libsample_params)
 
         lib_df.drop('description', axis=1, inplace=True)
-
-        lib_columns = list(lib_df)
+        
+        lib_columns = []
+        if PARAMS["run_gene-expression"]:
+            lib_columns.append("gene-expression")
+        if PARAMS["run_feature"]:
+            lib_columns.append("feature")
+        if PARAMS["vdj"]:
+            lib_columns.append("vdj")
 
         smp_df = pd.DataFrame()
         for i in lib_columns:
+            if i not in lib_df.columns:
+                raise ValueError("unrecognised modality")
+                
             tmp = lib_df[i].str.split(',', expand=True)
-            #smp_df = smp_df.append(tmp.T)
             smp_df = pd.concat([smp_df, tmp.T])
-
-            # filter out gex rows from libraries table if run_gene-expression = false
-            mask = smp_df.feature_types == 'Gene Expression'
-            if PARAMS["run_gene-expression"]:
-                df_filt = smp_df
-            else:
-                df_filt = smp_df[~mask]
-
-            # filter out feature rows from libraries table if run_feature = false
-            mask = df_filt.feature_types == 'Antibody Capture'
-            if PARAMS["run_feature"]:
-                df_filt = df_filt
-            else:
-                df_filt = df_filt[~mask]
-
-            # filter out vdj rows from libraries table if run_vdj = false
-            mask = df_filt.feature_types == 'VDJ-B'
-            if PARAMS["run_vdj"]:
-                df_filt = df_filt
-            else:
-                df_filt = df_filt[~mask]
-
-
+                        
+        # Ensure that there are no without fastq files
+        smp_df = smp_df[~smp_df["fastqs"].isnull()]
+        
+        # Strip out whitespace (https://stackoverflow.com/a/53089888)
+        smp_df = smp_df.applymap(lambda x: x.strip() if isinstance(x,str) else x)
+        
         # but I need to add different headers for each subsection, so I stream each table individually.
         with open(filename, 'a') as csv_stream:
 
@@ -261,8 +253,11 @@ def config(outfile):
             else:
                 pass
 
+            print(smp_df)
+            print(smp_df["fastq_id"].values)
+
             csv_stream.write('[libraries]\n')
-            df_filt.to_csv(csv_stream, header=True, index=False)
+            smp_df.to_csv(csv_stream, header=True, index=False)
             csv_stream.write('\n')
 
     IOTools.touch_file(outfile)
