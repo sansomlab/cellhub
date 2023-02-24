@@ -86,7 +86,16 @@ latexVars = args.latexvars
 
 # not all clusters may have degenes
 markers = pd.read_csv(args.markers, sep="\t")
+markers.shape
+#remove nas (this is added when looking for conserved markers)
+markers = markers.loc[(~markers['p.adj'].isna()),:]
+markers.shape
+#filter significant genes
+markers = markers.loc[markers['p.adj']<0.05]
 clusters_with_markers = [x for x in markers.cluster.unique()]
+
+L.info('cluster for report :')
+L.info(clusters_with_markers)
 
 tex = []
 

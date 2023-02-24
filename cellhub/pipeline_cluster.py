@@ -95,6 +95,7 @@ import shutil
 from pathlib import Path
 import pandas as pd
 
+import logging
 import yaml
 import textwrap
 from ruffus import *
@@ -106,7 +107,8 @@ import cellhub.tasks.cluster as C
 from cellhub.tasks.report import template as template
 
 # -------------------------- Pipeline Configuration -------------------------- #
-
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+L = logging.getLogger("run_integration")
 # Override function to collect config files
 P.control.write_config_files = T.write_config_files
 
@@ -1450,7 +1452,7 @@ def genesetAnalysis(infile, outfile):
             t.indir, str(i) + ".universe.tsv.gz")
 
         if not os.path.exists(universe):
-            E.warn("Skipping geneset analysis: %s does not exist" % universe)
+            L.warn("Skipping geneset analysis: %s does not exist" % universe)
             continue
 
         statements.append('''Rscript %(cellhub_code_dir)s/R/scripts/cluster_geneset_analysis.R
