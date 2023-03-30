@@ -2,6 +2,9 @@
 threshold:
 
 hto:
+
+  memory: 20000
+
   per_library: False
 
   names: C0301_TotalSeqC,C0302_TotalSeqC,C0303_TotalSeqC

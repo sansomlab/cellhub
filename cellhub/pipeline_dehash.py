@@ -69,7 +69,9 @@ def gmmDemux(infile, outfile):
     Run gmmDemux
     '''
     
-    t = T.setup(infile, outfile, PARAMS, make_outdir=False)
+    t = T.setup(infile, outfile, PARAMS,
+                memory = PARAMS["hto_memory"],
+                make_outdir=False)
 
     library_id = os.path.basename(outfile)[:-len(".gmm.demux.sentinel")]
 
