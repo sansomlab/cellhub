@@ -505,7 +505,7 @@ def paga(infile, outfile):
     '''
 
     t = C.setup(infile, outfile, PARAMS,
-                memory=PARAMS["resources_memory_high"])
+                memory=PARAMS["resources_memory_standard"])
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_paga.py
                    --anndata=%(neighbour_graph_anndata)s
