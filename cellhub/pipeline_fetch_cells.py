@@ -144,7 +144,7 @@ def GEX(infile, outfile):
     TODO: support down-sampling
     '''
 
-    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resource_memory"])
+    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"])
 
     cell_table = infile.replace(".sentinel", ".tsv.gz")
     api_path = os.path.join(PARAMS["cellhub_location"],"api")
