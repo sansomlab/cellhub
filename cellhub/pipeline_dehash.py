@@ -89,9 +89,15 @@ def gmmDemux(infile, outfile):
     else:
         HTOs = PARAMS["hto_names"]
 
+    if PARAMS["gmm_demux_per_library"] == True:
+        
+        threshold = PARAMS["gmm_demux_"+library_id]
+    else:
+        threshold = PARAMS['gmm_demux_threshold']
+
     statement = '''GMM-demux %(input_mtx)s
                              %(HTOs)s
-                             --threshold %(gmm_demux_threshold)s
+                             --threshold %(threshold)s
                              --full %(gmm_working_dir)s/full
                              --simplified %(gmm_working_dir)s/simple
                              --output %(gmm_working_dir)s/SSD

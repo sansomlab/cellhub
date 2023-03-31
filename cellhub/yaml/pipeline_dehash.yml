@@ -18,7 +18,14 @@ hto:
 
 gmm_demux:
 
+  per_library: False
+
   threshold: 0
+
+  # if per_library: True
+  # add the per-library HTO names here and they will be picked up
+  # library_id_01: 0.5
+  # library_id_02: 0.8
 
   # estimated number of cells for --summary
   ncells: 20000
