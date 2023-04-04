@@ -114,7 +114,8 @@ runspecs:
 # --------------------------
 neighbors:
 
-  # scanpy | hnsw
+  # scanpy | hnsw | precomputed
+  # if precomputed -> adata file needs to have neighbors to read 
   method: hnsw
 
   # for hnsw
