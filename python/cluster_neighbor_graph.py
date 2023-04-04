@@ -36,7 +36,7 @@ parser.add_argument("--outfile",default=1, type=str,
 parser.add_argument("--ncomps", default=20, type=int,
                     help="Number of reduced components to include in the knn computation")
 parser.add_argument("--method", default="scanpy", type=str,
-                    help="scanpy|hnsw|sklearn (scanpy uses pynndescent)")
+                    help="scanpy|hnsw|sklearn|precomputed (scanpy uses pynndescent)")
 parser.add_argument("--k", default=20, type=int,
                     help="number of neighbors")
 parser.add_argument("--metric", default="euclidean", type=str,
@@ -128,6 +128,24 @@ elif args.method == "sklearn":
               metric = args.metric,
               # metric_kwds = {}
               num_threads=args.threads)
+
+
+elif args.method == "precomputed":
+
+   L.info("Using precomputed neighbors")
+
+   #add knn to adata
+   
+   adata.uns["neighbors"] = sourceAdata.uns["neighbors"]
+   adata.obsp = sourceAdata.obsp
+   
+   #rename rep_use to 'X___'
+   from scanpy._utils import NeighborsView
+   neighbors = NeighborsView(adata, "neighbors")
+        
+   neighbors["params"]["use_rep"]='X_'+args.reduced_dims_name+'_copy_for_nn'
+    
+   adata.uns["neighbors"]["params"]=neighbors["params"] 
 
 else:
     raise ValueError("nn method not recognised")
