@@ -35,7 +35,7 @@ cellranger:
 
     # for SGE/UGE (e.g. Oxford BMRC cluster)
     # - a customised template file is required
-    job_template: /well/sansom/shared/cellranger/job.templates/sge.template
+    job_template: /well/sansom/shared/cellranger/job.templates/slurm.template
 
     # specify memory per core
     # either False or the amount of memory avaliable per core (in GB)
