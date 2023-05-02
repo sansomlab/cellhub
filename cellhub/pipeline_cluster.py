@@ -428,19 +428,20 @@ def compareClusters(infile, outfile):
 
     reductiontype = PARAMS["source_rdim_name"]
 
-    if t.resolution == "predefined":
+    #if t.resolution == "predefined":
 
         # TODO: Fix.
-        cluster_file = sample + ".cluster_ids.rds"
+        # yz : do we need this? 
+    #    cluster_file = sample + ".cluster_ids.rds"
 
-        if os.path.exists(cluster_file):
-            predefined = "--predefined=%(cluster_file)s" % locals()
+    #    if os.path.exists(cluster_file):
+    #        predefined = "--predefined=%(cluster_file)s" % locals()
 
-        else:
-            raise ValueError("Predefined cluster assignment file (%(cluster_file)s) not found" % locals())
+     #   else:
+     #       raise ValueError("Predefined cluster assignment file (%(cluster_file)s) not found" % locals())
 
-    else:
-        predefined = ""
+    #else:
+     #   predefined = ""
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
