@@ -14,7 +14,7 @@ stopifnot(
   require(gridExtra),
   require(dplyr),
   require(colormap),
-  require(tenxutils)
+  require(cellhub)
 )
 
 # Options ----
