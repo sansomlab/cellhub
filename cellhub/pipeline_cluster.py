@@ -152,7 +152,7 @@ def taskSummary(infile, outfile):
             run.append(str(v))
 
     tab = pd.DataFrame(list(zip(tasks,run)),columns=["task","run"])
-    tab.to_latex(buf=outfile, index=False)
+    tab.to_latex(buf=outfile, index=False, escape=True)
 
 
 @files(PARAMS["source_anndata"],
