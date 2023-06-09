@@ -16,6 +16,146 @@ import shutil
 import os
 from cgatcore import pipeline as P
 
+
+def get_stat(library_id, feature_type,
+             samples,
+             params):
+    'return a statement to execute cellranger'
+
+    fastq_path = samples.fastqs[[library_id, feature_type]]["path"]
+    lib_dict = samples.libs["library_id"]
+
+    if feature_type.to_lower() == "gene expression":
+    
+        cmd = '''cellranger count
+                      --id gex
+                      --transcriptome %(gex_reference)s
+                      --include-introns %(gex_include-intron)s
+                      --fastqs %(fastq_path)s
+                      --chemistry %(chemistry)s
+                      --expect-cells %(expect_cells)s
+              ''' % dict(PARAMS, **lib_dict, **locals())
+              
+        if params["gex_r1-length"]:
+            cmd += '''
+                    --r1-length %(gex_r1-length)s
+                    '''
+        if params["gex_r2-length"]:
+            cmd += '''
+                    --r2-length %(gex_r2-length)s
+                    '''
+        if params["gex_target-panel"]:
+            cmd += '''
+                   ---target-panel %(gex_target-panel)
+                   '''
+
+    elif feature_type.to_lower == "antibody capture":
+    
+        cmd = '''cellranger count
+                      --id adt
+                      --feature-ref %(feature_reference)s
+                      --fastqs %(fastq_path)s
+                      --chemistry %(chemistry)s
+                      --expect-cells %(expect_cells)s
+              ''' % dict(PARAMS, **lib_dict, **locals())
+              
+        if params["feature_r1-length"]:
+            cmd += '''
+                    --r1-length %(feature_r1-length)s
+                    '''
+        if params["feature_r2-length"]:
+            cmd += '''
+                    --r2-length %(feature_r2-length)s
+                    '''
+    
+    elif feature_type == "vdj-t":
+    
+        cmd = '''cellranger vdj
+                  --id vdj_t
+                  --chain TR
+                  --reference %(vdj_t_reference)
+                  --fastqs %(fastq_path)s
+               ''' % dict(PARAMS, **lib_dict, **locals())
+    
+    
+        if params["vdj_t_r1-length"]:
+            cmd += '''
+                    --r1-length %(vdj_t_r1-length)s
+                    '''
+        if params["vdj_t_r2-length"]:
+            cmd += '''
+                    --r2-length %(vdj_t_r2-length)s
+                    '''
+        if params["vdj_t_inner-enrichment-primers"]:
+            cmd += '''
+                   --inner-enrichment-primers %(vdj_t_inner-enrichment-primers)s
+                   '''
+    
+    elif feature_type == "vdj-b":
+    
+        cmd = '''cellranger vdj
+                  --id vdj_b
+                  --chain IG
+                  --reference %(vdj_b_reference)
+                  --fastqs %(fastq_path)s
+               ''' % dict(PARAMS, **lib_dict, **locals())
+    
+    
+        if params["vdj_b_r1-length"]:
+            cmd += '''
+                    --r1-length %(vdj_b_r1-length)s
+                    '''
+        if params["vdj_b_r2-length"]:
+            cmd += '''
+                    --r2-length %(vdj_b_r2-length)s
+                    '''
+        if params["vdj_b_inner-enrichment-primers"]:
+            cmd += '''
+                   --inner-enrichment-primers %(vdj_b_inner-enrichment-primers)s
+                   '''
+    
+    else:
+        raise ValueError("Unrecognised feature type")
+
+    
+    if params["cellranger_job_mode"] == "local":
+    
+        cmd += '''
+               --jobmode local
+               --localcores %(cellranger_localcores)s
+               --localmem %(cellranger_localmem)s
+        '''
+    elif params["cellranger_job_mode"] == "cluster":
+    
+        cmd += '''
+               --jobmode %(cellranger_job_template)s
+               --maxjobs %(cellranger_max_jobs)s
+               '''
+        if params["cellranger_mempercore"]:
+        
+            cmd += '''
+                   ---mempercore %(cellranger_mempercore)s
+                   '''
+    
+    if feature_type.to_lower() in ['antibody_capture', 'gene_expression']:
+    
+        if params["cellranger_no-bam"]:
+            cmd+= '''
+                   --no-bam
+                  '''
+                  
+        if params["cellranger_no-secondary"]:
+            cmd+= '''
+                   --no-secondary
+                  '''
+    
+    cmd += '''
+              --disable-ui
+           '''
+
+    return(cmd)
+
+
 def get_counts(matrix_location, output_location,
                library_id):
     '''
