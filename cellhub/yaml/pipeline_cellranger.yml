@@ -1,23 +1,10 @@
 #
-# Pipeline pipeline_cellranger6.py configuration file
+# Pipeline pipeline_cellranger.py configuration file
 # ==================================================
 #
 
 # General options
 # ---------------
-
-pipeline:
-  logfile: pipeline_cellranger.log
-
-# Project name
-projectname: CellRanger
-
-# Copyright statement
-copyright: KIR (2015-2023)
-
-# The pipeline can start from either
-# (A) cellranger mkfastq samples: "mkfastq"
-input: mkfastq
 
 # location of the fastq information table
 # for details of the required columns please see the
@@ -33,38 +20,15 @@ library_table: ./libraries.tsv
 # ----------------------------------------
 
 cellranger:
-    # job mode
-    # 'local' or 'cluster'
-    # use of local is recommended
-    job_mode: local
-    
-    
-    # Options for local mode
-    # ----------------------
-    # Set max cores the pipeline may request at one time. Only applies to local jobs
+
+    # Set the number of cores to use for each job
     localcores: 6
-    # Set max GB the pipeline may request at one time. Only applies to local jobs
-    localmem: 62
-   
-    # Options for cluster mode
-    # ----------------------
-
-    # Passed to `cellranger multi`
-    # Max jobs is passed to slurm as the maximum number of jobs
-    maxjobs: 64
-
-    # for SLURM on the Oxford BMRC cluster
-    # a customised template file is required
-    job_template: /well/sansom/shared/cellranger/job.templates/slurm.template
-
-    # specify memory per core
-    # either False or the amount of memory avaliable per core (in GB)
-    # here this is set for the Oxford BMRC cluster
-    mempercore: 16
+    # Set the amount of memory (in GB) to use for each job
+    localmem: 32
     
     # Disable secondary analysis, e.g. clustering. Optional.
     # Default: false.
-    no-secondary: true
+    nosecondary: true
 
     # Disables BAM(.bai) file generation, saving disk space at the expense of interrogable alignment records.
     # Default: false.
@@ -72,8 +36,13 @@ cellranger:
 
 
 
-# Parameters for Cellranger multi config file
-# -------------------------------------------
+# parameters for cell ranger count that are common to gex and feature analysis
+count:
+
+        # Hard trim the input Read_1/Read_2 of Feature Barcode libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2.
+        r1-length: false
+        r2-length: false
+
 
 # Section describing configuration of Gene Expression libraries only, unless otherwise specified.
 gex:
@@ -87,29 +56,17 @@ gex:
         # Disable targeted UMI filtering stage. Optional. Default: false.
         no-target-umi-filter: false
 
-        # Hard trim the input Read_1/Read_2 of gene expression libraries to this length before analysis. Optional. 
-        # Default: "false" , i.e. do not trim Read_1/Read_2. <int>
-        r1-length: false
-        r2-length: false
-
-        # Force pipeline to use this number of cells, bypassing cell detection. Optional. Default: detect cells using EmptyDrops. <int>
-        force-cells:
-
         # Enables intron mode, which includes the counting of reads that align to intronic regions.
         # Default: true
         include-introns: true
 
         
-
 # Section describing configuration of Feature Barcode libraries only, unless otherwise specified.
 feature:
         # Feature reference CSV file, declaring Feature Barcode constructs and associated barcodes. Required for Feature Barcode libraries, otherwise optional.
         # e.g. /analysis/pipeline_cellranger_6/test_pipeline_multi/features.TSC.csv
         reference:
 
-        # Hard trim the input Read_1/Read_2 of Feature Barcode libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2.
-        r1-length: false
-        r2-length: false
 
 # Section describing configuration of VDJ Immune Profiling libraries only, unless otherwise specified.
 vdj_t:

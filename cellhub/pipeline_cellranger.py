@@ -1,7 +1,7 @@
 '''
-============================
+======================
 pipeline_cellranger.py
-============================
+======================
 
 
 Overview
@@ -37,6 +37,8 @@ fastq files.
 (i) libraries.tsv
 ^^^^^^^^^^^^^^^^^
 
+A table summarising the libraries to be analysed. In this context, "library_id" is a unique identifier for the sequencing libraries generated from a single channel on a single chip. It is shared acrossed modalities. A mapping betweeen samples, chips and channels can be provided in the "samples.tsv" file for the downstream pipelines. The library_id is appended to the cell barcodes.
+
 This table must have the following mandatory columns:
 
 library_id: This is assumed to be a unique identifier: all fastqs linked to a given library_id
@@ -50,7 +52,7 @@ chemistry:  The options are: 'auto' for autodetection,
                              'SC5P-PE',
                              'SC5P-R2' for Single Cell 5', paired-end/R2-only,
                              'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
-expect_cells: An integer specifying the effected number of cells
+expect_cells: An integer specifying the expected number of cells
 sample_name: the name of the sample from which the sequencing data were derived. 
 
 It can then contain any additional metadata such as e.g. "tissue", "condition", "age", "sex" etc.
@@ -61,10 +63,13 @@ It can then contain any additional metadata such as e.g. "tissue", "condition", 
 This table must have the following columns:
 
 library_id: the name of the sample from which the sequencing data were derived
-path: the location of the folder containing the fastq files
-feature_type: one of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-T"
-lane: an integer denoting the sequencing lane. When samples have multiple lanes, the sequencing data is automatically combined.
+feature_type: one of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-B"
+seq_lane: an integer denoting the sequencing lane. When samples have multiple lanes, the sequencing data is automatically combined.
+fastq_path: the location of the folder containing the fastq files
 
+Note:
+
+Cellranger requires the fastq file prefix to match the name of the folder. The fastq files for each sample and each lane must be provided in seperate folders.
 
 
 Dependencies
@@ -74,6 +79,15 @@ This pipeline requires:
 * cgat-core: https://github.com/cgat-developers/cgat-core
 * cellranger: https://support.10xgenomics.com/single-cell-gene-expression/
 
+
+Pipeline logic
+--------------
+
+The pipeline is designed to:
+
+* map libraries in parallel to speed up analysis
+* submit standalone cellranger jobs rather than to use the cellranger cluster mode as this can cause problems on HPC clusters and can be difficult to debug
+* map ADT data with GEX data: so that the ADT analysis takes advantage of GEX cell calls
 
 Pipeline output
 ---------------
@@ -105,7 +119,7 @@ import numpy as np
 # import local pipeline utility functions
 import cellhub.tasks as T
 import cellhub.tasks.cellranger as cellranger
-import cellhub.tasks.samples as S
+import cellhub.tasks.samples as samples
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
@@ -124,83 +138,112 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # -------------------------- Read in the samples set -------------------------- #
 
-samples = S.init(pipeline="cellranger",
-                 fastq_tsv = params["fastq_table"],
-                 library_tsv = params["library_table"])
-
-
+S = samples.lib(pipeline="cellranger",
+                 fastq_tsv = PARAMS["fastq_table"],
+                 library_tsv = PARAMS["library_table"])
 
 
 # ########################################################################### #
-# ############################    run cellranger  ########################### #
+# ###########################  Count Analysis  ############################## #
 # ########################################################################### #
 
-# iterate over sample list and 
+# In this section the pipeline processes the gene expression (GEX) and antibody
+# capture, i.e. antibody derived tag (ADT) information.
 
+def count_jobs():
 
-def cellranger_jobs:
-
-
-
-@files(cellranger_jobs)
-def cellranger(infile, outfile):
-    '''
-    Execute the cellranger count or vdj pipeline as appropriate.
+    if not os.path.exists("count.dir"):
+        os.mkdir("count.dir")
     
-    Use of cellranger cluster mode is not supported.
+    for lib in S.feature_barcode_libraries():
+    
+        csv_path = os.path.join("count.dir", lib + ".csv")
+    
+        S.write_csv(lib, csv_path)
+    
+        yield(csv_path, os.path.join("count.dir",
+                                 lib + ".sentinel"))
+    
+    
+@files(count_jobs)
+def count(infile, outfile):
     '''
+    Execute the cellranger count pipeline
+    '''
+    
+    t = T.setup(infile, outfile, PARAMS,
+                memory=PARAMS["cellranger_localmem"],
+                cpu=PARAMS["cellranger_localcores"])
 
-    # read id_tag from file name
-    config_path = os.path.basename(infile)
-    sample_basename = os.path.basename(infile)
-    sample_name_sections = sample_basename.split(".")
-    id_tag = sample_name_sections[0]
+    this_library_id = os.path.basename(infile)[:-len(".csv")]
 
+    library_parameters = S.libs[this_library_id]
 
-    #set the maximum number of jobs for cellranger
-    max_jobs = PARAMS["cellranger_maxjobs"]
+    # provide references for the present feature types
+    lib_types = S.lib_types(this_library_id)
+    transcriptome, feature_ref  = "", ""
+    
+    if "Gene Expression" in lib_types:
+        transcriptome = "--transcriptome=" + PARAMS["gex_reference"]
+    
+    if "Antibody Capture" in lib_types:
+        feature_ref =  "--feature-ref" + PARAMS["feature_reference"]
 
-    ## send one job script to slurm queue which arranges cellranger run
-    ## hard-coded to ensure enough resources
-    job_threads = 6
-    job_memory = "24G"
+    # add read trimming if specified
+    r1len, r2len = "", ""
 
-    log_file = id_tag + ".log"
-
-    mempercore = PARAMS["cellranger_mempercore"]
-
-    if mempercore:
-        mempercore_stat="--mempercore " + str(mempercore)
-    else:
-        mempercore_stat = ""
-
-    # this statement is to run in slurm mode
-    statement = '''cd cellranger.multi.dir;
-                    cellranger multi
-	    	        --id %(id_tag)s
-                    --csv=%(config_path)s
-                    --jobmode=%(cellranger_job_template)s
-                    --maxjobs=%(max_jobs)s
+    if PARAMS["gex_r1-length"] != "false":
+        r1len = PARAMS["gex_r1-length"]
+    
+    if PARAMS["gex_r2-length"] != "false":
+        r1len = PARAMS["gex_r2-length"]
+ 
+    # deal with flags
+    nosecondary, nobam, includeintrons = "", "", ""
+    
+    if PARAMS["cellranger_nosecondary"]:
+        nosecondary = "--nosecondary"
+    if PARAMS["cellranger_no-bam"]:
+        nobam = "--no-bam"
+    if PARAMS["gex_include-introns"]:
+        includeintrons = "--include-introns=true"
+ 
+    statement = '''cd count.dir;
+                    cellranger count
+	    	        --id %(this_library_id)s
+                    %(transcriptome)s
+                    %(feature_ref)s
+                    --libraries=../%(infile)s
 		            --nopreflight
                     --disable-ui
-                    %(mempercore_stat)s
-                    &> %(log_file)s
-                 '''
+                    --expect-cells=%(expect_cells)s
+                    --chemistry=%(chemistry)s
+                    %(nosecondary)s
+                    %(nobam)s
+                    --localcores=%(cellranger_localcores)s
+                    --localmem=%(cellranger_localmem)s
+                    %(includeintrons)s
+                    %(r1len)s %(r2len)s
+                    &> ../%(log_file)s
+                 ''' % dict(PARAMS, 
+                            **library_parameters,
+                            **t.var, 
+                            **locals())
 
-    P.run(statement)
+    P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
 
 
-@transform(cellrangerMulti,
+@transform(count,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
            r"\1/register.mtx.sentinel")
 def mtxAPI(infile, outfile):
     '''
-    Register the post-processed mtx files on the API endpoint
+    Register the mtx files on the API endpoint
     
     Inputs:
 
-    The input cellranger.multi.dir folder layout is:
+    The input cellranger count folder layout is:
 
     unfiltered "outs": ::
         library_id/outs/multi/count/raw_feature_bc_matrix/
@@ -285,7 +328,7 @@ def mtxAPI(infile, outfile):
 
 
 
-@transform(cellrangerMulti,
+@transform(count,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
            r"\1/register.h5.sentinel")
 def h5API(infile, outfile):
@@ -367,7 +410,14 @@ def h5API(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@transform(cellrangerMulti,
+# ########################################################################### #
+# ############################  VDJ Analysis  ############################### #
+# ########################################################################### #
+
+# In this section the pipeline performs the V(D)J-T and B analysis.
+
+
+@transform(count,
            regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
            r"\1/out.dir/\2/post.process.vdj.sentinel")
 def postProcessVDJ(infile, outfile):
@@ -511,7 +561,7 @@ def vdjAPI(infile, outfile):
 # ---------------------------------------------------
 # Generic pipeline tasks
 
-@follows(cellrangerMulti, 
+@follows(count, 
          mtxAPI, h5API, vdjAPI)
 def full():
     '''

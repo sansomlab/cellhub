@@ -25,50 +25,9 @@ def get_stat(library_id, feature_type,
     fastq_path = samples.fastqs[[library_id, feature_type]]["path"]
     lib_dict = samples.libs["library_id"]
 
-    if feature_type.to_lower() == "gene expression":
-    
-        cmd = '''cellranger count
-                      --id gex
-                      --transcriptome %(gex_reference)s
-                      --include-introns %(gex_include-intron)s
-                      --fastqs %(fastq_path)s
-                      --chemistry %(chemistry)s
-                      --expect-cells %(expect_cells)s
-              ''' % dict(PARAMS, **lib_dict, **locals())
-              
-        if params["gex_r1-length"]:
-            cmd += '''
-                    --r1-length %(gex_r1-length)s
-                    '''
-        if params["gex_r2-length"]:
-            cmd += '''
-                    --r2-length %(gex_r2-length)s
-                    '''
-        if params["gex_target-panel"]:
-            cmd += '''
-                   ---target-panel %(gex_target-panel)
-                   '''
+    feature_type = feature_type.to_lower()
 
-    elif feature_type.to_lower == "antibody capture":
-    
-        cmd = '''cellranger count
-                      --id adt
-                      --feature-ref %(feature_reference)s
-                      --fastqs %(fastq_path)s
-                      --chemistry %(chemistry)s
-                      --expect-cells %(expect_cells)s
-              ''' % dict(PARAMS, **lib_dict, **locals())
-              
-        if params["feature_r1-length"]:
-            cmd += '''
-                    --r1-length %(feature_r1-length)s
-                    '''
-        if params["feature_r2-length"]:
-            cmd += '''
-                    --r2-length %(feature_r2-length)s
-                    '''
-    
-    elif feature_type == "vdj-t":
+    if feature_type == "vdj-t":
     
         cmd = '''cellranger vdj
                   --id vdj_t
@@ -154,7 +113,6 @@ def get_stat(library_id, feature_type,
            '''
 
     return(cmd)
-
 
 def get_counts(matrix_location, output_location,
                library_id):
