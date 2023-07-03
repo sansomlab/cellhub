@@ -37,9 +37,16 @@ fastq files.
 (i) libraries.tsv
 ^^^^^^^^^^^^^^^^^
 
-A table summarising the libraries to be analysed. In this context, "library_id" is a unique identifier for the sequencing libraries generated from a single channel on a single chip. It is shared acrossed modalities. A mapping betweeen samples, chips and channels can be provided in the "samples.tsv" file for the downstream pipelines. The library_id is appended to the cell barcodes.
+A table summarising the libraries to be analysed. In this context, 
+"library_id" is a unique identifier for the sequencing libraries 
+generated from a single channel on a single chip. It is shared 
+across modalities. A mapping betweeen samples, chips and channels 
+must be provided in the "samples.tsv" file for the downstream pipelines,
+but is not required to run this pipeline.
+ 
+The library_id is appended to the cell barcodes.
 
-This table must have the following mandatory columns:
+This table has the following mandatory columns:
 
 library_id: This is assumed to be a unique identifier: all fastqs linked to a given library_id
              are merged (within feature type).
@@ -53,9 +60,7 @@ chemistry:  The options are: 'auto' for autodetection,
                              'SC5P-R2' for Single Cell 5', paired-end/R2-only,
                              'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
 expect_cells: An integer specifying the expected number of cells
-sample_name: the name of the sample from which the sequencing data were derived. 
 
-It can then contain any additional metadata such as e.g. "tissue", "condition", "age", "sex" etc.
 
 (ii) fastqs.tsv
 ^^^^^^^^^^^^^^^
@@ -64,13 +69,14 @@ This table must have the following columns:
 
 library_id: the name of the sample from which the sequencing data were derived
 feature_type: one of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-B"
-seq_lane: an integer denoting the sequencing lane. When samples have multiple lanes, the sequencing data is automatically combined.
+seq_lane: an integer denoting the sequencing lane. When samples have multiple lanes, 
+the sequencing data is automatically combined.
 fastq_path: the location of the folder containing the fastq files
 
 Note:
 
-Cellranger requires the fastq file prefix to match the name of the folder. The fastq files for each sample and each lane must be provided in seperate folders.
-
+Cellranger requires the fastq file "sample" prefix to match the name of the folder. 
+The fastq files for each sample and each lane must be provided in seperate folders.
 
 Dependencies
 ------------
@@ -86,8 +92,15 @@ Pipeline logic
 The pipeline is designed to:
 
 * map libraries in parallel to speed up analysis
-* submit standalone cellranger jobs rather than to use the cellranger cluster mode as this can cause problems on HPC clusters and can be difficult to debug
+* submit standalone cellranger jobs rather than to use the cellranger cluster 
+  mode the cluster mode can cause problems on HPC clusters which are difficult to debug
 * map ADT data with GEX data: so that the ADT analysis takes advantage of GEX cell calls
+* map VDJ-T and VDJ-B libraries using the "cellranger vjd" command.
+
+10x recommend use of "cellranger multi" for mapping libraries from samples with GEX 
+and VDJ. This is so that barcodes present in the VDJ results but not the GEX cell calls
+can be removed from the VDJ results. Here for simplicity and to maximise parallelisation we use 
+"cellranger vdj": it is trivial to remove VDJ barcodes without a GEX overlap downstream. 
 
 Pipeline output
 ---------------
@@ -159,7 +172,8 @@ def count_jobs():
     
         csv_path = os.path.join("count.dir", lib + ".csv")
     
-        S.write_csv(lib, csv_path)
+        if not os.path.exists(csv_path):
+            S.write_csv(lib, csv_path)
     
         yield(csv_path, os.path.join("count.dir",
                                  lib + ".sentinel"))
@@ -235,27 +249,29 @@ def count(infile, outfile):
 
 
 @transform(count,
-           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
+           regex(r"(.*)/(.*).sentinel"),
            r"\1/register.mtx.sentinel")
 def mtxAPI(infile, outfile):
     '''
-    Register the mtx files on the API endpoint
+    Register the count market matrix (mtx) files on the API endpoint
     
     Inputs:
 
     The input cellranger count folder layout is:
 
     unfiltered "outs": ::
-        library_id/outs/multi/count/raw_feature_bc_matrix/
+        library_id/outs/raw_feature_bc_matrix [mtx]
+        library_id/outs/raw_feature_bc_matrix.h5
 
     filtered "outs": :: 
-        library_id/outs/per_sample_outs/sample|library_id/count/sample_feature_bc_matrix
+        library_id/outs/filtered_feature_bc_matrix
+        library_id/outs/filtered_feature_bc_matrix.h5
     
     '''
 
     # 1. register the GEX, ADT and HTO count matrices
 
-    x = T.api("cellranger.multi")
+    x = T.api("cellranger")
 
     mtx_template = {"barcodes": {"path":"path/to/barcodes.tsv",
                                  "format": "tsv",
@@ -269,37 +285,24 @@ def mtxAPI(infile, outfile):
                      }
 
 
-    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
+    library_id = os.path.basename(infile)[:-len(".sentinel")]
 
     # 1. deal with unfiltered count data
-    matrix_location = os.path.join("cellranger.multi.dir", library_id,
-                                   "outs/multi/count/raw_feature_bc_matrix")
+    matrix_location = os.path.join("count.dir", library_id,
+                                   "outs/raw_feature_bc_matrix")
 
-    idx = 0
-    to_register = {idx:{"type":"unfiltered", 
-                        "path":matrix_location, 
-                        "id": library_id}}
+
+    to_register = {0:{"type": "unfiltered", 
+                      "path": matrix_location, 
+                      "id": library_id}}
 
     # 2. deal with the filtered data
-    
-    # 2. deal with per sample libraries
-    per_sample_loc = os.path.join("cellranger.multi.dir",
-                                  library_id,
-                                  "outs/per_sample_outs/")
+    matrix_location = os.path.join("count.dir", library_id,
+                                   "outs/filtered_feature_bc_matrix")
 
-    per_sample_dirs = glob.glob(per_sample_loc + "*")
-
-    for per_sample_dir in per_sample_dirs:
-
-        matrix_location = os.path.join(per_sample_dir,
-                                       "count/sample_filtered_feature_bc_matrix")
-
-        sample_or_library_id = os.path.basename(per_sample_dir)
-
-        idx += 1
-        to_register[idx] = {"type":"filtered",
-                            "path":matrix_location,
-                            "id": sample_or_library_id}
+    to_register[1] = {"type": "filtered", 
+                        "path": matrix_location, 
+                        "id": library_id}
     
     
     for key, mtx in to_register.items():
@@ -323,39 +326,26 @@ def mtxAPI(infile, outfile):
                              analysis_description="Cellranger count GEX output")
 
             x.register_dataset()
+        else:
+            raise ValueError("matrix path:'" + mtx_loc + "' does not exist!")
 
     IOTools.touch_file(outfile)
 
-
-
 @transform(count,
-           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
+           regex(r"(.*)/(.*).sentinel"),
            r"\1/register.h5.sentinel")
 def h5API(infile, outfile):
     '''
     Put the h5 files on the API
-
-    Inputs:
-
-        The input cellranger.multi.dir folder layout is:
-
-        unfiltered "outs": ::
-
-            library_id/outs/multi/count/raw_feature_bc_matrix/
-
-        filtered "outs": ::
-
-            library_id/outs/per_sample_outs/sample|library_id/count/sample_filtered_feature_bc_matrix
-
     '''
-    x = T.api("cellranger.multi")
+    x = T.api("cellranger")
 
     out_dir = os.path.dirname(outfile)
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
+    library_id = os.path.basename(infile)[:-len(".sentinel")]
 
     h5_template = {"h5": {"path":"path/to/barcodes.tsv",
                                  "format": "h5",
@@ -363,8 +353,8 @@ def h5API(infile, outfile):
                                  "description": "10X h5 count file"}}
 
     # 1. deal with unfiltered count data
-    h5_location = os.path.join("cellranger.multi.dir", library_id,
-                                   "outs/multi/count/raw_feature_bc_matrix.h5")
+    h5_location = os.path.join("count.dir", library_id,
+                               "outs/raw_feature_bc_matrix.h5")
 
     h5_x = h5_template.copy()
     h5_x["h5"]["path"] = h5_location
@@ -381,40 +371,131 @@ def h5API(infile, outfile):
 
 
     # 2. deal with per sample libraries
-    per_sample_loc = os.path.join("cellranger.multi.dir",
-                                  library_id,
-                                  "outs/per_sample_outs/")
+    h5_location = os.path.join("count.dir", library_id,
+                               "outs/filtered_feature_bc_matrix.h5")
 
-    per_sample_dirs = glob.glob(per_sample_loc + "*")
+    h5_x = h5_template.copy()
+    h5_x["h5"]["path"] = h5_location
 
-    for per_sample_dir in per_sample_dirs:
+    x.define_dataset(analysis_name="counts",
+                     data_subset="filtered",
+                     data_id=library_id,
+                     data_format="h5",
+                     file_set=h5_x,
+                     analysis_description="Cellranger h5 file")
 
-        h5_location = os.path.join(per_sample_dir,
-                                       "count/sample_filtered_feature_bc_matrix.h5")
-
-        h5_x = h5_template.copy()
-        h5_x["h5"]["path"] = h5_location
-
-        sample_id = os.path.basename(per_sample_dir)
-
-        x.define_dataset(analysis_name="counts",
-                         data_subset="filtered",
-                         data_id=sample_id,
-                         data_format="h5",
-                         file_set=h5_x,
-                         analysis_description="Cellranger h5 file")
-
-
-        x.register_dataset()
-
+    x.register_dataset()
     IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
-# ############################  VDJ Analysis  ############################### #
+# ############################  TCR Analysis  ############################### #
 # ########################################################################### #
 
-# In this section the pipeline performs the V(D)J-T and B analysis.
+# In this section the pipeline performs the V(D)J-T analysis.
+
+def tcr_jobs():
+
+    for lib in S.vdj_t_libraries():
+        
+        yield(None, os.path.join("vdj.t.dir",
+                                 lib + ".sentinel"))
+    
+@files(tcr_jobs)
+def tcr(infile, outfile):
+    '''
+    Execute the cellranger vdj pipeline for the TCR libraries
+    '''
+    
+    t = T.setup(infile, outfile, PARAMS,
+                memory=PARAMS["cellranger_localmem"],
+                cpu=PARAMS["cellranger_localcores"])
+
+    library_id = os.path.basename(infile)[:-len(".csv")]
+
+    library_parameters = S.libs[this_library_id]
+
+    inner=""
+    if PARAMS["vdj_t_inner-enrichment-primers"]:
+        inner="--inner-enrichment-primers=" + PARAMS["vdj_t_inner-enrichment-primers"]
+    
+    fastq_path = S.get_fastqs(this_library_id,"VDJ-T")
+ 
+    statement = '''cd vdj.t.dir;
+                    cellranger vdj
+                    --chain=TR
+	    	        --id=%(library_id)s
+                    --fastqs=%(fastq_path)s
+                    --sample=%(this_library_id)s
+                    --reference=%(vdj_t_reference)s
+		            --nopreflight
+                    --disable-ui
+                    --localcores=%(cellranger_localcores)s
+                    --localmem=%(cellranger_localmem)s
+                    %(inner)s
+                    &> ../%(log_file)s
+                 ''' % dict(PARAMS, 
+                            **t.var, 
+                            **locals())
+
+    P.run(statement, **t.resources)
+    IOTools.touch_file(outfile)
+
+
+# ########################################################################### #
+# ############################  BCR Analysis  ############################### #
+# ########################################################################### #
+
+# In this section the pipeline performs the V(D)J B analysis.
+
+def bcr_jobs():
+
+    for lib in S.vdj_b_libraries():
+        
+        yield(None, os.path.join("vdj.b.dir",
+                                 lib + ".sentinel"))
+    
+@files(bcr_jobs)
+def bcr(infile, outfile):
+    '''
+    Execute the cellranger vdj pipeline for the BCR libraries
+    '''
+    
+    t = T.setup(infile, outfile, PARAMS,
+                memory=PARAMS["cellranger_localmem"],
+                cpu=PARAMS["cellranger_localcores"])
+
+    library_id = os.path.basename(infile)[:-len(".csv")]
+
+    library_parameters = S.libs[this_library_id]
+
+    inner=""
+    if PARAMS["vdj_b_inner-enrichment-primers"]:
+        inner="--inner-enrichment-primers=" + PARAMS["vdj_b_inner-enrichment-primers"]
+    
+    fastq_path = S.get_fastqs(this_library_id,"VDJ-B")
+ 
+    statement = '''cd vdj.t.dir;
+                    cellranger vdj
+                    --chain=TR
+	    	        --id=%(library_id)s
+                    --fastqs=%(fastq_path)s
+                    --sample=%(this_library_id)s
+                    --reference=%(vdj_b_reference)s
+		            --nopreflight
+                    --disable-ui
+                    --localcores=%(cellranger_localcores)s
+                    --localmem=%(cellranger_localmem)s
+                    %(inner)s
+                    &> ../%(log_file)s
+                 ''' % dict(PARAMS, 
+                            **t.var, 
+                            **locals())
+
+    P.run(statement, **t.resources)
+    IOTools.touch_file(outfile)
+
+
 
 
 @transform(count,
@@ -582,7 +663,7 @@ def useCounts(infile, outfile):
         raise ValueError("Counts have already been registered to the API")
 
     else:
-        os.symlink("cellranger.multi/counts", "api/counts")
+        os.symlink("cellranger/counts", "api/counts")
 
 
 def main(argv=None):

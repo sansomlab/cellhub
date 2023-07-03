@@ -21,10 +21,22 @@ library_table: ./libraries.tsv
 
 cellranger:
 
+    # The minimum system requirements for cellranger
+    # are 8 cores & 64 GB RAM
+    #
+    # Note that allocating additional memory substantially
+    # shortens the wall time, see plots here:
+    # https://support.10xgenomics.com/single-cell-gene-expression/software/overview/system-requirements
+    #
+    # It is recommended to use 16 cores and 128GB RAM if possible
+    # but this needs to be traded off with being able to 
+    # get the resources on the cluster & the number of samples
+    # being processed.
+
     # Set the number of cores to use for each job
-    localcores: 6
+    localcores: 8
     # Set the amount of memory (in GB) to use for each job
-    localmem: 32
+    localmem: 64
     
     # Disable secondary analysis, e.g. clustering. Optional.
     # Default: false.

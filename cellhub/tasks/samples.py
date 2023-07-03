@@ -115,6 +115,22 @@ class lib():
         
         self.fastqs = f
 
+    def get_fastqs(self, library_id, feature_type):
+        '''
+        Return path(s) to fastq(s) for given library and
+        feature type
+        '''
+        x = self.fastqs[self.fastqs["library_id"]==library_id &
+                        self.fastqs["feature_type"]==feature_type]
+        
+        if x.shape[1] > 1:
+            raise ValueError("Fastq path mapping is not unique")
+        
+        fastq_path = x["fastq_path"].values[0]
+        return(fastq_path)
+        
+        
+
     def feature_barcode_libraries(self):
         '''
         Return a list of libraries with Gene Expression/Antibody
@@ -124,6 +140,31 @@ class lib():
         return(set(
             self.fastqs[self.fastqs["feature_type"].isin(
             self.feature_types)]["library_id"].values
+        ))
+        
+    def vdj_libraries(self):
+        '''
+        Return a list of libraries with VDJ data
+        '''
+        return(set(
+            self.fastqs[self.fastqs["feature_type"].isin(
+            self.vdj_types)]["library_id"].values
+        ))
+        
+    def vdj_t_libraries(self):
+        '''
+        Return a list of libraries with VDJ data
+        '''
+        return(set(
+            self.fastqs[self.fastqs["feature_type"]=="VDJ-T"]["library_id"].values
+        ))
+        
+    def vdj_b_libraries(self):
+        '''
+        Return a list of libraries with VDJ data
+        '''
+        return(set(
+            self.fastqs[self.fastqs["feature_type"]=="VDJ-B"]["library_id"].values
         ))
         
     def lib_types(self, library_id):
@@ -145,6 +186,9 @@ class lib():
         '''
         
         out = self.fastqs[self.fastqs["library_id"]==library_id]
+        
+        out = out[out["feature_type"].isin(self.feature_types)]
+        
         out = out[["fastq_path", "library_id","feature_type"]]
         out.columns = ["fastqs","sample","library_type"]
         
