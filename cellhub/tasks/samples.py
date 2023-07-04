@@ -96,30 +96,38 @@ class samples():
         
         libs.sort_values(["library_id",
                     "feature_type",
-                    "seq_lane"], inplace=True)
+                    "sample"], inplace=True)
+        
+        self.libs = libs
 
-        agg_libs = (libs.groupby(["library_id","feature_type","sample"])
+    def get_samples_and_fastqs(self, library_id, feature_type):
+        '''
+        Return sample(s) and path(s) to fastq(s) for given library and
+        feature type. Used to build job statements for cellranger vdj.
+        
+        If multiple sequence files are provide Samples and fastqc_paths
+        will be merged into comma seperated lists, see:
+        https://support.10xgenomics.com/single-cell-vdj/software/pipelines/latest/using/vdj
+        
+        '''
+        
+        agg_libs = (self.libs.groupby(["library_id","feature_type"])
                 .agg({'library_id':'first', 'feature_type':'first', 
-                      'sample':'first', 'fastq_path':','.join}))
+                      'sample':','.join, 'fastq_path':','.join}))
         
         agg_libs.index = agg_libs["library_id"]
+                
+        x = agg_libs[(agg_libs["library_id"]==library_id) &
+                        (agg_libs["feature_type"]==feature_type)]
         
-        self.libs = agg_libs
-
-    def get_fastqs(self, library_id, feature_type):
-        '''
-        Return path(s) to fastq(s) for given library and
-        feature type
-        '''
-        x = self.libs[self.libs["library_id"]==library_id &
-                        self.libs["feature_type"]==feature_type]
-        
-        if x.shape[1] > 1:
-            raise ValueError("Fastq path mapping is not unique")
+        if x.shape[0] > 1:
+            print(x)
+            print(x.shape)
+            raise ValueError("Sample and path aggregation failed, check input files.")
         
         fastq_path = x["fastq_path"].values[0]
-        return(fastq_path)
-        
+        sample = x["sample"].values[0]
+        return({"fastq_path":fastq_path, "sample":sample})
         
 
     def feature_barcode_libraries(self):
@@ -174,6 +182,8 @@ class samples():
             /opt/bar/,GEX_sample1,Gene Expression
             /opt/foo/,Ab_sample1,Antibody Capture
             /opt/foo/,CRISPR_sample1,CRISPR Guide Capture
+            
+            see: https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/using/feature-bc-analysis#libraries-csv
         '''
         
         out = self.libs[self.libs["library_id"]==library_id]

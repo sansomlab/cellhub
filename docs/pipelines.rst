@@ -9,7 +9,7 @@ Pipelines
    pipelines/pipeline_annotation.rst
    pipelines/pipeline_cellbender.rst
    pipelines/pipeline_celldb.rst
-   pipelines/pipeline_cellranger_multi.rst
+   pipelines/pipeline_cellranger.rst
    pipelines/pipeline_cell_qc.rst
    pipelines/pipeline_cluster.rst
    pipelines/pipeline_dehash.rst

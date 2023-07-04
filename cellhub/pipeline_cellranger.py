@@ -100,9 +100,9 @@ will be run. If you need to analyse data from a single lane, link the data from 
 into a different location. 
 
 Note: To combine sequencing data from different sequencing runs (i.e. in different folders), 
-add additional rows to the table. Rows with identical "library_id", "feature_type" 
-and "sample" values are automatically combined (i.e. the "sample" prefixes must be the same
-in the different locations). 
+add additional rows to the table. Rows with identical "library_id" and "feature_type" 
+are automatically combined.
+ 
 
 Dependencies
 ------------
@@ -119,11 +119,11 @@ The pipeline is designed to:
 
 * map libraries in parallel to speed up analysis
 * submit standalone cellranger jobs rather than to use the cellranger cluster 
-  mode the cluster mode can cause problems on HPC clusters which are difficult to debug
+  mode which can cause problems on HPC clusters that are difficult to debug
 * map ADT data with GEX data: so that the ADT analysis takes advantage of GEX cell calls
 * map VDJ-T and VDJ-B libraries using the "cellranger vjd" command.
 
-10x recommend use of "cellranger multi" for mapping libraries from samples with GEX 
+Note: 10x recommend use of "cellranger multi" for mapping libraries from samples with GEX 
 and VDJ. This is so that barcodes present in the VDJ results but not the GEX cell calls
 can be removed from the VDJ results. Here for simplicity and to maximise parallelisation we use 
 "cellranger vdj": it is trivial to remove VDJ barcodes without a GEX overlap downstream. 
@@ -172,8 +172,6 @@ PARAMS = P.get_parameters(T.get_parameter_file(__file__))
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
-# ----------------------- < helper functions > ------------------------ #
-
 
 # ----------------------- Read in the samples set -------------------------- #
 
@@ -183,6 +181,8 @@ if len(sys.argv) > 1:
         S = samples.samples(sample_tsv = PARAMS["sample_table"],
                     library_tsv = PARAMS["library_table"])
 
+
+# ---------------------------- Pipeline tasks ------------------------------- #
 
 # ########################################################################### #
 # ###########################  Count Analysis  ############################## #
@@ -439,22 +439,20 @@ def tcr(infile, outfile):
                 memory=PARAMS["cellranger_localmem"],
                 cpu=PARAMS["cellranger_localcores"])
 
-    library_id = os.path.basename(infile)[:-len(".csv")]
-
-    library_parameters = S.libs[this_library_id]
+    library_id = os.path.basename(outfile)[:-len(".sentinel")]
 
     inner=""
     if PARAMS["vdj_t_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_t_inner-enrichment-primers"]
     
-    fastq_path = S.get_fastqs(this_library_id,"VDJ-T")
+    sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-T")
  
     statement = '''cd cellranger.vdj.t.dir;
                     cellranger vdj
                     --chain=TR
 	    	        --id=%(library_id)s
                     --fastqs=%(fastq_path)s
-                    --sample=%(this_library_id)s
+                    --sample=%(sample)s
                     --reference=%(vdj_t_reference)s
 		            --nopreflight
                     --disable-ui
@@ -464,10 +462,49 @@ def tcr(infile, outfile):
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
+                            **sample_dict,
                             **locals())
 
     P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
+
+
+@transform(tcr,
+           regex(r"(.*)/(.*).sentinel"),
+           r"\1/\2.register.tcr.sentinel")
+def tcrAPI(infile, outfile):
+    '''
+    Register the VDJ-T contigfiles on the API endpoint
+    '''
+
+    x = T.api("cellranger")
+
+    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
+                                           "format": "csv",
+                                           "description": "per-cell contig annotations"}}
+
+    library_id = os.path.basename(infile[:-len(".sentinel")])
+
+    for data_subset in ["unfiltered", "filtered"]:
+
+        if data_subset == "filtered":
+            fn = "filtered_contig_annotations.csv"
+            prefix = "filtered"
+        elif data_subset == "unfiltered":
+            fn = "all_contig_annotations.csv"
+            prefix = "all"
+
+        vdj_x = vdj_template.copy()
+        vdj_x["contig_annotations"]["path"] = os.path.join("cellranger.vdj.t.dir",
+                                                           library_id,"outs",fn)
+
+        x.define_dataset(analysis_name="vdj_t",
+                    data_subset=data_subset,
+                    data_id=library_id,
+                    file_set=vdj_x,
+                    analysis_description="cellranger VDJ T contig annotations")
+
+        x.register_dataset()
 
 
 # ########################################################################### #
@@ -487,28 +524,28 @@ def bcr_jobs():
 def bcr(infile, outfile):
     '''
     Execute the cellranger vdj pipeline for the BCR libraries
+    
+    * Untested *
     '''
     
     t = T.setup(infile, outfile, PARAMS,
                 memory=PARAMS["cellranger_localmem"],
                 cpu=PARAMS["cellranger_localcores"])
 
-    library_id = os.path.basename(infile)[:-len(".csv")]
-
-    library_parameters = S.libs[this_library_id]
+    library_id = os.path.basename(outfile)[:-len(".sentinel")]
 
     inner=""
     if PARAMS["vdj_b_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_b_inner-enrichment-primers"]
     
-    fastq_path = S.get_fastqs(this_library_id,"VDJ-B")
+    sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-T")
  
     statement = '''cd cellranger.vdj.t.dir;
                     cellranger vdj
                     --chain=TR
 	    	        --id=%(library_id)s
                     --fastqs=%(fastq_path)s
-                    --sample=%(this_library_id)s
+                    --sample=%(sample)s
                     --reference=%(vdj_b_reference)s
 		            --nopreflight
                     --disable-ui
@@ -518,160 +555,58 @@ def bcr(infile, outfile):
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
+                            **sample_dict,
                             **locals())
 
     P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
 
 
-
-
-@transform(count,
-           regex(r"(.*)/(.*)-cellranger.multi.sentinel"),
-           r"\1/out.dir/\2/post.process.vdj.sentinel")
-def postProcessVDJ(infile, outfile):
+@transform(bcr,
+           regex(r"(.*)/(.*).sentinel"),
+           r"\1/\2.register.bcr.sentinel")
+def bcrAPI(infile, outfile):
     '''
-    Post-process the cellranger contig annotations.
-
-    The cellbarcodes are reformatted to the "UMI-LIBRARY_ID" syntax.
-
-    Inputs:
-
-        The input cellranger.multi.dir folder layout is:
-
-        unfiltered "outs": ::
-            library_id/outs/multi/vdj_[b|t]/
-
-        filtered "outs": ::
-            library_id/outs/per_sample_outs/sample|library_id/vdj_[b|t]/
-
-    Outputs:
-
-        This task produces:
-
-        unfiltered: ::
-            out.dir/library_id/unfiltered/vdj_[t|b]/
-
-        filtered: ::
-            out.dir/library_id/filtered/sample_id/vdj_[t|b]/
-
+    Register the VDJ-B contigfiles on the API endpoint
+    
+    * Untested *
     '''
 
+    x = T.api("cellranger")
 
-    out_dir = os.path.dirname(outfile)
-
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    library_id = os.path.basename(infile).split("-cellranger.multi")[0]
-
-    vdj_types = ["vdj_b", "vdj_t"]
-
-    for vdj_type in vdj_types:
-
-        if os.path.exists(os.path.join("cellranger.multi.dir", library_id,
-                                       "outs/multi/", vdj_type)):
-
-            # 1. deal with unfiltered contig assigments
-            ctg_loc = os.path.join("cellranger.multi.dir", library_id,
-                                   "outs/multi/",
-                                   vdj_type,
-                                   "all_contig_annotations.csv")
-
-            out_loc = os.path.join("cellranger.multi.dir/out.dir/",
-                                   library_id,
-                                   "unfiltered",
-                                   vdj_type,
-                                   "all_contig_annotations.csv.gz")
-
-            cellranger.contig_annotations(ctg_loc, out_loc, library_id)
-
-
-            per_sample_loc = os.path.join("cellranger.multi.dir",
-                                          library_id,
-                                          "outs/per_sample_outs/")
-
-            per_sample_dirs = glob.glob(per_sample_loc + "*")
-
-            for per_sample_dir in per_sample_dirs:
-
-                sample_id = os.path.basename(per_sample_dir)
-
-                ctg_loc = os.path.join(per_sample_dir,
-                                       vdj_type,
-                                       "filtered_contig_annotations.csv")
-
-                out_loc = os.path.join("cellranger.multi.dir/out.dir/",
-                                       library_id,
-                                       "filtered",
-                                       sample_id,
-                                       vdj_type,
-                                       "filtered_contig_annotations.csv.gz")
-
-                cellranger.contig_annotations(ctg_loc, out_loc, library_id)
-
-    IOTools.touch_file(outfile)
-
-
-
-@transform(postProcessVDJ,
-           regex(r"(.*)/out.dir/(.*)/post.process.vdj.sentinel"),
-           r"\1/out.dir/\2/register.vdj.sentinel")
-def vdjAPI(infile, outfile):
-    '''
-    Register the post-processed VDJ contigfiles on the API endpoint
-    '''
-
-    x = T.api("cellranger.multi")
-
-    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv.gz",
+    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
                                            "format": "csv",
                                            "description": "per-cell contig annotations"}}
 
-    library_id = outfile.split("/")[-2]
-
-    source_loc = os.path.dirname(infile)
+    library_id = os.path.basename(infile[:-len(".sentinel")])
 
     for data_subset in ["unfiltered", "filtered"]:
 
-        for vdj_type in ["vdj_b", "vdj_t"]:
+        if data_subset == "filtered":
+            fn = "filtered_contig_annotations.csv"
+            prefix = "filtered"
+        elif data_subset == "unfiltered":
+            fn = "all_contig_annotations.csv"
+            prefix = "all"
+
+        vdj_x = vdj_template.copy()
+        vdj_x["contig_annotations"]["path"] = os.path.join("cellranger.vdj.b.dir",
+                                                           library_id,"outs",fn)
+
+        x.define_dataset(analysis_name="vdj_b",
+                    data_subset=data_subset,
+                    data_id=library_id,
+                    file_set=vdj_x,
+                    analysis_description="cellranger VDJ B contig annotations")
+
+        x.register_dataset()
 
 
-            if data_subset == "filtered":
-                data_subset_path = data_subset + "/" + library_id
-                prefix = "filtered"
-            elif data_subset == "unfiltered":
-                data_subset_path = data_subset
-                prefix = "all"
-            else:
-                raise ValueError("subset not recognised")
-
-            vdj_loc = os.path.join(source_loc,
-                                   data_subset_path,
-                                   vdj_type)
-
-            if os.path.exists(vdj_loc):
-
-                contig_file = os.path.join(vdj_loc,
-                                           prefix + "_contig_annotations.csv.gz")
-
-                vdj_x = vdj_template.copy()
-                vdj_x["contig_annotations"]["path"] = contig_file
-
-                x.define_dataset(analysis_name=vdj_type,
-                          data_subset=data_subset,
-                          data_id=library_id,
-                          file_set=vdj_x,
-                          analysis_description="cellranger contig annotations")
-
-                x.register_dataset()
-
-#
-# ---------------------------------------------------
-# Generic pipeline tasks
+# ---------------------------< Pipeline targets >------------------------------ #
 
 @follows(count, 
-         mtxAPI, h5API, vdjAPI)
+         mtxAPI, h5API, 
+         tcrAPI, bcrAPI)
 def full():
     '''
     Run the full pipeline.
