@@ -34,49 +34,75 @@ The pipeline requires two inputs: (i) a "sample.metadata.tsv" file describing th
 and (ii) a "fastq.manifest.tsv" table that lists the directories containing the 
 fastq files.
 
-(i) libraries.tsv
+(i) samples.tsv
 ^^^^^^^^^^^^^^^^^
 
-A table summarising the libraries to be analysed. In this context, 
-"library_id" is a unique identifier for the sequencing libraries 
-generated from a single channel on a single chip. It is shared 
-across modalities. A mapping betweeen samples, chips and channels 
-must be provided in the "samples.tsv" file for the downstream pipelines,
-but is not required to run this pipeline.
- 
-The library_id is appended to the cell barcodes.
+A table describing the samples and libraries to be analysed. 
 
-This table has the following mandatory columns:
+It must have the following columns:
 
-library_id: This is assumed to be a unique identifier: all fastqs linked to a given library_id
-             are merged (within feature type).
-chemistry:  The options are: 'auto' for autodetection, 
-                             'threeprime' for Single Cell 3', 
-                             'fiveprime' for  Single Cell 5', 
-                             'SC3Pv1',
-                             'SC3Pv2',
-                             'SC3Pv3', 
-                             'SC5P-PE',
-                             'SC5P-R2' for Single Cell 5', paired-end/R2-only,
-                             'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
-expect_cells: An integer specifying the expected number of cells
+* "sample_id" a unique identifier for the biological sample being analysed
+* "library_id" is a unique identifier for the sequencing libraries generated 
+  from a single channel on a single 10x chip. Use the same "library ID" for
+  Gene Expression, Antibody Capture, VDJ-T and VDJ-B libraries that are generated
+  from the same channel.
+* "chemistry": The 10x reaction chemistry, the options are: 
+    'auto' for autodetection, 
+    'threeprime' for Single Cell 3', 
+    'fiveprime' for  Single Cell 5', 
+    'SC3Pv1',
+    'SC3Pv2',
+    'SC3Pv3', 
+    'SC5P-PE',
+    'SC5P-R2' for Single Cell 5', paired-end/R2-only,
+    'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
+* "expect_cells": An integer specifying the expected number of cells
+
+It is recommended to include the following columns
+
+* "chip": a unique ID for the 10x Chip
+* "channel_id": an integer denoted the channel on the chip
+* "date": the date the 10x run was performed
+
+Additional arbitrary columns describing the sample metadata should be included
+to aid the downstream analysis, for example
+
+* "condition"
+* "replicate"
+* "timepoint"
+* "genotype"
+* "age"
+* "sex"
 
 
-(ii) fastqs.tsv
-^^^^^^^^^^^^^^^
 
-This table must have the following columns:
+(ii) libraries.tsv
+^^^^^^^^^^^^^^^^^^
 
-library_id: the name of the sample from which the sequencing data were derived
-feature_type: one of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-B"
-seq_lane: an integer denoting the sequencing lane. When samples have multiple lanes, 
-the sequencing data is automatically combined.
-fastq_path: the location of the folder containing the fastq files
+A table that links individual sequencing libraries, library types and
+FASTQ file locations.
 
-Note:
+It must have the follow columns
 
-Cellranger requires the fastq file "sample" prefix to match the name of the folder. 
-The fastq files for each sample and each lane must be provided in seperate folders.
+* "library_id": Must match the library_ids provided in the "samples.tsv" file, for 
+   details see above.
+* "feature_type": One of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-B".
+   Case sensitive.
+* "fastq_path": the location of the folder containing the fastq files
+* "sample": this will be passed to the "--sample" parameter of the cellranger 
+  pipelines (see: https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/using/fastq-input)
+  It is only used to match the relevant FASTQ files: it does not have to match the 
+  "sample_id" provided in the "samples.tsv" table, and is not used in downstream analysis.
+
+Note: Use of the cellranger "--lanes": parameter is not supported. This means that
+data from all the lanes present in the given location for the given "sample" prefix
+will be run. If you need to analyse data from a single lane, link the data from that lane 
+into a different location. 
+
+Note: To combine sequencing data from different sequencing runs (i.e. in different folders), 
+add additional rows to the table. Rows with identical "library_id", "feature_type" 
+and "sample" values are automatically combined (i.e. the "sample" prefixes must be the same
+in the different locations). 
 
 Dependencies
 ------------
@@ -149,11 +175,13 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 # ----------------------- < helper functions > ------------------------ #
 
 
-# -------------------------- Read in the samples set -------------------------- #
+# ----------------------- Read in the samples set -------------------------- #
 
-S = samples.lib(pipeline="cellranger",
-                 fastq_tsv = PARAMS["fastq_table"],
-                 library_tsv = PARAMS["library_table"])
+# Only do this when tasks are being executed.
+if len(sys.argv) > 1:
+    if sys.argv[1] == "make":       
+        S = samples.samples(sample_tsv = PARAMS["sample_table"],
+                    library_tsv = PARAMS["library_table"])
 
 
 # ########################################################################### #
@@ -165,17 +193,17 @@ S = samples.lib(pipeline="cellranger",
 
 def count_jobs():
 
-    if not os.path.exists("count.dir"):
-        os.mkdir("count.dir")
+    if not os.path.exists("cellranger.count.dir"):
+        os.mkdir("cellranger.count.dir")
     
     for lib in S.feature_barcode_libraries():
     
-        csv_path = os.path.join("count.dir", lib + ".csv")
+        csv_path = os.path.join("cellranger.count.dir", lib + ".csv")
     
         if not os.path.exists(csv_path):
             S.write_csv(lib, csv_path)
     
-        yield(csv_path, os.path.join("count.dir",
+        yield(csv_path, os.path.join("cellranger.count.dir",
                                  lib + ".sentinel"))
     
     
@@ -191,7 +219,7 @@ def count(infile, outfile):
 
     this_library_id = os.path.basename(infile)[:-len(".csv")]
 
-    library_parameters = S.libs[this_library_id]
+    library_parameters = S.samples[this_library_id]
 
     # provide references for the present feature types
     lib_types = S.lib_types(this_library_id)
@@ -222,7 +250,7 @@ def count(infile, outfile):
     if PARAMS["gex_include-introns"]:
         includeintrons = "--include-introns=true"
  
-    statement = '''cd count.dir;
+    statement = '''cd cellranger.count.dir;
                     cellranger count
 	    	        --id %(this_library_id)s
                     %(transcriptome)s
@@ -288,7 +316,7 @@ def mtxAPI(infile, outfile):
     library_id = os.path.basename(infile)[:-len(".sentinel")]
 
     # 1. deal with unfiltered count data
-    matrix_location = os.path.join("count.dir", library_id,
+    matrix_location = os.path.join("cellranger.count.dir", library_id,
                                    "outs/raw_feature_bc_matrix")
 
 
@@ -297,7 +325,7 @@ def mtxAPI(infile, outfile):
                       "id": library_id}}
 
     # 2. deal with the filtered data
-    matrix_location = os.path.join("count.dir", library_id,
+    matrix_location = os.path.join("cellranger.count.dir", library_id,
                                    "outs/filtered_feature_bc_matrix")
 
     to_register[1] = {"type": "filtered", 
@@ -353,7 +381,7 @@ def h5API(infile, outfile):
                                  "description": "10X h5 count file"}}
 
     # 1. deal with unfiltered count data
-    h5_location = os.path.join("count.dir", library_id,
+    h5_location = os.path.join("cellranger.count.dir", library_id,
                                "outs/raw_feature_bc_matrix.h5")
 
     h5_x = h5_template.copy()
@@ -371,7 +399,7 @@ def h5API(infile, outfile):
 
 
     # 2. deal with per sample libraries
-    h5_location = os.path.join("count.dir", library_id,
+    h5_location = os.path.join("cellranger.count.dir", library_id,
                                "outs/filtered_feature_bc_matrix.h5")
 
     h5_x = h5_template.copy()
@@ -398,7 +426,7 @@ def tcr_jobs():
 
     for lib in S.vdj_t_libraries():
         
-        yield(None, os.path.join("vdj.t.dir",
+        yield(None, os.path.join("cellranger.vdj.t.dir",
                                  lib + ".sentinel"))
     
 @files(tcr_jobs)
@@ -421,7 +449,7 @@ def tcr(infile, outfile):
     
     fastq_path = S.get_fastqs(this_library_id,"VDJ-T")
  
-    statement = '''cd vdj.t.dir;
+    statement = '''cd cellranger.vdj.t.dir;
                     cellranger vdj
                     --chain=TR
 	    	        --id=%(library_id)s
@@ -452,7 +480,7 @@ def bcr_jobs():
 
     for lib in S.vdj_b_libraries():
         
-        yield(None, os.path.join("vdj.b.dir",
+        yield(None, os.path.join("cellranger.vdj.b.dir",
                                  lib + ".sentinel"))
     
 @files(bcr_jobs)
@@ -475,7 +503,7 @@ def bcr(infile, outfile):
     
     fastq_path = S.get_fastqs(this_library_id,"VDJ-B")
  
-    statement = '''cd vdj.t.dir;
+    statement = '''cd cellranger.vdj.t.dir;
                     cellranger vdj
                     --chain=TR
 	    	        --id=%(library_id)s

@@ -9,10 +9,10 @@
 # location of the fastq information table
 # for details of the required columns please see the
 # pipeline_cellranger.py documentation
-fastq_table: ./fastqs.tsv
+sample_table: ./samples.tsv
 
 # location of the library information table
-# for detailes of the required columns please see the
+# for details of the required columns please see the
 # pipeline_cellranger.py documentation
 library_table: ./libraries.tsv
 
@@ -29,9 +29,14 @@ cellranger:
     # https://support.10xgenomics.com/single-cell-gene-expression/software/overview/system-requirements
     #
     # It is recommended to use 16 cores and 128GB RAM if possible
-    # but this needs to be traded off with being able to 
+    #
+    # ...but this needs to be traded off with being able to 
     # get the resources on the cluster & the number of samples
-    # being processed.
+    # being processed. 
+    #
+    # Note: the martian runtime seems to use minimum
+    # units of 4 cores for job processing, so specify cores
+    # in units of 4.
 
     # Set the number of cores to use for each job
     localcores: 8

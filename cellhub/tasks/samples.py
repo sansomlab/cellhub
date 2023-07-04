@@ -7,7 +7,7 @@ Overview
 
 
 - read in samples to pandas table
-- read in fastqs to pandas table
+- read in libraries to pandas table
 
 - make sample object
      - has metadata
@@ -53,37 +53,28 @@ def check_values(pd_frame, col, allowed):
                          + col + "': " + ",".join(allowed))
 
 
-class lib():
+class samples():
     '''
-    A class for defining samples.
-
-    When initialising an instance of the class, the pipeline name
-    is passed e.g.::
-
-      x = cellhub.tasks.api.register("cell_qc")
-
-    .. note:: pipeline names are sanitised to replace spaces, underscores and hypens with periods.
+    A class for defining the samples and libraries present in
+    a 10x experiment.
     '''
 
-    def __init__(self, pipeline = None, fastq_tsv = None, library_tsv = None):
+    def __init__(self,
+                 sample_tsv = None, 
+                 library_tsv = None):
 
-        if pipeline is None or pipeline == "":
-            raise ValueError("a pipeline name must be specified")
-
-        self.pipeline = re.sub("[ \-_]",".",pipeline)
-
+        samples = pd.read_csv(sample_tsv, sep="\t")
+        sample_cols = ["sample_id", "library_id", 
+                       "chemistry", "expect_cells"]
+        
+        check_cols(samples,sample_cols,
+                   "samples.tsv")
+        
         libs = pd.read_csv(library_tsv, sep="\t")
-        lib_cols = ["library_id", "chemistry", "expect_cells"]
         
-        check_cols(libs,lib_cols,
+        check_cols(libs, ["library_id","feature_type",
+                            "sample","fastq_path"],
                    "libraries.tsv")
-        
-        fastqs = pd.read_csv(fastq_tsv, sep="\t")
-        print(fastqs)
-        
-        check_cols(fastqs, ["library_id","feature_type",
-                            "seq_lane","fastq_path"],
-                   "fastqs.tsv")
         
         self.feature_types = ["Gene Expression",
                          "Antibody Capture",
@@ -92,36 +83,36 @@ class lib():
         
         self.vdj_types = ["VDJ-T", "VDJ-B"]
         
-        check_values(fastqs, "feature_type", 
+        check_values(libs, "feature_type", 
                      self.feature_types + self.vdj_types)
         
-        if len(libs["library_id"].values) > len(set(fastqs["library_id"].values)):
+        if len(samples["library_id"].values) > len(set(libs["library_id"].values)):
             raise ValueError("Non-unique library_ids provided")
             
-        libraries = libs["library_id"].values
+        libraries = samples["library_id"].values
         
-        libs.index = libs["library_id"]
-        self.libs = libs.to_dict(orient="index")
+        samples.index = samples["library_id"]
+        self.samples = samples.to_dict(orient="index")
         
-        fastqs.sort_values(["library_id",
+        libs.sort_values(["library_id",
                     "feature_type",
                     "seq_lane"], inplace=True)
 
-        f = (fastqs.groupby(["libarary_id","feature_type"])
+        agg_libs = (libs.groupby(["library_id","feature_type","sample"])
                 .agg({'library_id':'first', 'feature_type':'first', 
-                      'fastq_path':','.join}))
+                      'sample':'first', 'fastq_path':','.join}))
         
-        f.index = f["library_id"]
+        agg_libs.index = agg_libs["library_id"]
         
-        self.fastqs = f
+        self.libs = agg_libs
 
     def get_fastqs(self, library_id, feature_type):
         '''
         Return path(s) to fastq(s) for given library and
         feature type
         '''
-        x = self.fastqs[self.fastqs["library_id"]==library_id &
-                        self.fastqs["feature_type"]==feature_type]
+        x = self.libs[self.libs["library_id"]==library_id &
+                        self.libs["feature_type"]==feature_type]
         
         if x.shape[1] > 1:
             raise ValueError("Fastq path mapping is not unique")
@@ -138,7 +129,7 @@ class lib():
         '''
 
         return(set(
-            self.fastqs[self.fastqs["feature_type"].isin(
+            self.libs[self.libs["feature_type"].isin(
             self.feature_types)]["library_id"].values
         ))
         
@@ -147,7 +138,7 @@ class lib():
         Return a list of libraries with VDJ data
         '''
         return(set(
-            self.fastqs[self.fastqs["feature_type"].isin(
+            self.libs[self.libs["feature_type"].isin(
             self.vdj_types)]["library_id"].values
         ))
         
@@ -156,7 +147,7 @@ class lib():
         Return a list of libraries with VDJ data
         '''
         return(set(
-            self.fastqs[self.fastqs["feature_type"]=="VDJ-T"]["library_id"].values
+            self.libs[self.libs["feature_type"]=="VDJ-T"]["library_id"].values
         ))
         
     def vdj_b_libraries(self):
@@ -164,13 +155,13 @@ class lib():
         Return a list of libraries with VDJ data
         '''
         return(set(
-            self.fastqs[self.fastqs["feature_type"]=="VDJ-B"]["library_id"].values
+            self.libs[self.libs["feature_type"]=="VDJ-B"]["library_id"].values
         ))
         
     def lib_types(self, library_id):
     
         return(set([x for x in 
-                    self.fastqs[self.fastqs["library_id"]==library_id]["feature_type"].values
+                    self.libs[self.libs["library_id"]==library_id]["feature_type"].values
                     ]))
         
 
@@ -185,11 +176,11 @@ class lib():
             /opt/foo/,CRISPR_sample1,CRISPR Guide Capture
         '''
         
-        out = self.fastqs[self.fastqs["library_id"]==library_id]
+        out = self.libs[self.libs["library_id"]==library_id]
         
         out = out[out["feature_type"].isin(self.feature_types)]
         
-        out = out[["fastq_path", "library_id","feature_type"]]
+        out = out[["fastq_path", "sample","feature_type"]]
         out.columns = ["fastqs","sample","library_type"]
         
         out.to_csv(outfile_path, index=False, sep=",")
