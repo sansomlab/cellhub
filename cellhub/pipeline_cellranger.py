@@ -96,12 +96,23 @@ It must have the follow columns
 
 Note: Use of the cellranger "--lanes": parameter is not supported. This means that
 data from all the lanes present in the given location for the given "sample" prefix
-will be run. If you need to analyse data from a single lane, link the data from that lane 
-into a different location. 
+will be run. This applies for both Gene Expression and VDJ analysis. If you need to 
+analyse data from a single lane, link the data from that lane into a different location. 
 
-Note: To combine sequencing data from different sequencing runs (i.e. in different folders), 
-add additional rows to the table. Rows with identical "library_id" and "feature_type" 
-are automatically combined.
+Note: To combine sequencing data from different flow cells, add additional rows to the table. 
+Rows with identical "library_id" and "feature_type" are automatically combined by the 
+pipelines. If you are doing this for VDJ data, the data from the different flows cells must be
+in different folders as explained in the note below.
+
+Note: For V(D)J analysis, if you need to combine FASTQ files that have a different "sample" prefix 
+(i.e. from different flow cells) the FASTQ files with different "sample" prefixes must be presented 
+in seperate folders. This is because, despite the docs indicating otherwise 
+(https://support.10xgenomics.com/single-cell-vdj/software/pipelines/latest/using/vdj) 
+"cellranger vdj" does not support this:
+                                   --sample prefix1,prefix2 --fastqs all_data/,all_data/
+but it does support:
+                                   --sample prefix1,prefix2 --fastqs flow_cell_1/,flow_cell_2/.
+
  
 
 Dependencies
@@ -278,7 +289,7 @@ def count(infile, outfile):
 
 @transform(count,
            regex(r"(.*)/(.*).sentinel"),
-           r"\1/register.mtx.sentinel")
+           r"\1/\2.mtx.register.sentinel")
 def mtxAPI(infile, outfile):
     '''
     Register the count market matrix (mtx) files on the API endpoint
@@ -361,7 +372,7 @@ def mtxAPI(infile, outfile):
 
 @transform(count,
            regex(r"(.*)/(.*).sentinel"),
-           r"\1/register.h5.sentinel")
+           r"\1/\2.h5.register.sentinel")
 def h5API(infile, outfile):
     '''
     Put the h5 files on the API
@@ -471,10 +482,10 @@ def tcr(infile, outfile):
 
 @transform(tcr,
            regex(r"(.*)/(.*).sentinel"),
-           r"\1/\2.register.tcr.sentinel")
-def tcrAPI(infile, outfile):
+           r"\1/\2.tcr.register.sentinel")
+def registerTCR(infile, outfile):
     '''
-    Register the VDJ-T contigfiles on the API endpoint
+    Register the TCR contigfiles on the API endpoint
     '''
 
     x = T.api("cellranger")
@@ -505,6 +516,82 @@ def tcrAPI(infile, outfile):
                     analysis_description="cellranger VDJ T contig annotations")
 
         x.register_dataset()
+        
+    IOTools.touch_file(outfile)
+
+# ---------------------------< merged TCR contig annotations >------------------------------ #
+
+@merge(tcr,
+       "cellranger.vdj.t.dir/out.dir/merged.tcr.sentinel")
+def mergeTCR(infiles, outfile):
+    '''
+    Merge the TCR contig annotations
+    '''
+    
+    t = T.setup(infiles[0], outfile, PARAMS)
+
+    statements = []
+    for ann in ["filtered_contig_annotations.csv", 
+                "all_contig_annotations.csv"]:
+    
+        table_paths = " ".join([os.path.join(x[:-len(".sentinel")],
+                                             "outs", ann)
+                                for x in infiles])
+
+        table_file = os.path.join(t.outdir, ann.replace(".csv",".tsv") + ".gz")
+
+        statement = '''python -m cgatcore.tables
+                            --regex-filename ".*/(.*)/.*/.*"
+                            --cat "library_id"
+                            %(table_paths)s
+                    | grep -v "^#" | sed 's/,/    /g'
+                    | gzip -c
+                    > %(table_file)s
+                ''' % locals()
+
+        statements.append(statement)
+    
+    P.run(statements)
+    
+    IOTools.touch_file(outfile)
+
+
+@files(mergeTCR, 
+       "cellranger.vdj.t.dir/out.dir/merged.tcr.register.sentinel")
+def registerMergedTCR(infile, outfile):
+    '''
+    Register the merged TCR contigfiles on the API endpoint
+    '''
+
+    x = T.api("cellranger")
+
+    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
+                                           "format": "csv",
+                                           "description": "per-cell contig annotations"}}
+
+    library_id = os.path.basename(infile[:-len(".sentinel")])
+
+    for data_subset in ["unfiltered", "filtered"]:
+
+        if data_subset == "filtered":
+            fn = "filtered_contig_annotations.tsv.gz"
+            prefix = "filtered"
+        elif data_subset == "unfiltered":
+            fn = "all_contig_annotations.tsv.gz"
+            prefix = "all"
+
+        vdj_x = vdj_template.copy()
+        vdj_x["contig_annotations"]["path"] = os.path.join("cellranger.vdj.t.dir",
+                                                           "out.dir",fn)
+
+        x.define_dataset(analysis_name="vdj_t_merged",
+                    data_subset=data_subset,
+                    file_set=vdj_x,
+                    analysis_description="Merged cellranger VDJ T contig annotations")
+
+        x.register_dataset()
+        
+    IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
@@ -524,8 +611,6 @@ def bcr_jobs():
 def bcr(infile, outfile):
     '''
     Execute the cellranger vdj pipeline for the BCR libraries
-    
-    * Untested *
     '''
     
     t = T.setup(infile, outfile, PARAMS,
@@ -538,11 +623,11 @@ def bcr(infile, outfile):
     if PARAMS["vdj_b_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_b_inner-enrichment-primers"]
     
-    sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-T")
+    sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-B")
  
-    statement = '''cd cellranger.vdj.t.dir;
+    statement = '''cd cellranger.vdj.b.dir;
                     cellranger vdj
-                    --chain=TR
+                    --chain=IG
 	    	        --id=%(library_id)s
                     --fastqs=%(fastq_path)s
                     --sample=%(sample)s
@@ -561,15 +646,12 @@ def bcr(infile, outfile):
     P.run(statement, **t.resources)
     IOTools.touch_file(outfile)
 
-
 @transform(bcr,
            regex(r"(.*)/(.*).sentinel"),
-           r"\1/\2.register.bcr.sentinel")
-def bcrAPI(infile, outfile):
+           r"\1/\2.bcr.register.sentinel")
+def registerBCR(infile, outfile):
     '''
-    Register the VDJ-B contigfiles on the API endpoint
-    
-    * Untested *
+    Register the individual BCR contigfiles on the API endpoint
     '''
 
     x = T.api("cellranger")
@@ -600,13 +682,91 @@ def bcrAPI(infile, outfile):
                     analysis_description="cellranger VDJ B contig annotations")
 
         x.register_dataset()
+        
+    IOTools.touch_file(outfile)
+
+# ---------------------------< merged BCR contig annotations >------------------------------ #
+
+@merge(bcr,
+       "cellranger.vdj.b.dir/out.dir/merged.bcr.sentinel")
+def mergeBCR(infiles, outfile):
+    '''
+    Merge the BCR contigfiles
+    '''
+    
+    t = T.setup(infiles[0], outfile, PARAMS)
+
+    statements = []
+    for ann in ["filtered_contig_annotations.csv", 
+                "all_contig_annotations.csv"]:
+    
+        table_paths = " ".join([os.path.join(x[:-len(".sentinel")],
+                                             "outs", ann)
+                                for x in infiles])
+
+        table_file = os.path.join(t.outdir, ann.replace(".csv",".tsv") + ".gz")
+
+        statement = '''python -m cgatcore.tables
+                            --regex-filename ".*/(.*)/.*/.*"
+                            --cat "library_id"
+                            %(table_paths)s
+                    | grep -v "^#" | sed 's/,/    /g'
+                    | gzip -c
+                    > %(table_file)s
+                ''' % locals()
+
+        statements.append(statement)
+    
+    P.run(statements)
+    
+    IOTools.touch_file(outfile)
+
+
+@files(mergeBCR, 
+       "cellranger.vdj.b.dir/out.dir/merged.bcr.register.sentinel")
+def registerMergedBCR(infile, outfile):
+    '''
+    Register the merged VDJ-B contigfiles on the API endpoint
+    '''
+
+    x = T.api("cellranger")
+
+    vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
+                                           "format": "csv",
+                                           "description": "per-cell contig annotations"}}
+
+    library_id = os.path.basename(infile[:-len(".sentinel")])
+
+    for data_subset in ["unfiltered", "filtered"]:
+
+        if data_subset == "filtered":
+            fn = "filtered_contig_annotations.tsv.gz"
+            prefix = "filtered"
+        elif data_subset == "unfiltered":
+            fn = "all_contig_annotations.tsv.gz"
+            prefix = "all"
+
+        vdj_x = vdj_template.copy()
+        vdj_x["contig_annotations"]["path"] = os.path.join("cellranger.vdj.b.dir",
+                                                           "out.dir",fn)
+
+        x.define_dataset(analysis_name="vdj_b_merged",
+                    data_subset=data_subset,
+                    #data_id=library_id,
+                    file_set=vdj_x,
+                    analysis_description="Merged cellranger VDJ B contig annotations")
+
+        x.register_dataset()
+        
+    IOTools.touch_file(outfile)
 
 
 # ---------------------------< Pipeline targets >------------------------------ #
 
 @follows(count, 
          mtxAPI, h5API, 
-         tcrAPI, bcrAPI)
+         registerTCR, registerBCR,
+         registerMergedBCR, registerMergedTCR)
 def full():
     '''
     Run the full pipeline.

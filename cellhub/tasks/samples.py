@@ -126,7 +126,18 @@ class samples():
             raise ValueError("Sample and path aggregation failed, check input files.")
         
         fastq_path = x["fastq_path"].values[0]
+        # check that the fastq paths are different (see note in pipeline_cellranger.py)
+        fqps = [x.strip() for x in fastq_path.split(",")]
+        
+        if len(set(fqps)) < len(fqps):
+        
+            raise ValueError("Duplicate FASTQ paths detected for data from different"
+                             " flow cells. This is not supported by the 'cellranger vdj' command." 
+                             " VDJ data from different flow cells must be arranged in different" 
+                             " folders. See note in pipeline_cellranger.py")
+
         sample = x["sample"].values[0]
+        
         return({"fastq_path":fastq_path, "sample":sample})
         
 
