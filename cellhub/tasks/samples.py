@@ -76,15 +76,15 @@ class samples():
                             "sample","fastq_path"],
                    "libraries.tsv")
         
-        self.feature_types = ["Gene Expression",
+        self.known_feature_library_types = ["Gene Expression",
                          "Antibody Capture",
                          "CRISPR Guide Capture",
                          "Custom"]
         
-        self.vdj_types = ["VDJ-T", "VDJ-B"]
+        self.known_vdj_types = ["VDJ-T", "VDJ-B"]
         
         check_values(libs, "feature_type", 
-                     self.feature_types + self.vdj_types)
+                     self.known_feature_library_types + self.known_vdj_types)
         
         if not samples["library_id"].is_unique:
             raise ValueError("Non-unique library_ids provided")
@@ -99,6 +99,9 @@ class samples():
                     "sample"], inplace=True)
         
         self.libs = libs
+        
+        self.feature_types = set(libs["feature_type"])
+
 
     def get_samples_and_fastqs(self, library_id, feature_type):
         '''
@@ -149,7 +152,7 @@ class samples():
 
         return(set(
             self.libs[self.libs["feature_type"].isin(
-            self.feature_types)]["library_id"].values
+            self.known_feature_library_types)]["library_id"].values
         ))
         
     def vdj_libraries(self):
@@ -158,7 +161,7 @@ class samples():
         '''
         return(set(
             self.libs[self.libs["feature_type"].isin(
-            self.vdj_types)]["library_id"].values
+            self.known_vdj_types)]["library_id"].values
         ))
         
     def vdj_t_libraries(self):
@@ -199,7 +202,7 @@ class samples():
         
         out = self.libs[self.libs["library_id"]==library_id]
         
-        out = out[out["feature_type"].isin(self.feature_types)]
+        out = out[out["feature_type"].isin(self.known_feature_library_types)]
         
         out = out[["fastq_path", "sample","feature_type"]]
         out.columns = ["fastqs","sample","library_type"]
