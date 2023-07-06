@@ -1,0 +1,29 @@
+#
+# Pipeline pipeline_demultiplex.py configuration file
+# ===================================================
+#
+  
+# Path of reference fasta file, should be of the same species but does not necessarily need to be the exact cellranger reference. 
+genome-reference: /gpfs3/well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A/fasta/genome.fa 
+
+# Parameters for souporcell 
+# -------------------------------------------
+# If running pipeline from within the container, please provide the path derived from either user-defined or system-defined bind paths in this section.
+souporcell:
+  # ###
+  genotype-aware: false
+  # Known variants per clone in population vcf mode. 
+  vcf-file:
+  # Which samples in population vcf from vcf_file option represent the donors in your sample, names separated with space.
+  sample-names:
+  
+  # Path of the souporcell container. Required.
+  container-dir: /gpfs3/well/sansom/users/rrl815/devel/souporcell_latest.sif
+  # To read and write files on the host system from within the container, specify bind paths manually. The directories $HOME , /tmp , /proc , /sys , /dev, and $PWD are already among the system-defined bind paths. If the root directory is different in your cluster, please write your root directory here. 
+  bind-path: /gpfs3
+  
+  # Number of clusters. Required. 
+  cluster-number: 8
+  # Max threads to use, more threads required if remapping process should be done
+  threads: 10
+

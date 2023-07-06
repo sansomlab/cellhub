@@ -95,6 +95,16 @@ table:
       path: scrublet.dir
       glob: "*.tsv.gz"
 
+    # souporcell results (optional)
+    # ---------------------------------
+    # location for souporcell results
+    # output of the pipeline_souporcell.py
+    souporcell:
+      active: False
+      name: souporcell
+      path: api/demultiplex/souporcell
+      glob: "*.tsv"
+
     # Final view creation statement
     # -----------------------------
     # The SQL statement used to create the
@@ -127,3 +137,19 @@ table:
       #   USING (library_id, barcode)
       #   LEFT JOIN sample s
       #   on qc.library_id = s.library_id AND gd.gmm_call = s.hto_id;
+
+
+      # Query example for a dataset with souporcell result.
+      # *** note that the sample table is joined
+      #     on library_id AND hto_id ***
+      #
+      # sql_query: >-
+      #  CREATE VIEW final AS
+      #  SELECT s.*, qc.*, scrub.*, sp.*
+      #  FROM gex_qcmetrics qc
+      #  LEFT JOIN sample s
+      #  USING (library_id)
+      #  LEFT JOIN gex_scrublet scrub
+      #  USING (library_id, barcode)
+      #  LEFT JOIN souporcell sp
+      #  USING (library_id, barcode); 

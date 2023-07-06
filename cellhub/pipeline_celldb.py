@@ -166,13 +166,27 @@ def load_demuxEM(outfile):
             glob=x["glob"],
             outfile=outfile)
 
+@active_if(PARAMS["table_souporcell"]["active"])
+@jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
+@originate("celldb.dir/souporcell.load")
+def load_souporcell(outfile):
+    '''load the souporcell cluster result into the database '''
+
+    x = PARAMS["table_souporcell"]
+
+    celldb.load(x["name"],
+            x["path"],
+            db_url=PARAMS["database_url"],
+            glob=x["glob"],
+            outfile=outfile)
 
 @follows(load_samples,
          load_gex_qcmetrics,
          load_gex_scrublet,
          load_singleR,
          load_gmm_demux,
-         load_demuxEM)
+         load_demuxEM,
+         load_souporcell)
 @jobs_limit(PARAMS.get("jobs_limit_db", 1), "db")
 @originate("celldb.dir/final.sentinel")
 def final(outfile):
