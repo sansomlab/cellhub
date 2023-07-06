@@ -428,21 +428,6 @@ def compareClusters(infile, outfile):
 
     reductiontype = PARAMS["source_rdim_name"]
 
-    #if t.resolution == "predefined":
-
-        # TODO: Fix.
-        # yz : do we need this? 
-    #    cluster_file = sample + ".cluster_ids.rds"
-
-    #    if os.path.exists(cluster_file):
-    #        predefined = "--predefined=%(cluster_file)s" % locals()
-
-     #   else:
-     #       raise ValueError("Predefined cluster assignment file (%(cluster_file)s) not found" % locals())
-
-    #else:
-     #   predefined = ""
-
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
                    --clusterids=%(cluster_ids)s
@@ -1912,14 +1897,12 @@ def cellxgene(infile, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-
 @follows(report, cellxgene)
 def full():
     pass
 
 
 # ------------------- < ***** end of pipeline **** > ------------------------ #
-
 
 def main(argv=None):
     if argv is None:

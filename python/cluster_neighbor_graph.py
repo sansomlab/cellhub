@@ -87,7 +87,6 @@ if args.method == "scanpy":
               use_rep = nn_rdims)
 
 
-
 elif args.method == "hnsw":
 
     L.info("Computing neighbors using hnswlib (with scvelo a la pegasus!)")
@@ -133,18 +132,16 @@ elif args.method == "sklearn":
 elif args.method == "precomputed":
 
    L.info("Using precomputed neighbors")
+   
+   from scanpy._utils import NeighborsView
 
    #add knn to adata
-   
    adata.uns["neighbors"] = sourceAdata.uns["neighbors"]
    adata.obsp = sourceAdata.obsp
    
    #rename rep_use to 'X___'
-   from scanpy._utils import NeighborsView
    neighbors = NeighborsView(adata, "neighbors")
-        
-   neighbors["params"]["use_rep"]='X_'+args.reduced_dims_name+'_copy_for_nn'
-    
+   neighbors["params"]["use_rep"]='X_'+args.reduced_dims_name+'_copy_for_nn' 
    adata.uns["neighbors"]["params"]=neighbors["params"] 
 
 else:
