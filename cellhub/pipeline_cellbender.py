@@ -21,7 +21,7 @@ Input
 
 The location of the cellhub folder containing the cellranger results that will be used as the input for CellBender is be specified in the "pipeline_cellbender.yml" configuration file. Typically the user will have two parallel "cellhub" instances, e.g.:  
 
-#. "cellhub" <- containing a first cellhub run based on the Cellranger counts (counts registered with "cellhub cellranger_multi make useCounts").
+#. "cellhub" <- containing a first cellhub run based on the Cellranger counts (counts registered with "cellhub cellranger make useCounts").
 
 #. "cellhub_cellbender" <- containing a second cellhub run using CellBender to correct the Cellranger counts from the first run (counts registered with "cellhub cellbender make useCounts").
 

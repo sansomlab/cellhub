@@ -1,0 +1,112 @@
+#
+# Pipeline pipeline_cellranger.py configuration file
+# ==================================================
+#
+
+# General options
+# ---------------
+
+# location of the fastq information table
+# for details of the required columns please see the
+# pipeline_cellranger.py documentation
+sample_table: ./samples.tsv
+
+# location of the library information table
+# for details of the required columns please see the
+# pipeline_cellranger.py documentation
+library_table: ./libraries.tsv
+
+# General Cellranger configuration options
+# ----------------------------------------
+
+cellranger:
+
+    # The minimum system requirements for cellranger
+    # are 8 cores & 64 GB RAM
+    #
+    # Note that allocating additional memory substantially
+    # shortens the wall time, see plots here:
+    # https://support.10xgenomics.com/single-cell-gene-expression/software/overview/system-requirements
+    #
+    # It is recommended to use 16 cores and 128GB RAM if possible
+    #
+    # ...but this needs to be traded off with being able to 
+    # get the resources on the cluster & the number of samples
+    # being processed. 
+    #
+    # Note: the martian runtime seems to use minimum
+    # units of 4 cores for job processing, so specify cores
+    # in units of 4.
+
+    # Set the number of cores to use for each job
+    localcores: 8
+    # Set the amount of memory (in GB) to use for each job
+    localmem: 64
+    
+    # Disable secondary analysis, e.g. clustering. Optional.
+    # Default: false.
+    nosecondary: true
+
+    # Disables BAM(.bai) file generation, saving disk space at the expense of interrogable alignment records.
+    # Default: false.
+    no-bam: true
+
+
+
+# parameters for cell ranger count that are common to gex and feature analysis
+count:
+
+        # Hard trim the input Read_1/Read_2 of Feature Barcode libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2.
+        r1-length: false
+        r2-length: false
+
+
+# Section describing configuration of Gene Expression libraries only, unless otherwise specified.
+gex:
+        # Path of folder containing 10x-compatible reference. Required for gene expression and Feature Barcode libraries.
+        # e.g. mouse /gfs/mirror/genomes/10x/refdata-gex-mm10-2020-A; human: /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+        reference: /well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A
+
+        # Path to a target panel CSV file or name of a 10x Genomics fixed gene panel (pathway, pan-cancer, immunology, neuroscience). Optional.
+        target-panel: false
+
+        # Disable targeted UMI filtering stage. Optional. Default: false.
+        no-target-umi-filter: false
+
+        # Enables intron mode, which includes the counting of reads that align to intronic regions.
+        # Default: true
+        include-introns: true
+
+        
+# Section describing configuration of Feature Barcode libraries only, unless otherwise specified.
+feature:
+        # Feature reference CSV file, declaring Feature Barcode constructs and associated barcodes. Required for Feature Barcode libraries, otherwise optional.
+        # e.g. /analysis/pipeline_cellranger_6/test_pipeline_multi/features.TSC.csv
+        reference:
+
+
+# Section describing configuration of VDJ Immune Profiling libraries only, unless otherwise specified.
+vdj_t:
+        # Path of folder containing 10x-compatible VDJ reference. Required for Immune Profiling libraries.
+        # /genomes/10x/refdata-cellranger-vdj-GRCm38-alts-ensembl-5.0.0
+        reference: /well/kir/mirror/genomes/10x/refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0
+
+        # If inner enrichment primers other than those provided in the 10x kits are used, they need to be specified here as a text file with one primer per line. Optional.
+        inner-enrichment-primers: false
+
+        # Hard trim the input Read_1/Read_2 of VDJ libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
+        r1-length: false
+        r2-length: false
+     
+# Section describing configuration of VDJ Immune Profiling libraries only, unless otherwise specified.
+vdj_b:
+        # Path of folder containing 10x-compatible VDJ reference. Required for Immune Profiling libraries.
+        # /genomes/10x/refdata-cellranger-vdj-GRCm38-alts-ensembl-5.0.0
+        reference: /well/kir/mirror/genomes/10x/refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0
+
+        # If inner enrichment primers other than those provided in the 10x kits are used, they need to be specified here as a text file with one primer per line. Optional.
+        inner-enrichment-primers: false
+
+        # Hard trim the input Read_1/Read_2 of VDJ libraries to this length before analysis. Optional. Default: do not trim Read_1/Read_2. <int>
+        r1-length: false
+        r2-length: false

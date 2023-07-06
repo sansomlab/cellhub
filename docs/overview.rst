@@ -4,24 +4,28 @@ Workflow Overview
 Introduction
 ------------
 
-Cellhub is designed to efficiently parallelise the processing of large 10x datasets on compute clusters. Data for each of the capture chip channel sequencing libraries in the experiment is initially processed in parallel (primary and secondary analysis phases). Summary results are then stored in an SQLite database. Cell identifiers are joined with sample metadata, qc statistics and other per-cell information in a virtual table in the database. The data for a set of cells of interest (specified by an SQL query) is extracted into anndata format for downstream analysis. By design, cell QC, pre-processing and integration are left for the user to perform manually. The clustering pipeline can then be used to perform cell clustering (for a selection of resolutions), identify marker genes, perform pathway analysis and export pdf reports and a cellxgene object for inspection. Interoperability between the pipelines is enabled by a structured API.
+Cellhub is designed to efficiently parallelise the processing of large 10x datasets on compute clusters. Data for each of the sequencing libraries in the experiment is quantitated and quality controlled in parallel. Sample metadata, qc statistics and other per-cell information are stored in an SQL database. This information can be easily retrieved from a virtual table in the database for QC analysis. Data for arbitrary sets of cells of interest (specified using an SQL query) can be automatically and rapidly extracted in anndata format for downstream analysis.
+
+By design, in the cellhub workflow, cell QC assessment, pre-processing and integration are performed interactively by the user. Often, different approaches to these steps are appropriate for different datasets and the user is directed to e.g. `Luecken et al. 'Current best practices in single-cell RNA-seq analysis: a tutorial'<https://doi.org/10.15252/msb.20188746>` and `Lueken et al. 'Benchmarking atlas-level data integration in single-cell genomics'<https://doi.org/10.1038/s41592-021-01336-8>` to get a feel for the issues.
+
+Once the data has been integrated, the cellhub clustering pipeline can be used to execute detailed cell clustering analysis for a selection of resolutions. This pipeline will identify marker genes, perform pathway analysis and export pdf reports and a cellxgene object for inspection. 
 
 .. image:: images/cellhub.workflow.overview.png
 
-As shown in the image above, the workflow can be divided into six parts.
+As shown in the image above, the workflow can be divided into six parts. Interoperability between the pipelines is enabled by a structured API, which facilities processing of complex experiment designs (including genetic/hash tag demultiplexing), correction of ambient RNA and easy addition of new workflows.
 
 1. Primary analysis
 -------------------
 
 These pipelines process the raw data to generate count matrices or fetch annotations from externals sources. They register their outputs on the API.
 
-- The workflow typically begins with :doc:`pipeline_cellranger_multi.py<pipelines/pipeline_cellranger_multi>`. Input 10X  channel library identifiers "library_id" and their associated FASTQ files are specified in the pipeline_cellranger_multi.yml configuration file. The reads from the different libraries will be mapped in parallel.
+- The workflow typically begins with :doc:`pipeline_cellranger.py<pipelines/pipeline_cellranger>`. The pipeline maps reads from the different libraries in parallel using "cellranger count" and "cellranger vdj" commands.
 
 - CellBender can be run to correct ambient RNA with :doc:`pipeline_cellbender.py<pipelines/pipeline_cellbender>`. Typically, this pipeline will be run in a separate directory so that the downstream results can be compared with those from the uncorrected cellranger run.
 
 - Velocyto can be run to compute spliced and unspliced counts for RNA-velocity analysis with :doc:`pipeline_velocyto.py<pipelines/pipeline_velocyto>`.
 
-- Cell identification can be performed with :doc:`pipeline_emptydrops.py<pipelines/pipeline_emptydrops>`. Currently results are not available for use downstream.
+- Cell identification can be performed with :doc:`pipeline_emptydrops.py<pipelines/pipeline_emptydrops>` for comparison with the Cellranger calls. Currently results are not available for use downstream.
 
 
 2. Secondary analysis
