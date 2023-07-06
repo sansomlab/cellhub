@@ -84,14 +84,12 @@ def gmmDemux(infile, outfile):
         os.makedirs(gmm_working_dir)
 
     if PARAMS["hto_per_library"] == True:
-        #HTOs = "_".join([PARAMS["hto"], library_id])
-        HTOs = PARAMS["hto_"+library_id]
+        HTOs = "_".join([PARAMS["hto"], library_id])
     else:
         HTOs = PARAMS["hto_names"]
 
-    if PARAMS["gmm_demux_per_library"] == True:
-        
-        threshold = PARAMS["gmm_demux_"+library_id]
+    if PARAMS["gmm_demux_per_library"] == True:  
+        threshold = "_".join([PARAMS["gmm_demux_"], library_id])
     else:
         threshold = PARAMS['gmm_demux_threshold']
 
