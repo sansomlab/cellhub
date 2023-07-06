@@ -25,7 +25,7 @@ Running the pre-processing pipelines and creating the database
 2. Running Cellranger
 ^^^^^^^^^^^^^^^^^^^^^
 
-The first step is to configure and run pipeline_cellranger. This pipeline takes three inputs (i) Information about the biological samples, number of cells expected and the 10x chemistry version are specified in a "samples.tsv" file. (ii) Input 10X  channel library identifiers "library_id", sample prefixes, library types and FASTQ paths are specified via a tab delimited "libraries.tsv" file. (iii) A pipeline_cellranger.yml file is used to configure general options such as computional resource specification and the location of the genomic references. For more details please see: :doc:`pipeline_cellranger.py<pipelines/pipeline_cellranger>`. 
+The first step is to configure and run pipeline_cellranger. This pipeline takes three inputs (i) Information about the biological samples, number of cells expected and the 10x chemistry version are specified in a "samples.tsv" file. (ii) Input 10X  channel library identifiers "library_id", sample prefixes, library types and FASTQ paths are specified via a tab delimited "libraries.tsv" file. (iii) A pipeline_cellranger.yml file is used to configure general options such as computional resource specification and the location of the genomic references. For more details please see: :doc:`pipeline_cellranger.py</pipelines/pipeline_cellranger>`. 
 
 For this example, preconfigured "samples.tsv", "libraries.tsv" and "pipeline_cellranger.yml" files are provided in the cellhub directory. 
 
@@ -39,7 +39,7 @@ Finally, the count matrices must be manually registered on the API for downstrea
 
   cellhub cellranger_multi make useCounts
 
-.. note:: When processing other datasets the "samples.tsv" and "libraries.tsv" files must be created by the user. For more details on constructing these files please see :doc:`pipeline_cellranger.py<pipelines/pipeline_cellranger>`. A template 'pipeline_cellranger.yml' file can be obtained using the "config" command which is common to all cellhub piplines.:
+.. note:: When processing other datasets the "samples.tsv" and "libraries.tsv" files must be created by the user. For more details on constructing these files please see :doc:`pipeline_cellranger.py</pipelines/pipeline_cellranger>`. A template 'pipeline_cellranger.yml' file can be obtained using the "config" command which is common to all cellhub piplines.:
 
   # cellhub cellranger config
 
