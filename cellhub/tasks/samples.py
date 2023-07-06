@@ -86,7 +86,7 @@ class samples():
         check_values(libs, "feature_type", 
                      self.feature_types + self.vdj_types)
         
-        if len(samples["library_id"].values) > len(set(libs["library_id"].values)):
+        if not samples["library_id"].is_unique:
             raise ValueError("Non-unique library_ids provided")
             
         libraries = samples["library_id"].values
