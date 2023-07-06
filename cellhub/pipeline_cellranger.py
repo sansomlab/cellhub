@@ -186,12 +186,21 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # ----------------------- Read in the samples set -------------------------- #
 
+runCount, runTCR, runBCR = False, False, False
+
 # Only do this when tasks are being executed.
 if len(sys.argv) > 1:
-    if sys.argv[1] == "make":       
+    if sys.argv[1] == "make":
+        
         S = samples.samples(sample_tsv = PARAMS["sample_table"],
                     library_tsv = PARAMS["library_table"])
+        
+        if any([x in S.known_feature_library_types  
+                for x in S.feature_types]): 
+            runCount = True
 
+        if "VDJ-T" in S.feature_types: runTCR = True 
+        if "VDJ-B" in S.feature_types: runBCR = True 
 
 # ---------------------------- Pipeline tasks ------------------------------- #
 
@@ -201,9 +210,6 @@ if len(sys.argv) > 1:
 
 # In this section the pipeline processes the gene expression (GEX) and antibody
 # capture, i.e. antibody derived tag (ADT) information.
-
-runCount = True if any([x in S.known_feature_library_types  
-                for x in S.feature_types]) else False
 
 def count_jobs():
 
@@ -437,7 +443,7 @@ def h5API(infile, outfile):
 
 # In this section the pipeline performs the V(D)J-T analysis.
 
-runTCR = True if "VDJ-T" in S.feature_types else False
+
 
 def tcr_jobs():
 
@@ -607,8 +613,6 @@ def registerMergedTCR(infile, outfile):
 # ########################################################################### #
 
 # In this section the pipeline performs the V(D)J B analysis.
-
-runBCR = True if "VDJ-B" in S.feature_types else False
 
 def bcr_jobs():
 
