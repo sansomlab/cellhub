@@ -48,15 +48,15 @@ It must have the following columns:
   Gene Expression, Antibody Capture, VDJ-T and VDJ-B libraries that are generated
   from the same channel.
 * "chemistry": The 10x reaction chemistry, the options are: 
-    'auto' for autodetection, 
-    'threeprime' for Single Cell 3', 
-    'fiveprime' for  Single Cell 5', 
-    'SC3Pv1',
-    'SC3Pv2',
-    'SC3Pv3', 
-    'SC5P-PE',
-    'SC5P-R2' for Single Cell 5', paired-end/R2-only,
-    'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
+  * 'auto' for autodetection, 
+  * 'threeprime' for Single Cell 3', 
+  * 'fiveprime' for  Single Cell 5', 
+  * 'SC3Pv1',
+  * 'SC3Pv2',
+  * 'SC3Pv3', 
+  * 'SC5P-PE',
+  * 'SC5P-R2' for Single Cell 5', paired-end/R2-only,
+  * 'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
 * "expect_cells": An integer specifying the expected number of cells
 
 It is recommended to include the following columns
