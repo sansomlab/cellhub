@@ -24,9 +24,9 @@ Usage
 Registering outputs on the service endpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- All matrices registered on the API that hold per-cell statistics must have "library_id" and "barcode" columns. The library identifiers must correspond with those given in the pipeline_cellranger_multi.yml file. The barcodes field should contain the untouched Cellranger barcodes.
+- All matrices registered on the API that hold per-cell statistics must have "library_id" and "barcode" columns. The library identifiers must correspond with those given in the "libraries.tsv" file. The barcodes field should contain the untouched Cellranger barcodes.
 
-Please see :doc:`pipeline_cellranger_multi.py</pipelines/pipeline_cellranger_multi>` or :doc:`pipeline_cell_qc.py</pipelines/pipeline_cell_qc>` source code for examples of how to register results on the API.
+Please see :doc:`pipeline_cellranger.py</pipelines/pipeline_cellranger>` or :doc:`pipeline_cell_qc.py</pipelines/pipeline_cell_qc>` source code for examples of how to register results on the API.
 
 As an example the code used for registering the qcmetrics outputs is reproduced with some comments here: ::
 

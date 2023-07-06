@@ -61,6 +61,10 @@ class setup():
         elif isinstance(memory, int):
         
             G = int(memory)
+            
+        elif memory.isnumeric():
+        
+            G = int(memory)
         
         elif memory.endswith("G"):
         

@@ -25,12 +25,16 @@ input: mkfastq
 cellranger:
     # Passed to `cellranger multi`
     # Max jobs is passed to slurm as the maximum number of jobs
-    maxjobs: 64
+    maxjobs: 256
 
     # Sort out the job mode/template
 
-    # for SLURM on the Oxford BMRC cluster
-    # a customised template file is required
+    # for SLURM (e.g. Oxford KGen cluster)
+    # - we just need to specify the "slurm" mode
+    # job_template: slurm
+
+    # for SGE/UGE (e.g. Oxford BMRC cluster)
+    # - a customised template file is required
     job_template: /well/sansom/shared/cellranger/job.templates/slurm.template
 
     # specify memory per core
@@ -81,7 +85,7 @@ gene-expression:
         force-cells:
 
         # Enables intron mode, which includes the counting of reads that align to intronic regions.
-        # Default: true
+        # Default: false
         include-introns: false
 
         # Disable secondary analysis, e.g. clustering. Optional.
@@ -120,10 +124,10 @@ vdj:
 libraries:
 
     GSM2560248:
-        description: pbmc unstimulated 10% sub sample.
+        description: pbmc unstimulated.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560248_0.1/
+            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560248/
             feature_types: Gene Expression
             subsample_rate:
             lanes:
@@ -141,10 +145,10 @@ libraries:
             lanes:
 
     GSM2560249:
-        description: pbmc ifnb stimulated 10% sub sample.
+        description: pbmc ifnb stimulated.
         gene-expression:
             fastq_id: bamtofastq
-            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560249_0.1/
+            fastqs: /well/kir/mirror/geo/GSE96583/GSM2560249/
             feature_types: Gene Expression
             subsample_rate:
             lanes:

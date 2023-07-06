@@ -6,7 +6,7 @@ pipeline_ambient_rna.py
 Overview
 ========
 This pipeline performs the following steps:
-* Analyse the ambient RNA profile in each input (eg. channel's or library's raw cellrange matrices)
+* Analyse the ambient RNA profile in each input (eg. channel's or library's raw cellranger matrices)
 * Compare ambient RNA profiles across inputs
 
 
@@ -87,7 +87,7 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 # --------------------------------------------------------
 # Run ambient rna analysis per input (e.g channel, library)
 
-@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+@transform("api/cellranger/counts/unfiltered/*/mtx/matrix.mtx.gz",
            regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"ambient.rna.dir/profile_per_input.dir/\1/ambient_rna.sentinel")
 def ambient_rna_per_input(infile, outfile):

@@ -19,13 +19,13 @@ cellhub:
 # ------------------------
 resources:
   # Memory options for the different steps
-  memory: 16GB
+  memory: 16G
   
   # Is memory allocated by core on the cluster?
   # If not, set to "False"
   # If true, set to the  value of the available
   #    memory/core, e.g. 16GB
-  mempercore: 16GB
+  mempercore: 16G
 
 matrix:
   # column in cell_info from db (using query above) that corresponds to the

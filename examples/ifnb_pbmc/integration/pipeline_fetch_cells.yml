@@ -1,34 +1,33 @@
 # celldb location
 
 cellhub:
-  location: .
+  # The folder containing the cellhub instance
+  # from which we wish to retrieve the cells.
+  location: ../cellhub
 
-# There are some issues for discussion...
-# the script needs to
-# - support both library_ids
-#   and sample_ids for pre/post database summaries
-# - the script should not recompute
-#   avaliable metrics (we have metrics, shouldn't need to read the market matrix!)
-# - generally qc reports would be best made in a
-#   separate pipeline.
-build_reports: False
+  # The query is executed against the "final" view of the
+  # cell hub sqlite database.
+  # - The fields retrieved must include "barcode_id".
+  # - All fields retrieved are parsed into a metadata file
+  #   for the downstream analysis.
+  sql_query: >-
+    select * from final
+    where pct_mitochondrial < 10
+    and ngenes > 200;
 
-query: >-
-  select * from final
-  where pct_mitochondrial < 10
-  and ngenes > 200;
-
+# compute resource options
+# ------------------------
 resources:
-  # memory to be used for tasks: cellSubsets,
-  # can be set to none | e.g. 40G
-  memory: 16GB
+  # Memory options for the different steps
+  memory: 16G
   
-  mempercore: 16GB
-
+  # Is memory allocated by core on the cluster?
+  # If not, set to "False"
+  # If true, set to the  value of the available
+  #    memory/core, e.g. 16GB
+  mempercore: 16G
 
 matrix:
-  dir: cellranger.multi.dir
-  type: mm
   # column in cell_info from db (using query above) that corresponds to the
   # folder names in the cellranger output (=matrix_dir), this name is also used
   # to extract the loom files below
@@ -37,6 +36,10 @@ matrix:
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
+
+# If ADT included, set True to create an ADT independent dataset
+ADT:
+  fetch: False
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True

@@ -84,7 +84,7 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 # ------------------------------ Pipeline Tasks ------------------------------ #
 
 
-@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+@transform("api/cellranger/counts/unfiltered/*/mtx/matrix.mtx.gz",
            regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"emptydrops.dir/emptydrops.dir/\1/emptydrops.sentinel")
 def emptyDrops(infile, outfile):
@@ -115,7 +115,7 @@ def emptyDrops(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-@transform("api/cellranger.multi/counts/unfiltered/*/mtx/matrix.mtx.gz",
+@transform("api/cellranger/counts/unfiltered/*/mtx/matrix.mtx.gz",
            regex(r".*/.*/counts/unfiltered/(.*)/mtx/matrix.mtx.gz"),
            r"emptydrops.dir/meanreads.dir/\1/meanreads.sentinel")
 def meanReads(infile, outfile):

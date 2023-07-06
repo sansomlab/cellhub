@@ -7,7 +7,7 @@ Setting up
 1. Clone the example template to a local folder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Clone the folders and files for the example into a local folder.
+Clone the folders and files for the example into a local folder: ::
 
   cp -r /path/to/cellhub/examples/ifnb_pbmc/* .
 
@@ -17,6 +17,7 @@ This will create 3 folders:
 - "integration" where integration is to be performed.
 - "cluster" where we can perform downstream analysis with "cellhub cluster".
 
+The folders contain the necessary configuration files: please edit the cellhub/libraries.tsv file to point to the location of the FASTQ files on your system.
 
 Running the pre-processing pipelines and creating the database
 --------------------------------------------------------------
@@ -24,23 +25,23 @@ Running the pre-processing pipelines and creating the database
 2. Running Cellranger
 ^^^^^^^^^^^^^^^^^^^^^
 
-The first step is to configure and run pipeline_cellranger_multi. We already have a pre-configured yml file so we can skip this step but the syntax is included for reference here and also for the other steps: ::
+The first step is to configure and run pipeline_cellranger. This pipeline takes three inputs (i) Information about the biological samples, number of cells expected and the 10x chemistry version are specified in a "samples.tsv" file. (ii) Input 10X  channel library identifiers "library_id", sample prefixes, library types and FASTQ paths are specified via a tab delimited "libraries.tsv" file. (iii) A pipeline_cellranger.yml file is used to configure general options such as computional resource specification and the location of the genomic references. For more details please see: :doc:`pipeline_cellranger.py<pipelines/pipeline_cellranger>`. 
 
-  # enter the cellhub directory
+For this example, preconfigured "samples.tsv", "libraries.tsv" and "pipeline_cellranger.yml" files are provided in the cellhub directory. 
 
-  cd cellhub
+Edit the "libraries.tsv" file "fastq_path" column as appropriate to point to folders containing fastq files extracted from the original BAM files submitted by `Kang et. al. <https://doi.org/10.1038/nbt.4042>`_ to GEO (GSE96583). The GEO identifiers are: unstimulated (GSM2560248) and stimulated (GSM2560249). The fastqs can be extracted with the `10X bamtofastq tool <https://support.10xgenomics.com/docs/bamtofastq>`_.
 
-  # cellhub cellranger_multi config
+The pipeline is run as follows: ::
 
-Edit the pipeline_cellranger_multi.yml file as appropriate to point to folders containing fastq files extracted from the original BAM files submitted by `Kang et. al. <https://doi.org/10.1038/nbt.4042>`_ to GEO (GSE96583). The GEO identifiers are: unstimulated (GSM2560248) and stimulated (GSM2560249). The fastqs can be extracted with the `10X bamtofastq tool <https://support.10xgenomics.com/docs/bamtofastq>`_.
-
-We can run the pipeline as follows: ::
-
-  cellhub cellranger_multi make full -v5 -p20
+  cellhub cellranger make full -v5 -p20
 
 Finally, the count matrices must be manually registered on the API for downstream analysis: ::
 
   cellhub cellranger_multi make useCounts
+
+.. note:: When processing other datasets the "samples.tsv" and "libraries.tsv" files must be created by the user. For more details on constructing these files please see :doc:`pipeline_cellranger.py<pipelines/pipeline_cellranger>`. A template 'pipeline_cellranger.yml' file can be obtained using the "config" command which is common to all cellhub piplines.:
+
+  # cellhub cellranger config
 
 
 3. Running the cell qc pipeline
@@ -80,7 +81,7 @@ as well as downstream analysis::
   cellhub singleR make full -v5 -p20
   
 As noted: :doc:`in the pipeline_singleR inputs section <pipelines/pipeline_singleR>` the celldex references
-neede to be stashed before the pipeline is run.
+need to be stashed before the pipeline is run.
 
 
 6. Loading the cell statistics into the celldb
@@ -128,7 +129,7 @@ We use pipeline_fetch_cells to retrieve the cells we want for downstream analysi
   cd ../integration
 
   # cellhub fetch_cells config
-  cellhub fetch_cells make full -v5 -p20 
+  cellhub fetch_cells make full -v5 -p20
 
 
 10. Integration

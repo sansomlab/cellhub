@@ -16,6 +16,7 @@ import shutil
 import os
 from cgatcore import pipeline as P
 
+
 def get_counts(matrix_location, output_location,
                library_id):
     '''
