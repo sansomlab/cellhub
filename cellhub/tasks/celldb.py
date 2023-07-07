@@ -49,6 +49,7 @@ def load(table_name,
         statement = '''python -m cgatcore.tables
                                --regex-filename "%(regex_filename)s"
                                --cat "filename"
+                               --missing-value NULL
                                %(table_path)s/%(glob)s
                        | gzip -c
                        > %(table_file)s

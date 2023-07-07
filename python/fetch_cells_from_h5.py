@@ -42,6 +42,7 @@ print(args)
 # ########################################################################### #
 
 L.info("Reading cell table")
+
 cell_table = pd.read_csv(args.cells, sep="\t")
 
 good_cols = [x for x in cell_table.columns if
@@ -155,18 +156,6 @@ anndata.var = var_frame.loc[anndata.var.index]
 
 # drop unnecessary .obs columns
 anndata.obs.drop("barcode", axis=1, inplace=True)
-
-# YZ: deal with nas in UMI columns if only some samples have ADT layer
-#
-# SNS: these columns are coming from the qc_metrics.R script
-# .... not sure why missing values are a problem? for
-#      plotting don't we want these columns to have a numeric 
-#      type?
-#
-if 'adt_UMI' in anndata.obs.columns:
-#    #if anndata.obs.adt_UMI.isna().values.any():
-    anndata.obs["adt_UMI"] = anndata.obs["adt_UMI"].astype(str)
-    anndata.obs["gex_UMI"] = anndata.obs["gex_UMI"].astype(str)
     
 # save the anndata
 anndata.write_h5ad(os.path.join(args.outdir, args.outname))
