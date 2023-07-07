@@ -42,6 +42,7 @@ print(args)
 # ########################################################################### #
 
 L.info("Reading cell table")
+
 cell_table = pd.read_csv(args.cells, sep="\t")
 
 good_cols = [x for x in cell_table.columns if
@@ -54,9 +55,6 @@ cell_table = cell_table[good_cols]
 cell_table.index = ["-".join(y) for y in 
                     zip([x.split("-")[0] for x in cell_table["barcode"].values],
                         cell_table["library_id"].values)]  
-
-print(cell_table)
-print(cell_table.index)
 
 libraries = set(cell_table["library_id"].values)
 
@@ -158,7 +156,7 @@ anndata.var = var_frame.loc[anndata.var.index]
 
 # drop unnecessary .obs columns
 anndata.obs.drop("barcode", axis=1, inplace=True)
-
+    
 # save the anndata
 anndata.write_h5ad(os.path.join(args.outdir, args.outname))
 

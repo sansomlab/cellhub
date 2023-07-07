@@ -44,7 +44,7 @@ ref_path = file.path(opt$refstashdir, paste(opt$reference,"rds",sep="."))
 print(ref_path)
 ref.se <- readRDS(ref_path)
 
-if (grepl("ENSMUSG", rownames(ref.se)[1]))
+if (grepl("ENSMUSG", rownames(ref.se)[1]) & grepl("ENSG",rownames(sce)[1]))
 {
   message("cleaning up mouse ensembl indentifiers")
   rownames(ref.se) <- gsub("ENSMUSG", "ENSG", rownames(ref.se))

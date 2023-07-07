@@ -154,7 +154,7 @@ def taskSummary(infile, outfile):
     tab = pd.DataFrame(list(zip(tasks,run)),columns=["task","run"])
     tab.to_latex(buf=outfile, index=False, escape=True)
 
-
+    
 @files(PARAMS["source_anndata"],
        "preflight.sentinel")
 def preflight(infile, outfile):
@@ -427,20 +427,6 @@ def compareClusters(infile, outfile):
                 memory=PARAMS["resources_memory_standard"])
 
     reductiontype = PARAMS["source_rdim_name"]
-
-    if t.resolution == "predefined":
-
-        # TODO: Fix.
-        cluster_file = sample + ".cluster_ids.rds"
-
-        if os.path.exists(cluster_file):
-            predefined = "--predefined=%(cluster_file)s" % locals()
-
-        else:
-            raise ValueError("Predefined cluster assignment file (%(cluster_file)s) not found" % locals())
-
-    else:
-        predefined = ""
 
     statement = '''python %(cellhub_code_dir)s/python/cluster_compare.py
                    --source_anndata=%(source_anndata)s
@@ -1911,14 +1897,12 @@ def cellxgene(infile, outfile):
 # ##################### full target: to run all tasks ####################### #
 # ########################################################################### #
 
-
 @follows(report, cellxgene)
 def full():
     pass
 
 
 # ------------------- < ***** end of pipeline **** > ------------------------ #
-
 
 def main(argv=None):
     if argv is None:
