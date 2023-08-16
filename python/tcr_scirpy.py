@@ -1,12 +1,17 @@
+
 import numpy as np
 import pandas as pd
-import scipy as sc
-### import scirpy ?!?
+import scanpy as sc
+import scirpy as ir
 import sys
 import os
 import logging
 import argparse
 from datetime import date
+
+from cycler import cycler
+from matplotlib import cm as mpl_cm
+from matplotlib import pyplot as plt
 
 
 # ########################################################################### #
@@ -22,8 +27,8 @@ L = logging.getLogger("tcr_scirpy.py")
 # ########################################################################### #
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--cellranger_vdj_ouput", default="source.adata.h5ad", type=str,
-                    help="path to the source anndata object")
+parser.add_argument("--contig_path", default="", type=str,
+                    help="path to the contig annotations")
 
 parser.add_argument("--param1", default="umap.tsv.gz", type=str,
                     help="a comma seperated list of umaps to add")
@@ -43,8 +48,12 @@ print(args)
 
 L.info("Running scirpy")
 
-# code to run scirpy goes here...
+for
 
+ir.io.read_10x_vdj(adata)
+
+
+ir.tl.chain_qc(adata) #it adds receptor type, subtype, chain pairing
 # ########################################################################### #
 # ################################### save and exit ######################### #
 # ########################################################################### #
