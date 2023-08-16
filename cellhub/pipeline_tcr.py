@@ -117,17 +117,15 @@ if len(sys.argv) > 1:
 # 1. recreation of basic stats ala COMBAT with e.g. scirpy or manual script (TCR QC)
 
 
-@follows(mkdir("tcr.dir"))
 
-@transform(glob.glob("cellranger.vdj.t.dir/*/outs/all_contig_annotations.csv"), 
-regex(r".*/.*/(.*)/outs/all_contig_annotations.csv")
-
-
-def construct_ir(infile, outfile):
+@transform(glob.glob("api/cellranger/vdj_t/unfiltered/*/all_contig_annotations.csv"), 
+regex(r".*/.*/.*/.*/(.*)/all_contig_annotations.csv"),
+r"tcr.dir/\1.tsv.gz.sentinel")
+def scirpyTCR(infile, sentinel):
     ''' 
     Create TCR chain table. 
     '''
-    t = T.setup(infile, outfile, PARAMS,
+    t = T.setup(infile, sentinel, PARAMS,
                 memory=PARAMS["cellranger_localmem"],
                 cpu=PARAMS["cellranger_localcores"])
 
@@ -138,17 +136,16 @@ def construct_ir(infile, outfile):
   
 
     statement = '''python %(cellhub_code_dir)s/python/tcr_scirpy.py
-                   -- inputs?
-                   -- outputs %(outdir)s
+                   --contig_path %(infile)s
+                   --outfile %(out_file)s
                     &> %(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
                             **locals())
 
     P.run(statement, **t.resources)
-    IOTools.touch_file(outfile)
+    IOTools.touch_file(sentinel)
 
-@follows(mkdir("tcr.dir"))
 
 
 
