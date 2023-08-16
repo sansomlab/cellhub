@@ -126,8 +126,8 @@ def scirpyTCR(infile, sentinel):
     Create TCR chain table. 
     '''
     t = T.setup(infile, sentinel, PARAMS,
-                memory=PARAMS["cellranger_localmem"],
-                cpu=PARAMS["cellranger_localcores"])
+                memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cores"])
 
     #t.outdir == outdir = os.path.dirname(outfile)
     #t.resources == {"job_threads": cores; "job_memory": G}
@@ -152,8 +152,8 @@ def scirpyTCR(infile, sentinel):
 
 # ---------------------------< Pipeline targets >------------------------------ #
 
-@follows(construct_it, chainQC)
-@files(None, "diffcomp.dir/plot.sentinel")
+#@follows(construct_it, chainQC)
+#@files(None, "diffcomp.dir/plot.sentinel")
 
 # def plot(infile, outfile):
 #     '''Draw the pipeline flowchart'''
@@ -170,7 +170,7 @@ def scirpyTCR(infile, sentinel):
 
 #     IOTools.touch_file(outfile)
 
-
+@follows(scirpyTCR)
 def full():
     '''
     Run the full pipeline.
