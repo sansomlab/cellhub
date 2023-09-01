@@ -1,0 +1,3 @@
+library_id	sample	feature_type	fastq_path	expect_cells	chemistry
+GSM2560248	bamtofastq	Gene Expression	/well/kir/mirror/geo/GSE96583/GSM2560248/	8000	auto
+GSM2560249	bamtofastq	Gene Expression	/well/kir/mirror/geo/GSE96583/GSM2560249/	8000	auto
