@@ -73,6 +73,9 @@ for library_id in libraries:
                            library_id,
                            "h5","data.h5")
 
+    if not os.path.exists(h5_path):
+        raise ValueError("h5 path does not exist: " + h5_path)
+
     try:
         
         x = sc.read_10x_h5(h5_path)
