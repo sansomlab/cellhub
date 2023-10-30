@@ -545,7 +545,7 @@ def mergeTCR(infiles, outfile):
                             --regex-filename ".*/(.*)/.*/.*"
                             --cat "library_id"
                             %(table_paths)s
-                    | grep -v "^#" | sed 's/,/    /g'
+                    | grep -v "^#" | sed 's/,/\\t/g'
                     | gzip -c
                     > %(table_file)s
                 ''' % locals()
@@ -567,7 +567,7 @@ def registerMergedTCR(infile, outfile):
     x = T.api("cellranger")
 
     vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
-                                           "format": "csv",
+                                           "format": "tsv",
                                            "description": "per-cell contig annotations"}}
 
     library_id = os.path.basename(infile[:-len(".sentinel")])
@@ -715,7 +715,7 @@ def mergeBCR(infiles, outfile):
                             --regex-filename ".*/(.*)/.*/.*"
                             --cat "library_id"
                             %(table_paths)s
-                    | grep -v "^#" | sed 's/,/    /g'
+                    | grep -v "^#" | sed 's/,/\\t/g'
                     | gzip -c
                     > %(table_file)s
                 ''' % locals()
@@ -737,7 +737,7 @@ def registerMergedBCR(infile, outfile):
     x = T.api("cellranger")
 
     vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
-                                           "format": "csv",
+                                           "format": "tsv",
                                            "description": "per-cell contig annotations"}}
 
     library_id = os.path.basename(infile[:-len(".sentinel")])
