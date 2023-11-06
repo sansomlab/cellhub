@@ -241,12 +241,14 @@ def count(infile, outfile):
     # add read trimming if specified
     r1len, r2len = "", ""
 
-    if PARAMS["gex_r1-length"] != "false":
+    if PARAMS["gex_r1-length"] != False:
         r1len = PARAMS["gex_r1-length"]
     
-    if PARAMS["gex_r2-length"] != "false":
-        r1len = PARAMS["gex_r2-length"]
+    if PARAMS["gex_r2-length"] != False:
+        r2len = PARAMS["gex_r2-length"]
  
+    print(r1len, r2len)
+
     # deal with flags
     nosecondary, nobam, includeintrons = "", "", ""
     

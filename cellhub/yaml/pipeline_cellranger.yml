@@ -77,6 +77,9 @@ gex:
         # Default: true
         include-introns: true
 
+        r1-length: false
+        r2-length: false
+
         
 # Section describing configuration of Feature Barcode libraries only, unless otherwise specified.
 feature:
