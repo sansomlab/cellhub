@@ -241,11 +241,11 @@ def count(infile, outfile):
     # add read trimming if specified
     r1len, r2len = "", ""
 
-    if PARAMS["gex_r1-length"] != "false":
-        r1len = PARAMS["gex_r1-length"]
+    if PARAMS["count_r1-length"] != False:
+        r1len = PARAMS["count_r1-length"]
     
-    if PARAMS["gex_r2-length"] != "false":
-        r1len = PARAMS["gex_r2-length"]
+    if PARAMS["count_r2-length"] != False:
+        r2len = PARAMS["count_r2-length"]
  
     # deal with flags
     nosecondary, nobam, includeintrons = "", "", ""
@@ -455,6 +455,15 @@ def tcr(infile, outfile):
     inner=""
     if PARAMS["vdj_t_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_t_inner-enrichment-primers"]
+           
+    # add read trimming if specified
+    r1len, r2len = "", ""
+    
+    if PARAMS["vdj_t_r1-length"] != False:
+        r1len = PARAMS["vdj_t_r1-length"]
+    
+    if PARAMS["vdj_t_r2-length"] != False:
+        r2len = PARAMS["vdj_t_r2-length"]
     
     sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-T")
  
@@ -470,6 +479,7 @@ def tcr(infile, outfile):
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(inner)s
+                    %(r1len)s %(r2len)s
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
@@ -625,6 +635,15 @@ def bcr(infile, outfile):
     inner=""
     if PARAMS["vdj_b_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_b_inner-enrichment-primers"]
+        
+    # add read trimming if specified
+    r1len, r2len = "", ""
+    
+    if PARAMS["vdj_b_r1-length"] != False:
+        r1len = PARAMS["vdj_b_r1-length"]
+    
+    if PARAMS["vdj_b_r2-length"] != False:
+        r2len = PARAMS["vdj_b_r2-length"]
     
     sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-B")
  
@@ -640,6 +659,7 @@ def bcr(infile, outfile):
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(inner)s
+                    %(r1len)s %(r2len)s
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
