@@ -3,8 +3,9 @@
 # ===================================================
 #
   
-# Path of reference fasta file, should be of the same species but does not necessarily need to be the exact cellranger reference. 
-genome-reference: /gpfs3/well/kir/mirror/genomes/10x/refdata-gex-GRCh38-2020-A/fasta/genome.fa 
+# Path of reference fasta file, should be of the same species but does not necessarily need to be the exact cellranger reference. e.g. Human /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A/fasta/genome.fa 
+
+genome-reference: /gpfs3/well/sansom/users/rrl815/work/08_AS_allPB/10x/01_reference_building/gex.ref.dir/tenx-gex/fasta/genome.fa 
 
 # Parameters for souporcell 
 # -------------------------------------------
@@ -18,7 +19,7 @@ souporcell:
   sample-names:
   
   # Path of the souporcell container. Required.
-  container-dir: /gpfs3/well/sansom/users/rrl815/devel/souporcell_latest.sif
+  container-dir: /gpfs3/well/sansom/users/rrl815/devel/souporcell-202311/souporcell_latest.sif
   # To read and write files on the host system from within the container, specify bind paths manually. The directories $HOME , /tmp , /proc , /sys , /dev, and $PWD are already among the system-defined bind paths. If the root directory is different in your cluster, please write your root directory here. 
   bind-path: /gpfs3
   
@@ -26,4 +27,3 @@ souporcell:
   cluster-number: 8
   # Max threads to use, more threads required if remapping process should be done
   threads: 10
-
