@@ -2,7 +2,7 @@
 # Pipeline pipeline_demultiplex.py configuration file
 # ===================================================
 #
-  
+
 # Path of reference fasta file, should be of the same species but does not necessarily need to be the exact cellranger reference. e.g. Human /gfs/mirror/genomes/10x/refdata-gex-GRCh38-2020-A/fasta/genome.fa 
 
 genome-reference: /gpfs3/well/sansom/users/rrl815/work/08_AS_allPB/10x/01_reference_building/gex.ref.dir/tenx-gex/fasta/genome.fa 
@@ -12,11 +12,9 @@ genome-reference: /gpfs3/well/sansom/users/rrl815/work/08_AS_allPB/10x/01_refere
 # If running pipeline from within the container, please provide the path derived from either user-defined or system-defined bind paths in this section.
 souporcell:
   # ###
-  genotype-aware: false
-  # Known variants per clone in population vcf mode. 
-  vcf-file:
-  # Which samples in population vcf from vcf_file option represent the donors in your sample, names separated with space.
-  sample-names:
+  genotype-aware: true
+  # Path of input tsv file, required for genotype-aware demultiplexing. For details of required columns please see the pipeline_souporcell.py documentation
+  demultiplex_table: ./demultiplex.tsv
   
   # Path of the souporcell container. Required.
   container-dir: /gpfs3/well/sansom/users/rrl815/devel/souporcell-202311/souporcell_latest.sif
