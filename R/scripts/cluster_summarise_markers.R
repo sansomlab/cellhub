@@ -95,15 +95,22 @@ message("Summarising markers across levels")
 
 print(head(results))
 
+#only keep markers where FC is in same direction
+markers.dir <- results %>% group_by(cluster, gene_name, gene_id) %>%
+                          mutate(same.dir = ifelse(sum(abs(log2(FC)))==abs(sum((log2(FC)))), TRUE, NA )) %>% ungroup() %>%
+                          filter(same.dir)
+
 # collapse levels 
 # - this is where conserved markers are identified
 #   (maximum p-value per level is retained)
 #   (max(NA, float) = NA)
-markers <- results %>% group_by(cluster, gene_name, gene_id) %>%
+
+markers <- markers.dir %>% group_by(cluster, gene_name, gene_id) %>%
    summarize(across(c("score"),min),
              across(c("pval","p.adj"),max),             
              across(c("pct","pct_other", "mean_exprs", "mean_exprs_other", "FC","min_FC"), mean),
-             nlevels=n()) %>%
+             nlevels=n()
+             ) %>%
    arrange(cluster,pval,desc(FC))
    
 # When dealing with conserved markers it is possible that some levels

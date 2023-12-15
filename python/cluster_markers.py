@@ -107,13 +107,20 @@ if 'log1p' in adata.uns_keys():
 # cluster vs other test.
 if args.test_factor == "None":
     L.info("discovering markers for cluster " + str(args.cluster))
-    sc.tl.rank_genes_groups(adata,
-                            use_raw=False,
-                            layer="log1p",
-                            groupby="cluster_id",
-                            groups = [args.cluster],
-                            method = args.method,
-                            pts = True)
+    
+    L.info("Checking if cluster is present in data:") #this is important for conserved markers
+    #check if more than 5 cells
+    if(adata[adata.obs['cluster_id'].isin([args.cluster]),].shape[0] > 5):
+    
+        sc.tl.rank_genes_groups(adata,
+                                use_raw=False,
+                                layer="log1p",
+                                groupby="cluster_id",
+                                groups = [args.cluster],
+                                method = args.method,
+                                pts = True)
+    else:
+        L.info("Cluster has less than 5 cells. No markers discovered")
 
 
 else:
@@ -133,123 +140,124 @@ else:
                             pts = True)
 
 
-# save the result.
-L.info("formatting results matrix")
+if(adata[adata.obs['cluster_id'].isin([args.cluster]),].shape[0] > 5):
+    # save the result.
+    L.info("formatting results matrix")
 
-xx = adata.uns["rank_genes_groups"]
+    xx = adata.uns["rank_genes_groups"]
 
-# Note: the pts columns have their own index and a different row order!
-#       here we need to work around this sub-optimal situation.
+    # Note: the pts columns have their own index and a different row order!
+    #       here we need to work around this sub-optimal situation.
 
-res = pd.DataFrame({"gene_name":[x[0] for x in xx["names"]]})
-res.index = res["gene_name"]
+    res = pd.DataFrame({"gene_name":[x[0] for x in xx["names"]]})
+    res.index = res["gene_name"]
 
-if "gene_ids" in adata.var.columns:
-    # Add the gene_ids to the result
-    res["gene_id"] = adata.var.loc[res["gene_name"],"gene_ids"]
+    if "gene_ids" in adata.var.columns:
+        # Add the gene_ids to the result
+        res["gene_id"] = adata.var.loc[res["gene_name"],"gene_ids"]
 
-res["pval"] = [x[0] for x in xx["pvals"]]
-res["score"] = [x[0] for x in xx["scores"]]
-res["logfoldchange"] = [x[0] for x in xx["logfoldchanges"]]
-res["pct"] = xx["pts"].loc[res.index, args.cluster].values
-res["pct_other"] = xx["pts_rest"].loc[res.index, args.cluster].values
+    res["pval"] = [x[0] for x in xx["pvals"]]
+    res["score"] = [x[0] for x in xx["scores"]]
+    res["logfoldchange"] = [x[0] for x in xx["logfoldchanges"]]
+    res["pct"] = xx["pts"].loc[res.index, args.cluster].values
+    res["pct_other"] = xx["pts_rest"].loc[res.index, args.cluster].values
 
 
-# ########################################################################### #
-# ################### compute the fold changes ############################## #
-# ########################################################################### #
+    # ########################################################################### #
+    # ################### compute the fold changes ############################## #
+    # ########################################################################### #
 
-# scanpy does this:
-#   foldchanges = (self.expm1_func(mean_group) + 1e-9) / (
-#                 self.expm1_func(mean_rest) + 1e-9
-#             )  # add small value to remove 0's
+    # scanpy does this:
+    #   foldchanges = (self.expm1_func(mean_group) + 1e-9) / (
+    #                 self.expm1_func(mean_rest) + 1e-9
+    #             )  # add small value to remove 0's
 
-# https://github.com/scverse/scanpy/blob/1c9e404b7462ee52a0664517c0f569ff16791ca4/scanpy/tools/_rank_genes_groups.py#L417-L419
-#
-# Seurat does this to calculate the mean expression of each group ("data" assay):
-#  log(x = rowMeans(x = expm1(x = x)) + pseudocount.use   # default pseudocount.use = 1
-#  
-# Some things are obvious:
-# (1) Scanpy authors are prioritising speed over accuracy by doing expm(mean) 
-#     instead of mean(expm). This doesn't seem necessary.
-# (2) The Scanpy pseudocount is extremely small. A cluster of 100 cells with a 
-#     gene expressed in 1 cell will get a raw fold change of 1e+07 (10 million) against
-#     clusters with no expression!
-#
-# What should the pseudocount be set to?
-# - Considerations
-#    - 10x polyA capture is perhaps 5-10% efficient
-#    - So if 5% of cells in cluster have a marker that is not expressed
-#      elsewhere, we would want to report this marker (assuming BH p.adj > 0.5)
-#    - (5/100 + 1e-9) / 1e-9 = 5e7 # scapy fold change - doesn't make biological sense.
-#    - (5/100 + 1) / 1 = 1.05 # seurat fold change - real signal might be missed?
-#    - (5/100 + 0.1) / 0.1 = 1.5 # seems reasonable
-#    
-# Based on this thought experiment Seurat seems perhaps a little conservative (although
-# we do not consider noise) so we recommend to use 
-# a pseudocount of 0.1 and require a minimum raw fold change of >=1.5. 
-#
-# Here we estimate the true fold changes on the mean(expm1) values.
-# - these are are expected to be similar but not exactely the same
-#   as the scanpy "approximations"!
-# (quick arbitrary check of sig. markers gives pearson r 0.998, spearmans rho 0.994)
+    # https://github.com/scverse/scanpy/blob/1c9e404b7462ee52a0664517c0f569ff16791ca4/scanpy/tools/_rank_genes_groups.py#L417-L419
+    #
+    # Seurat does this to calculate the mean expression of each group ("data" assay):
+    #  log(x = rowMeans(x = expm1(x = x)) + pseudocount.use   # default pseudocount.use = 1
+    #  
+    # Some things are obvious:
+    # (1) Scanpy authors are prioritising speed over accuracy by doing expm(mean) 
+    #     instead of mean(expm). This doesn't seem necessary.
+    # (2) The Scanpy pseudocount is extremely small. A cluster of 100 cells with a 
+    #     gene expressed in 1 cell will get a raw fold change of 1e+07 (10 million) against
+    #     clusters with no expression!
+    #
+    # What should the pseudocount be set to?
+    # - Considerations
+    #    - 10x polyA capture is perhaps 5-10% efficient
+    #    - So if 5% of cells in cluster have a marker that is not expressed
+    #      elsewhere, we would want to report this marker (assuming BH p.adj > 0.5)
+    #    - (5/100 + 1e-9) / 1e-9 = 5e7 # scapy fold change - doesn't make biological sense.
+    #    - (5/100 + 1) / 1 = 1.05 # seurat fold change - real signal might be missed?
+    #    - (5/100 + 0.1) / 0.1 = 1.5 # seems reasonable
+    #    
+    # Based on this thought experiment Seurat seems perhaps a little conservative (although
+    # we do not consider noise) so we recommend to use 
+    # a pseudocount of 0.1 and require a minimum raw fold change of >=1.5. 
+    #
+    # Here we estimate the true fold changes on the mean(expm1) values.
+    # - these are are expected to be similar but not exactely the same
+    #   as the scanpy "approximations"!
+    # (quick arbitrary check of sig. markers gives pearson r 0.998, spearmans rho 0.994)
 
-L.info("Reading the group means")
-group_means = pd.read_csv(args.group_means, sep="\t", index_col=0)
-group_means = group_means.sort_index() # unnecessary
-group_means.index = group_means.index.astype(str)
+    L.info("Reading the group means")
+    group_means = pd.read_csv(args.group_means, sep="\t", index_col=0)
+    group_means = group_means.sort_index() # unnecessary
+    group_means.index = group_means.index.astype(str)
 
-L.info("Reading the group sizes")
-group_sizes = pd.read_csv(args.group_sizes, sep="\t", index_col=0)
-group_sizes = group_sizes.sort_index() # unnecessary
-group_sizes.index = group_sizes.index.astype(str)
+    L.info("Reading the group sizes")
+    group_sizes = pd.read_csv(args.group_sizes, sep="\t", index_col=0)
+    group_sizes = group_sizes.sort_index() # unnecessary
+    group_sizes.index = group_sizes.index.astype(str)
 
-L.info("Adding the pseudocount")
-# addition of a pseudocount is necessary to avoid Inf values.
-# as above it is important to get this right if we wish to 
-# preserve some biological intuition. 
-pseudo_count = args.pseudocount  # scanpy 1e-9; seurat = 1.
+    L.info("Adding the pseudocount")
+    # addition of a pseudocount is necessary to avoid Inf values.
+    # as above it is important to get this right if we wish to 
+    # preserve some biological intuition. 
+    pseudo_count = args.pseudocount  # scanpy 1e-9; seurat = 1.
 
-# get means for group of interest
-x = group_means.loc[args.cluster,:] + pseudo_count
+    # get means for group of interest
+    x = group_means.loc[args.cluster,:] + pseudo_count
 
-L.info("Computing the mean of the other group")
-# get means for other groups
-other_groups = [x for x in group_means.index if x != args.cluster]
-y = group_means.loc[other_groups,:] 
+    L.info("Computing the mean of the other group")
+    # get means for other groups
+    other_groups = [x for x in group_means.index if x != args.cluster]
+    y = group_means.loc[other_groups,:] 
 
-# compute the other mean
-group_sizes_other = group_sizes.loc[other_groups, "count"]
-group_fractions_other = group_sizes_other / np.sum(group_sizes_other)
+    # compute the other mean
+    group_sizes_other = group_sizes.loc[other_groups, "count"]
+    group_fractions_other = group_sizes_other / np.sum(group_sizes_other)
 
-z = y.mul(group_fractions_other,0)
-other_mean = z.sum(axis=0)
+    z = y.mul(group_fractions_other,0)
+    other_mean = z.sum(axis=0)
 
-other_mean = other_mean + pseudo_count
+    other_mean = other_mean + pseudo_count
 
-L.info("Computing the fold changes")
-print(x.shape)
-print(other_mean.shape)
+    L.info("Computing the fold changes")
+    print(x.shape)
+    print(other_mean.shape)
 
-# fold change vs other mean
-FC = x/other_mean
+    # fold change vs other mean
+    FC = x/other_mean
 
-print(FC)
+    print(FC)
 
-# get the minimum fold change
-per_group_fold_changes = 1/y.div(x, axis="columns")
-min_FC = per_group_fold_changes.min()
+    # get the minimum fold change
+    per_group_fold_changes = 1/y.div(x, axis="columns")
+    min_FC = per_group_fold_changes.min()
 
-#results = pd.DataFrame(index=FC.index)
-#results["gene_id"] = results.index
+    #results = pd.DataFrame(index=FC.index)
+    #results["gene_id"] = results.index
 
-# (the mean column cannot be called "mean" due to issues with dplyr)
-res["mean_exprs"] = x - pseudo_count
-res["mean_exprs_other"] = other_mean - pseudo_count
-res["FC"] = FC.loc[res.index]
-res["min_FC"] = min_FC.loc[res.index]
+    # (the mean column cannot be called "mean" due to issues with dplyr)
+    res["mean_exprs"] = x - pseudo_count
+    res["mean_exprs_other"] = other_mean - pseudo_count
+    res["FC"] = FC.loc[res.index]
+    res["min_FC"] = min_FC.loc[res.index]
 
-L.info("saving the results")
-res.to_csv(args.outfile, sep="\t",index=False)
+    L.info("saving the results")
+    res.to_csv(args.outfile, sep="\t",index=False)
 
-L.info("complete")
+    L.info("complete")
