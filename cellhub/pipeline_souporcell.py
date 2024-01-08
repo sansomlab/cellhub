@@ -164,17 +164,18 @@ def souporcell(infile, outfile):
         ''' % dict(PARAMS, **locals())
 
     P.run(statement, **t.resources)
+    
     IOTools.touch_file(outfile)
 
 
-@transform(souporcell, regex(r".*/.*/(.*).souporcell.sentinel"),
+@transform(souporcell, regex(r".*/.*/(.*).sentinel"),
            r"souporcell.dir/\1/\1.postsouporcell.sentinel")
 def postsouporcell(infile, outfile):
     '''
-    Format ouput to match tables in other cellhub pipelines
+    Refine output formatting to align with tables in other cellhub pipelines
     '''
     souporcell_dir = os.path.dirname(infile)
-    library_id = os.path.basename(infile)[:-len(".souporcell.sentinel")]
+    library_id = os.path.basename(infile)[:-len(".sentinel")]
     cluster_file = os.path.join(souporcell_dir,"clusters.tsv")
     statement = '''
     cd %(souporcell_dir)s;
@@ -190,7 +191,7 @@ def postsouporcell(infile, outfile):
       "souporcell.dir/souporcell.api.sentinel")
 def souporcellAPI(infiles, outfile):
     '''
-    Register the souporcell results on the API
+    Register the souporcell results on the cellhub API
     '''
 
     x = T.api("demultiplex")
@@ -206,11 +207,11 @@ def souporcellAPI(infiles, outfile):
                                             library_id,
                                 "format": "tsv"}
 
-        x.define_dataset(analysis_name="souporcell",
+    x.define_dataset(analysis_name="souporcell",
                    file_set = file_set,
                    analysis_description = "demultiplex result from souporcell")
 
-        x.register_dataset()
+    x.register_dataset()
 
     IOTools.touch_file(outfile)
 

@@ -145,11 +145,13 @@ table:
       #
       # sql_query: >-
       #  CREATE VIEW final AS
-      #  SELECT s.*, qc.*, scrub.*, sp.*
+      #  SELECT s.*, qc.*, scrub.*, sr.*, sp.*
       #  FROM gex_qcmetrics qc
       #  LEFT JOIN sample s
       #  USING (library_id)
       #  LEFT JOIN gex_scrublet scrub
       #  USING (library_id, barcode)
+      #  LEFT JOIN gex_singleR sr
+      #  USING (library_id, barcode)
       #  LEFT JOIN souporcell sp
-      #  USING (library_id, barcode); 
+      #  USING (library_id, barcode);
