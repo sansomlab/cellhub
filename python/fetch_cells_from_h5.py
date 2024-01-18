@@ -78,7 +78,7 @@ for library_id in libraries:
 
     try:
         
-        x = sc.read_10x_h5(h5_path)
+        x = sc.read_10x_h5(h5_path, gex_only = False)
 
     except:
         # we need to use a custom loader for cellbender
