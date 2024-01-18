@@ -40,9 +40,9 @@ resources:
 # Cellbender parameters
 # ---------------------
 cellbender:
-    # model
+    # Possible choices: naive, simple, ambient, swapping, full
     model: full
-    # cuda
+    # cuda -  Include this flag to be run on a GPU.
     cuda: False
     # nepochs
     epochs: 150
@@ -51,17 +51,18 @@ cellbender:
     # learning rate
     learning_rate: 0.0001
     # low count threshold
-    low_count_threshold: 15
+    low_count_threshold: 5
     # Additional columns from the sample table (input_samples.txt) to show in summary heatmaps
     # If 'none': only exp_batch, channel_id, and seq_batch will be shown (only if they have more than one level)
     # Options: 'all' or comma-separated column names (e.g 'genotype,tissue,sex')
-    plot_annotation: pool_id
+    plot_annotation: all
 
-# Per sample parameters
+# Per sample parameters (Add as many entries as needed)
 # ---------------------
 samples:
-  # Replace "sample_1" with the sample name
-  # Add as many entries as needed
+  # Replace with the library name indicated in the original "libraries.tsv" table 
+  # --expected_cells: Number of cells expected in the dataset (a rough estimate within a factor of 2 is sufficient).
+  # --total_droplets_included: The number of droplets from the rank-ordered UMI plot that will have their cell probabilities inferred as an output. Include the droplets which might contain cells. Droplets beyond TOTAL_DROPLETS_INCLUDED should be ‘surely empty’ droplets.
   sample_1:
     expected_cells:
     total_droplets_included:
