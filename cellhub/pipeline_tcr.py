@@ -120,7 +120,7 @@ if len(sys.argv) > 1:
 
 @transform(glob.glob("api/cellranger/vdj_t/unfiltered/*/all_contig_annotations.csv"), 
 regex(r".*/.*/.*/.*/(.*)/all_contig_annotations.csv"),
-r"tcr.dir/\1.tsv.gz.sentinel")
+r"scirpy.dir/\1.tsv.gz.sentinel")
 def scirpyTCR(infile, sentinel):
     ''' 
     Create TCR chain table. 
@@ -147,6 +147,35 @@ def scirpyTCR(infile, sentinel):
     IOTools.touch_file(sentinel)
 
 
+
+@transform(scirpyTCR,
+           regex(r".*/(.*).tsv.gz.sentinel"),
+           r"dandelion.dir/\1.sentinel")
+def dandelion(infile, sentinel):
+    ''' 
+    Create danedelion output. 
+    '''
+    infile = "scirpy.dir/va_2022_RA.tsv.gz.sentinel"
+    
+    infile = infile.replace(".sentinel","")
+    
+    sentinel="dandelion.dir/va_2022_RA.sentinel"
+    
+    t = T.setup(infile, sentinel, PARAMS,
+                memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cores"])
+  
+
+    statement = '''python %(cellhub_code_dir)s/python/tcr_dandelion.py
+                   --infile %(infile)s
+                   --outfile %(out_file)s
+                    &> %(log_file)s
+                 ''' % dict(PARAMS, 
+                            **t.var, 
+                            **locals())
+
+    P.run(statement, **t.resources)
+    IOTools.touch_file(sentinel)
 
 
 
