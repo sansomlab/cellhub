@@ -78,7 +78,7 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 @follows(mkdir("cellbender.dir"))
 @transform(glob.glob(os.path.join(PARAMS["cellhub_location"],
-                                  "api/cellranger.multi/",
+                                  "api/cellranger/",
                                   "counts/unfiltered/*/h5/",
                                   "data.h5")),
            formatter(".*/data.h5"),
@@ -120,7 +120,7 @@ def cellbender(infile, outfile):
                  --low-count-threshold=%(cellbender_low_count_threshold)s
                  &> %(log_file)s
               ''' % dict(PARAMS, **t.var, **locals())
-         
+    
     P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)

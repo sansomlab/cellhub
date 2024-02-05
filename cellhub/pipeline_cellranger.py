@@ -44,25 +44,6 @@ It must have the following columns:
 
 * "sample_id" a unique identifier for the biological sample being analysed
 * "library_id" is a unique identifier for the sequencing libraries generated from a single channel on a single 10x chip. Use the same "library ID" for Gene Expression, Antibody Capture, VDJ-T and VDJ-B libraries that are generated from the same channel.
-* "chemistry": The 10x reaction chemistry, the options are: 
-
-  * 'auto' for autodetection, 
-  * 'threeprime' for Single Cell 3', 
-  * 'fiveprime' for  Single Cell 5', 
-  * 'SC3Pv1',
-  * 'SC3Pv2',
-  * 'SC3Pv3', 
-  * 'SC5P-PE',
-  * 'SC5P-R2' for Single Cell 5', paired-end/R2-only,
-  * 'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
-  
-* "expect_cells": An integer specifying the expected number of cells
-
-It is recommended to include the following columns
-
-* "chip": a unique ID for the 10x Chip
-* "channel_id": an integer denoting the channel on the chip
-* "date": the date the 10x run was performed
 
 Additional arbitrary columns describing the sample metadata should be included
 to aid the downstream analysis, for example
@@ -74,6 +55,9 @@ to aid the downstream analysis, for example
 * "age"
 * "sex"
 
+For HTO hashing experiments include a column containing details of the hash tag, e.g.
+
+* "hto_id"
 
 
 (ii) libraries.tsv
@@ -88,6 +72,26 @@ It must have the following columns:
 * "feature_type": One of "Gene Expression", "Antibody Capture", "VDJ-T" or "VDJ-B". Case sensitive.
 * "fastq_path": the location of the folder containing the fastq files
 * "sample": this will be passed to the "--sample" parameter of the cellranger pipelines (see: https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/using/fastq-input). It is only used to match the relevant FASTQ files: it does not have to match the "sample_id" provided in the "samples.tsv" table, and is not used in downstream analysis.
+* "chemistry": The 10x reaction chemistry, the options are: 
+
+  * 'auto' for autodetection, 
+  * 'threeprime' for Single Cell 3', 
+  * 'fiveprime' for  Single Cell 5', 
+  * 'SC3Pv1',
+  * 'SC3Pv2',
+  * 'SC3Pv3', 
+  * 'SC5P-PE',
+  * 'SC5P-R2' for Single Cell 5', paired-end/R2-only,
+  * 'SC-FB' for Single Cell Antibody-only 3' v2 or 5'.
+  
+  * "expect_cells": An integer specifying the expected number of cells
+
+It is recommended to include the following columns
+
+* "chip": a unique ID for the 10x Chip
+* "channel_id": an integer denoting the channel on the chip
+* "date": the date the 10x run was performed
+
 
 Note: Use of the cellranger "--lanes": parameter is not supported. This means that data from all the lanes present in the given location for the given "sample" prefix will be run. This applies for both Gene Expression and VDJ analysis. If you need to analyse data from a single lane, link the data from that lane into a different location. 
 
@@ -222,7 +226,7 @@ def count(infile, outfile):
 
     this_library_id = os.path.basename(infile)[:-len(".csv")]
 
-    library_parameters = S.samples[this_library_id]
+    library_parameters = S.library_parameters[this_library_id]
 
     # provide references for the present feature types
     lib_types = S.lib_types(this_library_id)
@@ -232,16 +236,16 @@ def count(infile, outfile):
         transcriptome = "--transcriptome=" + PARAMS["gex_reference"]
     
     if "Antibody Capture" in lib_types:
-        feature_ref =  "--feature-ref" + PARAMS["feature_reference"]
+        feature_ref =  "--feature-ref=" + PARAMS["feature_reference"]
 
     # add read trimming if specified
     r1len, r2len = "", ""
 
-    if PARAMS["gex_r1-length"] != "false":
-        r1len = PARAMS["gex_r1-length"]
+    if PARAMS["count_r1-length"] != False:
+        r1len = PARAMS["count_r1-length"]
     
-    if PARAMS["gex_r2-length"] != "false":
-        r1len = PARAMS["gex_r2-length"]
+    if PARAMS["count_r2-length"] != False:
+        r2len = PARAMS["count_r2-length"]
  
     # deal with flags
     nosecondary, nobam, includeintrons = "", "", ""
@@ -451,6 +455,15 @@ def tcr(infile, outfile):
     inner=""
     if PARAMS["vdj_t_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_t_inner-enrichment-primers"]
+           
+    # add read trimming if specified
+    r1len, r2len = "", ""
+    
+    if PARAMS["vdj_t_r1-length"] != False:
+        r1len = PARAMS["vdj_t_r1-length"]
+    
+    if PARAMS["vdj_t_r2-length"] != False:
+        r2len = PARAMS["vdj_t_r2-length"]
     
     sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-T")
  
@@ -466,6 +479,7 @@ def tcr(infile, outfile):
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(inner)s
+                    %(r1len)s %(r2len)s
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
@@ -541,7 +555,7 @@ def mergeTCR(infiles, outfile):
                             --regex-filename ".*/(.*)/.*/.*"
                             --cat "library_id"
                             %(table_paths)s
-                    | grep -v "^#" | sed 's/,/    /g'
+                    | grep -v "^#" | sed 's/,/\\t/g'
                     | gzip -c
                     > %(table_file)s
                 ''' % locals()
@@ -563,7 +577,7 @@ def registerMergedTCR(infile, outfile):
     x = T.api("cellranger")
 
     vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
-                                           "format": "csv",
+                                           "format": "tsv",
                                            "description": "per-cell contig annotations"}}
 
     library_id = os.path.basename(infile[:-len(".sentinel")])
@@ -621,6 +635,15 @@ def bcr(infile, outfile):
     inner=""
     if PARAMS["vdj_b_inner-enrichment-primers"]:
         inner="--inner-enrichment-primers=" + PARAMS["vdj_b_inner-enrichment-primers"]
+        
+    # add read trimming if specified
+    r1len, r2len = "", ""
+    
+    if PARAMS["vdj_b_r1-length"] != False:
+        r1len = PARAMS["vdj_b_r1-length"]
+    
+    if PARAMS["vdj_b_r2-length"] != False:
+        r2len = PARAMS["vdj_b_r2-length"]
     
     sample_dict = S.get_samples_and_fastqs(library_id,"VDJ-B")
  
@@ -636,6 +659,7 @@ def bcr(infile, outfile):
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(inner)s
+                    %(r1len)s %(r2len)s
                     &> ../%(log_file)s
                  ''' % dict(PARAMS, 
                             **t.var, 
@@ -711,7 +735,7 @@ def mergeBCR(infiles, outfile):
                             --regex-filename ".*/(.*)/.*/.*"
                             --cat "library_id"
                             %(table_paths)s
-                    | grep -v "^#" | sed 's/,/    /g'
+                    | grep -v "^#" | sed 's/,/\\t/g'
                     | gzip -c
                     > %(table_file)s
                 ''' % locals()
@@ -733,7 +757,7 @@ def registerMergedBCR(infile, outfile):
     x = T.api("cellranger")
 
     vdj_template = {"contig_annotations": {"path":"path/to/annotations.csv",
-                                           "format": "csv",
+                                           "format": "tsv",
                                            "description": "per-cell contig annotations"}}
 
     library_id = os.path.basename(infile[:-len(".sentinel")])

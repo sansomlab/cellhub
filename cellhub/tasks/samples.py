@@ -64,16 +64,18 @@ class samples():
                  library_tsv = None):
 
         samples = pd.read_csv(sample_tsv, sep="\t")
-        sample_cols = ["sample_id", "library_id", 
-                       "chemistry", "expect_cells"]
+        required_sample_cols = ["sample_id", "library_id"]
         
-        check_cols(samples,sample_cols,
+        check_cols(samples,required_sample_cols,
                    "samples.tsv")
         
         libs = pd.read_csv(library_tsv, sep="\t")
         
-        check_cols(libs, ["library_id","feature_type",
-                            "sample","fastq_path"],
+        required_library_cols = ["library_id","feature_type",
+                                 "sample","fastq_path",
+                                 "chemistry", "expect_cells"]
+        
+        check_cols(libs, required_library_cols,
                    "libraries.tsv")
         
         self.known_feature_library_types = ["Gene Expression",
@@ -86,12 +88,10 @@ class samples():
         check_values(libs, "feature_type", 
                      self.known_feature_library_types + self.known_vdj_types)
         
-        if not samples["library_id"].is_unique:
-            raise ValueError("Non-unique library_ids provided")
-            
-        libraries = samples["library_id"].values
+        if not samples["sample_id"].is_unique:
+            raise ValueError("Non-unique sample_ids provided")
         
-        samples.index = samples["library_id"]
+        samples.index = samples["sample_id"]
         self.samples = samples.to_dict(orient="index")
         
         libs.sort_values(["library_id",
@@ -99,6 +99,17 @@ class samples():
                     "sample"], inplace=True)
         
         self.libs = libs
+        
+        # make a dictionary for looking up the expect cells and chemistry information
+        library_parameters = libs[["library_id","chemistry","expect_cells"]].drop_duplicates()
+        
+        if not library_parameters["library_id"].is_unique:
+            raise ValueError('Different "chemistry" and/or "expect_cells" values are mapped'
+                             ' to the same library_id in the libraries.tsv file')
+        
+        library_parameters.index = library_parameters["library_id"]
+        
+        self.library_parameters = library_parameters.to_dict(orient="index")
         
         self.feature_types = set(libs["feature_type"])
 
@@ -132,12 +143,14 @@ class samples():
         # check that the fastq paths are different (see note in pipeline_cellranger.py)
         fqps = [x.strip() for x in fastq_path.split(",")]
         
-        if len(set(fqps)) < len(fqps):
+        if feature_type in ["VDJ-T", "VDJ-B"]:
         
-            raise ValueError("Duplicate FASTQ paths detected for data from different"
-                             " flow cells. This is not supported by the 'cellranger vdj' command." 
-                             " VDJ data from different flow cells must be arranged in different" 
-                             " folders. See note in pipeline_cellranger.py")
+            if len(set(fqps)) < len(fqps):
+        
+                raise ValueError("Duplicate FASTQ paths detected for data from different"
+                                 " flow cells. This is not supported by the 'cellranger vdj' command." 
+                                 " VDJ data from different flow cells must be arranged in different" 
+                                 " folders. See note in pipeline_cellranger.py")
 
         sample = x["sample"].values[0]
         

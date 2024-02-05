@@ -1,2 +1,2 @@
-sample_id	library_id	chemistry	expect_cells
-10k_PBMC_5pv2	10k_PBMC_5pv2	auto	10000
+sample_id	library_id
+10k_PBMC_5pv2	10k_PBMC_5pv2
