@@ -1,0 +1,46 @@
+#
+# Pipeline pipeline_reference.py configuration file
+# ==================================================
+#
+# GEX Reference Generation
+# ---------------
+
+gex:
+  build: true
+  gtf_file: /gpfs3/well/sansom/users/rrl815/work/RESOURCE/reference/GRCh38.110.tenx-ref/Homo_sapiens.GRCh38.110.gtf
+  fasta_file: /gpfs3/well/sansom/users/rrl815/work/RESOURCE/reference/GRCh38.110.tenx-ref/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+  genome_name: tenx-gex
+  biotype_options:   --attribute=gene_biotype:protein_coding 
+                   --attribute=gene_biotype:lncRNA 
+                   --attribute=gene_biotype:IG_LV_gene 
+                   --attribute=gene_biotype:IG_V_gene 
+                   --attribute=gene_biotype:IG_V_pseudogene 
+                   --attribute=gene_biotype:IG_D_gene 
+                   --attribute=gene_biotype:IG_J_gene 
+                   --attribute=gene_biotype:IG_J_pseudogene 
+                   --attribute=gene_biotype:IG_C_gene 
+                   --attribute=gene_biotype:IG_C_pseudogene 
+                   --attribute=gene_biotype:TR_V_gene 
+                   --attribute=gene_biotype:TR_V_pseudogene 
+                   --attribute=gene_biotype:TR_D_gene 
+                   --attribute=gene_biotype:TR_J_gene 
+                   --attribute=gene_biotype:TR_J_pseudogene 
+                   --attribute=gene_biotype:TR_C_gene
+
+# V(D)J Reference Generation
+# ---------------
+
+vdj:
+  build: true
+  genome_name: vdj_IMGT_human
+  fasta_file: /gpfs3/well/sansom/users/rrl815/work/08_AS_allPB/10x/01_reference_building/imgt/vdj_IMGT_human-mkvdjref-input.fasta
+  
+  
+  
+# compute resource options
+# ------------------------
+resources:
+    # Set the number of cores to use 
+    localcores: 8
+    # Set the amount of memory (in GB) to use f
+    localmem: 64
