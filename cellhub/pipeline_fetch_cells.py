@@ -180,7 +180,7 @@ def ADT(infile, outfile):
     t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"])
 
     cell_table = infile.replace(".sentinel", ".tsv.gz")
-    api_path = os.path.join(PARAMS["cellhub_location"],"api")
+    api_path = os.path.join(PARAMS["cellhub_location"],"api") 
 
     statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
                    --cells=%(cell_table)s
