@@ -1,0 +1,17 @@
+#
+# pipeline_tcr.py configuration file
+# ==================================
+#
+
+# General options
+# ---------------
+resources:
+  # Memory options for the different steps
+  memory: 16G
+  cores: 2
+
+dandelion:
+  high_confidence: True
+  meta: False
+  memory: 32G
+  cores: 16
