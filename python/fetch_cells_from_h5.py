@@ -133,12 +133,13 @@ for library_id in libraries:
         first = False
         
     else:
-        if not all([x for x in x.var.index in var_frame.index]):
+        if not all([y in var_frame.index for y in x.var.index]):
             L.info("Adding new .var features from library " + library_id)
 
             # Update the var_frame to add the new vars.
             var_frame = pd.concat([var_frame.copy(), x.var.copy()],
-                                    axis=0).drop_duplicates()          
+                                    axis=0).drop_duplicates() 
+                    
 
 
     # < ---------------------- Handle the .obs frame ------------------------ >
