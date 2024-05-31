@@ -153,7 +153,7 @@ def fetchCounts(infile, outfile):
                    --cells=%(cell_table)s
                    --feature_type=%(feature_type)s
                    --api=%(api_path)s
-                   --outname=gex.h5ad
+                   --outname=counts.h5ad
                    --outdir=%(outdir)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **t.var, **locals())
