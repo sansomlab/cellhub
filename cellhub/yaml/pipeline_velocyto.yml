@@ -12,6 +12,9 @@ projectname: Velocity
 # Copyright statement
 copyright: KIR (2015-2018)
 
+# Set the file containing the input samples
+input_samples: input_samples.tsv
+
 # Note on input files
 # ----------------------------------------
 ## Please generate a input_samples.txt file within the pipeline run
