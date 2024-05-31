@@ -53,4 +53,4 @@ Installation
 
 .. code-block:: Bash
 
-		install.packages("hdf5r", configure.args="--with-hdf5=/apps/eb/dev/skylake/software/HDF5/1.10.6-gompi-2020a/bin/h5pcc")
+		install.packages("hdf5r", configure.args="--with-hdf5=/apps/eb/2022b/skylake/software/HDF5/1.14.0-gompi-2022b/bin/h5pcc")
