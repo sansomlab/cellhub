@@ -15,6 +15,11 @@ cellhub:
     where pct_mitochondrial < 10
     and ngenes > 200;
 
+
+# Specify the feature_type to retrieve
+# either "ALL", "GEX" (for Gene Expression) or "ADT" (for Antibody Capture)
+feature_type: ALL
+
 # compute resource options
 # ------------------------
 resources:
@@ -36,10 +41,6 @@ matrix:
   suffix: none
   # use the filtered|raw matrix.
   out_type: filtered
-
-# If ADT included, set True to create an ADT independent dataset
-ADT:
-  fetch: False
 
 loom:
   # whether to fetch and summarise the loom files for the selected cells, either False | True

@@ -1,0 +1,27 @@
+# celldb location
+
+cellhub:
+  # The folder containing the cellhub instance
+  # from which we wish to retrieve the cells.
+  location: ../cellhub
+
+
+# the source of the cell identification calls
+# possible values: "cellranger" | "cellbender"
+cell_id_source: cellranger
+
+# the source of the the counts
+# that we wish to use downstream
+# possible values: "cellranger" | "cellbender"
+cell_count_source: cellbender
+
+
+# compute resource options
+# ------------------------
+resources:
+  # Memory options for the different steps
+  memory: 16G
+  ncpu: 1
+  
+
+
