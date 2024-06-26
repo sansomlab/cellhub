@@ -129,7 +129,7 @@ def qcmetrics(infile, outfile):
                  --library_id=%(library_name)s
                  --numcores=%(job_threads)s
                  --log_filename=%(log_file)s
-                 --outfile=%(out_file)s
+                 --outfile=%(out_file)s.tsv.gz
                  %(genesets_file)s
                  %(barcodes_to_label_as_True)s
               ''' % dict(PARAMS, **t.var, **locals())
