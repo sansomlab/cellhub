@@ -211,11 +211,11 @@ def summary(infile, outfile):
   
     label_tables = ",".join(label_tables)
     
-    out_file = outfile.replace(".sentinel", ".tsv.gz")
+    # out_file = outfile.replace(".sentinel", ".tsv.gz")
   
     statement = '''python %(cellhub_code_dir)s/python/singleR_summary.py
                    --label_tables=%(label_tables)s
-                   --outfile=%(out_file)s
+                   --outfile=%(out_file)s.tsv.gz
                    &> %(log_file)s
                 ''' % dict(PARAMS, **t.var, **locals())
     
