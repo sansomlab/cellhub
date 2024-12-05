@@ -72,91 +72,98 @@ tex = ""
 cluster <- opt$cluster
 data <- read.table(gzfile(opt$degenes),header=T,as.is=T,sep="\t")
 
-if(!cluster %in% data$cluster)
+#number of conserved genes
+nconserved <- data %>% filter(p.adj != 'NA', p.adj <0.05) %>% group_by(cluster) %>% summarise(ndeg = n())
+
+
+
+if(!(cluster %in% nconserved$cluster))
 {
     ## we have no DE genes.
     message("No significant genes for cluster: ",cluster)
-} else
-
-{
-data <- data[data$cluster == cluster,]
-
-message("processing cluster: ",cluster)
 
 
+ } else {
 
-## analyse expression level vs fold change
+    data <- data[data$cluster == cluster,]
+
+    message("processing cluster: ",cluster)
 
 
-# note that the FC used here includes the specified pseudocount
-# (see cluster_markers.py)
 
-data$A <- 1/2 * (log2(data$mean_exprs) + log2(data$mean_exprs_other))
+    ## analyse expression level vs fold change
 
-message("making expression MA")
-print(head(data))
-print(is.numeric(data$log2FC))
-ma <- plotMA(data,xlab="expression level (log2)",
+
+    # note that the FC used here includes the specified pseudocount
+    # (see cluster_markers.py)
+
+    data$A <- 1/2 * (log2(data$mean_exprs) + log2(data$mean_exprs_other))
+
+    message("making expression MA")
+    print(head(data))
+    print(is.numeric(data$log2FC))
+    ma <- plotMA(data,xlab="expression level (log2)",
             m_col="log2FC", ylab="fold change (log2)")
 
-message("making expression volcano")
-vol <- plotVolcano(data,m_col="log2FC",
+    message("making expression volcano")
+    vol <- plotVolcano(data,m_col="log2FC",
                    xlab="fold change (log2)",
                    ylab="adjusted p-value (-log10)")
 
-## analyse percentage vs change in percentage
+    ## analyse percentage vs change in percentage
 
-data$pctM <- log2((data$pct*100 + 1) / (data$pct_other*100 + 1))
-data$A <- 1/2 * (log2(data$pct*100 + 1) + log2(data$pct_other*100 + 1))
+    data$pctM <- log2((data$pct*100 + 1) / (data$pct_other*100 + 1))
+    data$A <- 1/2 * (log2(data$pct*100 + 1) + log2(data$pct_other*100 + 1))
 
 
-message("making pct MA")
-pma <- plotMA(data, m_col="pctM",
+    message("making pct MA")
+    pma <- plotMA(data, m_col="pctM",
               xlab="percent cells (log2)",  ylab="percent change (log2)")
 
-message("making pct volcano")
-pvol <- plotVolcano(data, m_col="pctM", 
+    message("making pct volcano")
+    pvol <- plotVolcano(data, m_col="pctM", 
                     xlab="percent change (log2)",ylab="adjusted p-value (-log10)")
 
-## directly compare fold change and percentage change
-fve <- plotFvE(data, m_col="log2FC",freq_col="pctM",)
+    ## directly compare fold change and percentage change
+    fve <- plotFvE(data, m_col="log2FC",freq_col="pctM")
 
-## sneakily extract the legend...
-legend <- g_legend(fve)
-fve <- fve + theme(legend.position = 'none')
+    ## sneakily extract the legend...
+    legend <- g_legend(fve)
+    fve <- fve + theme(legend.position = 'none')
 
-gs <- list(ma, vol, pma, pvol, fve, legend)
-rm(ma, vol, pma, pvol, fve, legend)
+    gs <- list(ma, vol, pma, pvol, fve, legend)
+    rm(ma, vol, pma, pvol, fve, legend)
 
-lay <- rbind(c(1,2),c(3,4),c(5,6))
-ga <- arrangeGrob(grobs = gs, layout_matrix = lay)
-rm(gs)
+    lay <- rbind(c(1,2),c(3,4),c(5,6))
+    ga <- arrangeGrob(grobs = gs, layout_matrix = lay)
+    rm(gs)
 
-defn <- paste(c("dePlots",cluster,file_suffix),collapse=".")
-defpath <- file.path(opt$outdir, defn)
+    defn <- paste(c("dePlots",cluster,file_suffix),collapse=".")
+    defpath <- file.path(opt$outdir, defn)
 
-save_ggplots(defpath,
+    save_ggplots(defpath,
              ga,
              to_pdf=opt$pdf,
              width=8,
              height=10)
 
-rm(ga)
-gc()
+    rm(ga)
+    gc()
 
-## start building figure latex...
-subsectionTitle <- getSubsectionTex(paste0("Cluster ",cluster,": summary plots"))
-tex <- c(tex, subsectionTitle)
+    ## start building figure latex...
+   subsectionTitle <- getSubsectionTex(paste0("Cluster ",cluster,": summary plots"))
+   tex <- c(tex, subsectionTitle)
 
-deCaption <- paste("Differential expression summary plots for cluster ",cluster)
-tex <- c(tex, getFigureTex(defn, deCaption,plot_dir_var=opt$plotdirvar))
+   deCaption <- paste("Differential expression summary plots for cluster ",cluster)
+   tex <- c(tex, getFigureTex(defn, deCaption,plot_dir_var=opt$plotdirvar))
 
-# tex <- c(tex, pos_tex, neg_tex)
+   # tex <- c(tex, pos_tex, neg_tex)
 
-tex_file <- file.path(opt$outdir,
+   tex_file <- file.path(opt$outdir,
                       paste(c("characterise.degenes",cluster,file_suffix,"tex"),collapse="."))
 
-writeTex(tex_file, tex)
+   writeTex(tex_file, tex)
+
 
 }
 

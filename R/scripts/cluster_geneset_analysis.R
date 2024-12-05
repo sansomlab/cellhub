@@ -84,8 +84,14 @@ anno <- read.table(gzfile(opt$annotation), as.is=T, sep="\t", header=T)
 print(head(anno))
 
 ## get the foreground and universe gene lists
-fg_entrez <- anno$entrez_id[anno$ensembl_id %in% foreground]
-u_entrez <- anno$entrez_id[anno$ensembl_id %in% universe]
+if(any(anno$ensembl_id %in% foreground)){ #to check if anndata had ensemble stored
+
+	fg_entrez <- anno$entrez_id[anno$ensembl_id %in% foreground]
+	u_entrez <- anno$entrez_id[anno$ensembl_id %in% universe]
+}else {
+	fg_entrez <- anno$entrez_id[anno$gene_name %in% foreground]
+        u_entrez <- anno$entrez_id[anno$gene_name %in% universe]
+}
 
 fg_entrez <- as.character(fg_entrez[!is.na(fg_entrez)])
 u_entrez <- as.character(u_entrez[!is.na(u_entrez)])
