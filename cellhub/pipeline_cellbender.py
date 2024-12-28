@@ -104,12 +104,10 @@ def cellbender(infile, outfile):
     expected_cells = PARAMS[sample_key]["expected_cells"]
     total_droplets = PARAMS[sample_key]["total_droplets_included"]
     
-    out_file = outfile.replace(".sentinel", ".h5")
-    
     # Formulate and run statement
     statement = '''cellbender remove-background
                  --input=%(infile)s
-                 --output=%(out_file)s 
+                 --output=%(out_file)s.h5
                  --model=%(cellbender_model)s
                  %(cuda_stat)s
                  --expected-cells=%(expected_cells)s
