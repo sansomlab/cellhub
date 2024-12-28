@@ -18,7 +18,7 @@ IS_OSX = sys.platform == 'darwin'
 ########################################################################
 # collect version
 print(sys.path.insert(0, "cellhub"))
-import version
+import cellhub.version as version
 
 version = version.__version__
 
