@@ -53,6 +53,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import glob
+from pathlib import Path
 
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
@@ -76,13 +77,24 @@ PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 # ------------------------------ Pipeline Tasks ------------------------------ #
 
 
-@follows(mkdir("cellbender.dir"))
-@transform(glob.glob(os.path.join(PARAMS["cellhub_location"],
+
+def cellbender_jobs():
+    
+    input_files = glob.glob(os.path.join(PARAMS["cellhub_location"],
                                   "api/cellranger/",
                                   "counts/unfiltered/*/h5/",
-                                  "data.h5")),
-           formatter(".*/data.h5"),
-           r"cellbender.dir/{subdir[0][1]}/cellbender.sentinel")
+                                  "data.h5"))
+    for input_file in input_files:
+
+        sample_id = os.path.basename(Path(input_file).parents[1])
+        
+        yield [input_file,
+               os.path.join("cellbender.dir",
+                            sample_id,
+                            "cellbender.sentinel")]
+
+@follows(mkdir("cellbender.dir"))
+@files(cellbender_jobs)
 def cellbender(infile, outfile):
     '''
     This task will run the CellBender command.
