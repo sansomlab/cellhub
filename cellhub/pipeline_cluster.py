@@ -1856,7 +1856,7 @@ def cellxgene(infile, outfile):
     cluster_paths=",".join(cluster_paths)
     cluster_names=",".join(cluster_names)
     
-    out_file = outfile.replace(".sentinel", ".h5ad")
+    # out_file = outfile.replace(".sentinel", ".h5ad")
 
     statement='''python %(cellhub_code_dir)s/python/cluster_cellxgene.py
                  --source_anndata=%(source_anndata)s
@@ -1868,7 +1868,7 @@ def cellxgene(infile, outfile):
                  --cluster_names=%(cluster_names)s
                  --cluster_split=%(cellxgene_cluster_split)s
                  --adt=None
-                 --outfile=%(out_file)s
+                 --outfile=%(out_file)s.h5ad
     ''' % dict(PARAMS, **t.var, **locals())
 
     P.run(statement, **t.resources)
