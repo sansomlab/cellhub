@@ -58,9 +58,9 @@ from pathlib import Path
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import cellhub.tasks as T
+import tasks as T
 
-import scanpy as sc
+# import scanpy as sc
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
@@ -116,23 +116,34 @@ def cellbender(infile, outfile):
     expected_cells = PARAMS[sample_key]["expected_cells"]
     total_droplets = PARAMS[sample_key]["total_droplets_included"]
     
+    # remove path from outfile and log_file 
+    out_file_name = os.path.basename(outfile).replace(".sentinel",".h5")
+    log_file_name = os.path.basename(t.var["log_file"])
+
     # Formulate and run statement
-    statement = '''cellbender remove-background
+    # to avoid clashes between checkpoint files from different samples
+    # we need to cd into the outdir before running cellbender.
+    # by reducing the number of checkpoints and using multiple cpus
+    # we achieve a large speed up in runtime without the use of GPUs.
+    statement = '''cd %(outdir)s;
+                cellbender remove-background
                  --input=%(infile)s
-                 --output=%(out_file)s.h5
+                 --output=%(out_file_name)s
                  --model=%(cellbender_model)s
                  %(cuda_stat)s
                  --expected-cells=%(expected_cells)s
                  --total-droplets-included=%(total_droplets)s
                  --fpr=%(cellbender_fpr)s
                  --epochs=%(cellbender_epochs)s
+                 --checkpoint-mins=720
+                 --cpu-threads=%(resources_ncpu)s
+                 --estimator-multiple-cpu
                  --learning-rate=%(cellbender_learning_rate)s
                  --low-count-threshold=%(cellbender_low_count_threshold)s
-                 &> %(log_file)s
+                 &> %(log_file_name)s;
               ''' % dict(PARAMS, **t.var, **locals())
     
     P.run(statement, **t.resources)
-
     IOTools.touch_file(outfile)
 
 

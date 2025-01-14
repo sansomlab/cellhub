@@ -25,16 +25,16 @@ cellhub:
 resources:
 
   # amount of memory
-  memory: 16G
+  memory: 64G
   
   # number of cpus
-  ncpu: 1
+  ncpu: 8
     
   # Is memory allocated by core on the cluster?
   # If not, set to "False"
   # If true, set to the integer value of the avaliable
   #    memory/core, e.g. 16 for 16GB.
-  mempercore: 16
+  # mempercore: 16
 
 
 # Cellbender parameters
