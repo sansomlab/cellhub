@@ -58,9 +58,8 @@ from pathlib import Path
 from cgatcore import pipeline as P
 import cgatcore.iotools as IOTools
 
-import tasks as T
+import cellhub.tasks as T
 
-# import scanpy as sc
 
 # -------------------------- Pipeline Configuration -------------------------- #
 
