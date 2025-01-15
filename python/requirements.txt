@@ -1,3 +1,4 @@
+numpy==1.26.4
 anndata
 argparse
 bbknn
@@ -5,7 +6,6 @@ h5py
 harmonypy
 loompy
 matplotlib
-numpy
 pandas
 ruffus
 scanorama
