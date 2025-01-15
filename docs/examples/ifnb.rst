@@ -37,7 +37,7 @@ The pipeline is run as follows: ::
 
 Finally, the count matrices must be manually registered on the API for downstream analysis: ::
 
-  cellhub cellranger_multi make useCounts
+  cellhub cellranger make useCounts
 
 .. note:: When processing other datasets the "samples.tsv" and "libraries.tsv" files must be created by the user. For more details on constructing these files please see :doc:`pipeline_cellranger.py</pipelines/pipeline_cellranger>`. A template 'pipeline_cellranger.yml' file can be obtained using the "config" command which is common to all cellhub piplines.:
 
