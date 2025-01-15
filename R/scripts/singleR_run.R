@@ -62,7 +62,6 @@ pred <- SingleR(test = sce,
 message("saving the labels")
 labels <- data.frame(barcode=rownames(pred),
                      library_id=rep(opt$sample,nrow(pred)),
-                     first.labels=pred$first.labels,
                      labels=pred$labels,
                      pruned.labels=pred$pruned.labels)
 
