@@ -62,7 +62,8 @@ cran_packages <- c("Cairo",
                    "tibble",
                    "tidyr",
                    "tidyverse",
-                   "yaml")
+                   "yaml",
+		   "ggalluvial")
 
 bioconductor_packages <- c("ComplexHeatmap",
                            "DropletUtils",
