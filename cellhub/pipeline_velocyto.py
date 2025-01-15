@@ -125,7 +125,7 @@ def sortBam(infile, outfile):
     '''Sort bam file by cell barcodes'''
     
     t = T.setup(infile, outfile, PARAMS, 
-                job_memory = PARAMS["sort_memory"],
+                memory = PARAMS["sort_memory"],
                 cpu = PARAMS["sort_threads"])
 
     sample_name = outfile.split("/")[0][:-len(".sample.dir")]
@@ -138,7 +138,6 @@ def sortBam(infile, outfile):
     # cellranger outs directory contains input and output bam file for this task
     sort_outfile = os.path.join(outfolder, "cellsorted_possorted_genome_bam.bam")
     sort_infile = os.path.join(outfolder, "possorted_genome_bam.bam")
-
 
     if not os.path.exists(sort_outfile):
     
@@ -171,8 +170,8 @@ def runVelocyto(infile, outfile):
        into the pipeline-run directory for each sample.'''
 
     t = T.setup(infile, outfile, PARAMS,
-                job_memory = PARAMS["velocyto_memory"],
-                job_threads = PARAMS["velocyto_threads"])
+                memory = PARAMS["velocyto_memory"],
+                threads = PARAMS["velocyto_threads"])
 
     sample_name = infile.split("/")[0][:-len(".sample.dir")]
     reference = os.path.join(str(PARAMS["velocyto_cellranger_anno"]),

@@ -15,7 +15,6 @@ The pipeline requires a configured :file:`pipeline_cellbender.yml` file. A defau
 
    cellhub cellbender config
 
-
 Input
 -----
 
@@ -39,7 +38,7 @@ On the University of Oxford's BMRC cluster, this can be achieved with e.g. ::
 Pipeline output
 ===============
 
-The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the :doc:`cellhub.tasks.cellbender module documentation <../tasks/cellbender>` for more details.
+The pipeline registers cleaned CellBender h5 files on the local cellhub API. Currently this format is not fully compatible with the 10x h5 format. To work around this a custom loader is used, see the :doc:`cellhub.tasks.h5 module documentation <../tasks/h5>` for more details.
 
 Code
 ====
@@ -115,6 +114,7 @@ def cellbender(infile, outfile):
     expected_cells = PARAMS[sample_key]["expected_cells"]
     total_droplets = PARAMS[sample_key]["total_droplets_included"]
     
+
     # remove path from outfile and log_file 
     out_file_name = os.path.basename(outfile).replace(".sentinel",".h5")
     log_file_name = os.path.basename(t.var["log_file"])
@@ -244,7 +244,7 @@ def mtx(infile, outfile):
         log_name = t.log_file.replace("mtx", "mtx." + type)
     
         # Formulate and run statement
-        stat = '''python %(cellhub_code_dir)s/python/cellbender_export_mtx.py
+        stat = '''python %(cellhub_code_dir)s/python/export_mtx_from_h5.py
                        --cellbender_h5=%(h5)s
                        --mtx_dir=%(mtx_dir)s
                      &> %(log_name)s

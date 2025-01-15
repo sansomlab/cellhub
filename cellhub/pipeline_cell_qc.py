@@ -121,7 +121,6 @@ def qcmetrics(infile, outfile):
       barcodes_to_label_as_True = PARAMS["calculate_qc_metrics_barcodes_to_label_as_True"]
       barcodes_to_label_as_True = '''--barcodes_to_label_as_True=%(barcodes_to_label_as_True)s''' % locals()
 
-    # out_file = outfile.replace(".sentinel", ".tsv.gz")
 
     # Formulate and run statement
     statement = '''Rscript %(cellhub_code_dir)s/R/scripts/qc_metrics.R

@@ -130,13 +130,13 @@ def fetchCells(infile, outfile):
 
 
 # ########################################################################### #
-# ######################### fetch GEX data ################################## #
+# ######################### fetch count data ################################ #
 # ########################################################################### #
 
 
 @files(fetchCells,
        "anndata.dir/gex.sentinel")
-def GEX(infile, outfile):
+def fetchCounts(infile, outfile):
     '''
     Extract the target cells into a single anndata.
     Note that this currently contains all the modalities
@@ -151,9 +151,9 @@ def GEX(infile, outfile):
 
     statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
                    --cells=%(cell_table)s
-                   --feature_type=GEX
+                   --feature_type=%(feature_type)s
                    --api=%(api_path)s
-                   --outname=gex.h5ad
+                   --outname=counts.h5ad
                    --outdir=%(outdir)s
                    &> %(log_file)s
                 ''' % dict(PARAMS, **t.var, **locals())
@@ -162,38 +162,6 @@ def GEX(infile, outfile):
     IOTools.touch_file(outfile)
 
 
-# # ########################################################################### #
-# # ######################### fetch ADT data ################################## #
-# # ########################################################################### #
-
-@active_if(PARAMS["ADT_fetch"])
-@files(fetchCells,
-       "anndata.dir/adt.sentinel")
-def ADT(infile, outfile):
-    '''
-    Extract the target cells into a single anndata.
-    Note that this currently contains all the modalities
-
-    TODO: support down-sampling
-    '''
-
-    t = T.setup(infile, outfile, PARAMS, memory=PARAMS["resources_memory"])
-
-    cell_table = infile.replace(".sentinel", ".tsv.gz")
-
-    api_path = os.path.join(PARAMS["cellhub_location"],"api")
-
-    statement = '''python %(cellhub_code_dir)s/python/fetch_cells_from_h5.py 
-                   --cells=%(cell_table)s
-                   --feature_type=ADT
-                   --api=%(api_path)s
-                   --outdir=%(outdir)s
-                   --outname=adt.h5ad
-                   &> %(log_file)s
-                ''' % dict(PARAMS, **t.var, **locals())
-
-    P.run(statement, **t.resources)
-    IOTools.touch_file(outfile)
 
 
 # ########################################################################### #
@@ -215,7 +183,7 @@ def ADT(infile, outfile):
 # ########################################################################### #
 
 
-@follows(GEX, ADT)
+@follows(fetchCounts)
 def full():
     pass
 

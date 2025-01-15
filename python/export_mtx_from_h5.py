@@ -6,7 +6,7 @@ import logging
 import gzip
 import argparse
 import scipy.io as scio
-import cellhub.tasks.cellbender as cb
+import cellhub.tasks.h5 as h5
 
 # < ------------------------- Set up the logging --------------------------> #
 
@@ -16,8 +16,9 @@ L = logging.getLogger("extract_cells_from_h5.py")
 # < --------------------------- parse arguments ----------------------------> #
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--cellbender_h5", default=None, type=str,
-                    help='a cellbender h5 file')
+parser.add_argument("--h5", default=None, type=str,
+                    help=('the path to a h5 file in cellranger, '
+                          'cellbender or anndata format'))
 parser.add_argument("--mtx_dir",default=None, type=str,
                     help="output directory for mtx, barcodes and features")
 
@@ -31,10 +32,10 @@ print(args)
 if not os.path.exists(args.mtx_dir):
     os.makedirs(args.mtx_dir)
 
-L.info("Reading the cellbender h5 file")
+L.info("Reading the h5 file")
         
-x = cb.anndata_from_h5(args.cellbender_h5,
-                       analyzed_barcodes_only=False)
+x = h5.read_h5(args.h5,
+               cellbender_analyzed_barcodes_only=False)
 
 # define the output paths
 matrix_loc = os.path.join(args.mtx_dir,"matrix.mtx.gz")
@@ -54,7 +55,7 @@ L.info("Saving the features")
 # columns: gene_id, gene_name, feature_type
 
 x.var["gene_name"] = x.var.index
-feature_cols = ["gene_id", "gene_name", "feature_type"]
+feature_cols = ["gene_ids", "gene_name", "feature_types"]
 
 x.var.to_csv(features_loc, index=False, header=False, 
              columns=feature_cols, sep="\t")
