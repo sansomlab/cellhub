@@ -56,7 +56,9 @@ print(args)
 # ########################################################################### #
 
 # read in the source data
-adata = ad.read_h5ad(args.source_anndata, backed='r')
+adata = ad.read_h5ad(args.source_anndata)
+
+# , backed='r') no supported see: https://github.com/scverse/scanpy/issues/3199
 
 # add the cluster_ids
 clusters = pd.read_csv(args.clusterids, sep="\t")
