@@ -248,12 +248,14 @@ def count(infile, outfile):
         r2len = PARAMS["count_r2-length"]
  
     # deal with flags
-    nosecondary, nobam, includeintrons = "", "", ""
+    nosecondary, createbam, includeintrons = "", "", ""
     
     if PARAMS["cellranger_nosecondary"]:
         nosecondary = "--nosecondary"
-    if PARAMS["cellranger_no-bam"]:
-        nobam = "--no-bam"
+    if PARAMS["cellranger_create-bam"]:
+        createbam = "--create-bam=true"
+    else:
+        createbam = "--create-bam=false"
     if PARAMS["gex_include-introns"]:
         includeintrons = "--include-introns=true"
  
@@ -268,7 +270,7 @@ def count(infile, outfile):
                     --expect-cells=%(expect_cells)s
                     --chemistry=%(chemistry)s
                     %(nosecondary)s
-                    %(nobam)s
+                    %(create-bam)s
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(includeintrons)s

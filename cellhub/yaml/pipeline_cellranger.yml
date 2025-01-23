@@ -49,7 +49,7 @@ cellranger:
 
     # Disables BAM(.bai) file generation, saving disk space at the expense of interrogable alignment records.
     # Default: false.
-    no-bam: true
+    create-bam: false
 
 
 
