@@ -270,7 +270,7 @@ def count(infile, outfile):
                     --expect-cells=%(expect_cells)s
                     --chemistry=%(chemistry)s
                     %(nosecondary)s
-                    %(create-bam)s
+                    %(createbam)s
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(includeintrons)s
