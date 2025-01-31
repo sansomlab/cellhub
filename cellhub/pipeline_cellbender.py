@@ -245,7 +245,7 @@ def mtx(infile, outfile):
     
         # Formulate and run statement
         stat = '''python %(cellhub_code_dir)s/python/export_mtx_from_h5.py
-                       --cellbender_h5=%(h5)s
+                       --h5=%(h5)s
                        --mtx_dir=%(mtx_dir)s
                      &> %(log_name)s
                     ''' % dict(PARAMS, **t.var, **locals())
