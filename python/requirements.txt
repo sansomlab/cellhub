@@ -24,3 +24,5 @@ tables
 cgatcore
 gevent
 apsw
+sphinx_rtd_theme
+
