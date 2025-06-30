@@ -99,6 +99,8 @@ if(length(unique(rowData(s)[["Type"]])) > 1) {
   gex_feats <- rowData(s)[["ID"]][rowData(s)[["Type"]] == "Gene Expression"]
   gex_UMI <- colSums(counts(s)[gex_feats, ])
   cell_qc[["gex_UMI"]] <- gex_UMI
+  #subset sce object to gex features for calculation of qc metrics
+  s <- s[rowData(s)[["Type"]] == 'Gene Expression']
 }
 
 # Compute percentage of genesets ------
