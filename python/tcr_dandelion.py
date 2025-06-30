@@ -64,14 +64,14 @@ if os.path.exists(args.contig_path):
             vdj, retrieve="consensus_count", retrieve_mode="split and merge"
     )
 
-    # Save an unfiltered version of for more refined downstream processing
+    # Save an unfiltered version for more refined downstream processing
   
     # Save the metafile for downstream processing and attaching to the anndata object
     # vdj.metadata.to_csv( "dandeloin_meta.tsv", index=True, index_label="barcode", sep="\t")
-    vdj.metadata.to_csv( args.outfile_prefix + "_meta.tsv", index=True, index_label="barcode", sep="\t")
+    vdj.metadata.to_csv( args.outfile_prefix + "_meta_unfiltered.tsv", index=True, index_label="barcode", sep="\t")
     
     # Save the dandelion object for downstream processing and tcr visualisations
-    vdj.write_h5ddl(args.outfile_prefix + ".h5ddl", complib="bzip2")
+    vdj.write_h5ddl(args.outfile_prefix + "_unfiltered.h5ddl", complib="bzip2")
 
     # Perform filtering and clonotype calling for the filtered outputs
     vdj_filtered = ddl.pp.filter_contigs(vdj, 
@@ -80,21 +80,11 @@ if os.path.exists(args.contig_path):
         keep_highest_umi=True,
         umi_foldchange_cutoff=2,
         filter_extra_vdj_chains=True,
-        filter_extra_vj_chains=True
+        filter_extra_vj_chains=False
         )
 
 
     ddl.tl.find_clones(vdj_filtered,identity=1, key="junction_aa")
-
-    # Generate network based on sequence_aa
-    ddl.tl.generate_network(vdj_filtered, key="sequence_alignment_aa")
-
-    # Create initial clone size columns
-    ddl.tl.clone_size(vdj_filtered)
-    ddl.tl.clone_size(vdj_filtered, max_size=3)
-
-    # Plot the clone network graph
-    #ddl.pl.clone_network(vdj_filtered, color="clone_id_size",save=args.outfile_prefix + "_clone_network.png")
 
     # Save the filtered metafile for downstream processing and attaching to the anndata object
     vdj_filtered.metadata.to_csv( args.outfile_prefix + "_meta_filtered.tsv", index=True, index_label="barcode", sep="\t")

@@ -11,13 +11,11 @@ The pipeline performs a series of tasks aimed at TCR analysis of single cell RNA
 
 It performs the following functions:
 
-* Identifies TCR chain and contigs in each TCR chain for each single cell
-
-* The following will either be performed downstream or implemented in the future:
-* (to be done) Performs chain QC, in order to highlight multichain cells and to annotate cell types with specific, distinctive chain configurations
-* (to be done) Performes clonotype analysis, that is it calculates diversity indices and lists enriched clonotypes
-* (to be done) Performs clustering of CDR3 sequences, to identify clonal neighbours
-* (to be done) Identifies whether for each TCR, a known antigenic specificity can be predicted
+* Identifies TCR chain and contigs in each TCR chain for each single cell using Dandelion
+* Demultiplexes samples before Dandelion pre-processing if needed.
+* Creates a unified Dandelion project-level object for downstream processing.
+* Optionally creates Scirpy output files, however these are not currently used downstream.
+* Optionally runs TCRmatch to match TCR sequences against a database of known TCR sequences (experimental).
 
 Usage
 =====
@@ -49,11 +47,14 @@ This pipeline requires:
 * cgat-core: https://github.com/cgat-developers/cgat-core
 * cellranger: https://support.10xgenomics.com/single-cell-gene-expression/
 * apptainer: https://github.com/apptainer/apptainer
+* dandelion: https://github.com/zktuong/dandelion/
+# pip install sc-dandelion
+# pip install psutil
 
 Pipeline logic
 --------------
 
-The pipeline is designed to perform TCR reconstruction 
+The pipeline is designed to perform TCR pre-processing using Dandelion
 
 
 Pipeline output
@@ -61,7 +62,7 @@ Pipeline output
 
 The pipeline returns:
 
-* a tsv table with barcode metadata and dandelion objects for downstream processing
+* a tsv table with barcode metadata and a Dandelion object for downstream processing
 
 
 Code
@@ -79,7 +80,10 @@ import sqlite3
 import yaml
 import csv
 import shutil
+import dandelion as ddl
 # from contextlib import contextmanager
+import psutil
+
 
 import cgatcore.experiment as E
 from cgatcore import pipeline as P
@@ -112,17 +116,38 @@ if len(sys.argv) > 1:
                     sys.exit(P.main(sys.argv))
 
 
+dirprefix_string = PARAMS.get("dirprefix", "")  
+
+runscirpy_bool = PARAMS.get("scirpy_run", True) 
+runTCRmatch_bool = PARAMS.get("TCRmatch_run", False) 
+
+skipsamples_string = PARAMS.get("skipsamples", "")
+skipsamples_list = skipsamples_string.split(';')
+
+
+# Only needed for demultiplexing
+metadata_file_string = PARAMS.get("metadata_file", "")
+metadata_barcode_file_string = PARAMS.get("metadata_barcode_file", "")
+
+barcode_key_string = PARAMS.get("barcode_key", "")
+barcode_key_list = barcode_key_string.split(';')
+barcode_key_seperator_string = PARAMS.get("barcode_key_seperator", "-")
+
+
+project_name_string = PARAMS.get("project_name", "")
+multiplexed_bool = PARAMS.get("multiplexed", True)
+
+library_id_prefix_string  = PARAMS.get("library_id_prefix", "")
+library_id_suffix_string  = PARAMS.get("library_id_suffix", "")
+
 
 # ---------------------------- Pipeline tasks ------------------------------- #
 
-# ########################################################################### #
-# ###########################  TCR Analysis  ############################## #
-# ########################################################################### #
-
 # 1. Create Scirpy output for TCRs
 # Safe to use globbing here as we know these files exist
-@transform(glob.glob("api/cellranger/vdj_t/unfiltered/*/all_contig_annotations.csv"), 
-regex(r".*/.*/.*/.*/(.*)/all_contig_annotations.csv"),
+@active_if(runscirpy_bool)  
+@transform(glob.glob(f"{dirprefix_string}api/cellranger/vdj_t/unfiltered/*/all_contig_annotations.csv"),
+regex(rf"{dirprefix_string}.*/.*/.*/.*/(.*)/all_contig_annotations.csv"),
 r"scirpy.dir/\1.scirpy.sentinel")
 def scirpyTCR(infile, outfile):
     ''' 
@@ -130,20 +155,31 @@ def scirpyTCR(infile, outfile):
     '''
 
     outfile_prefix_string = outfile.replace(".sentinel", "") 
+    outfile_name = os.path.basename(outfile.replace(".scirpy.sentinel", "")) 
+    
 
     t = T.setup(infile, outfile, PARAMS,
                 memory=PARAMS["resources_memory"],
                 cpu=PARAMS["resources_cores"])
 
     statement = '''python %(cellhub_code_dir)s/python/tcr_scirpy.py
-                   --contig_path %(infile)s
-                   --outfile_prefix %(outfile_prefix_string)s
-                    &> %(log_file)s
-                 ''' % dict(PARAMS, 
-                            **t.var, 
-                            **locals())
+                       --contig_path %(infile)s
+                       --outfile_prefix %(outfile_prefix_string)s
+                        &> %(log_file)s
+                     ''' % dict(PARAMS, 
+                                **t.var, 
+                                **locals())
 
-    P.run(statement, **t.resources)
+
+
+
+    # if not outfile_name in skipsamples_list:
+    if not outfile_name in skipsamples_list:
+        P.run(statement, **t.resources)
+    else:
+        print(f"Skipping {outfile_name}")
+    
+
     IOTools.touch_file(outfile)
 
 #2. Create Dandelion output for TCRs
@@ -151,76 +187,332 @@ def scirpyTCR(infile, outfile):
 #  Requires two files per sample as input, and these files aren't available in the api 
 #  directory so need to handle them manually. dandelion_setup copies these files to
 #  the dandelion.dir directory and also creates a meta.csv file which can be optionally
-#  used by dandelion_preprocessing downstream.
+#  used by dandelion_preprocessing downstream (however this does not take into account
+#  the individual that the sample came from, only the sample name).
+
+def dandelion_input_files():
+    fasta_pattern = f"{dirprefix_string}cellranger.vdj.t.dir/*/outs/all_contig.fasta"
+    csv_pattern = f"{dirprefix_string}cellranger.vdj.t.dir/*/outs/all_contig_annotations.csv"
+    return glob.glob(fasta_pattern) + glob.glob(csv_pattern)
 
 
-@follows(scirpyTCR)
-@merge(None, "dandelion.dir/dandelion_setup.sentinel") 
-def dandelion_setup(_input, outfile):
+@collate(dandelion_input_files(),
+         regex(rf"{dirprefix_string}cellranger.vdj.t.dir/(.*)/outs/.*"),
+         r"dandelion.dir/\1.setup.sentinel")
+def dandelion_setup(input_files, outfile):
     '''
     Setup expected directory structure and files for dandelion input.
     '''
-    # Pattern to match directories
-    dir_pattern = "cellranger.vdj.t.dir/*/outs/"
-    # Compile regex to extract the sample name
-    regex = re.compile(r".*/([^/]+)/outs/$")
+
+    # Make sure fasta file is first and csv file is second
+    sorted_files = sorted(input_files, key=lambda x: x.endswith('.fasta'), reverse=True)
+    fasta_file, csv_file = sorted_files[0], sorted_files[1]
+
     
-    # Use glob to find directories matching the pattern
-    for dir_path in glob.glob(dir_pattern):
-        # Use regex to extract the sample name
-        match = regex.match(dir_path)
-        if match:
-            sample_name = match.group(1)
-            print(f"Processing {sample_name} in directory {dir_path}")
+    # Get the sample name we are working with from the csv file path
+    match = re.match(rf"{dirprefix_string}cellranger.vdj.t.dir/([^/]+)/outs/all_contig_annotations.csv", csv_file)
+    if match:
+        sample_name = match.group(1)
+
+        # Make sure we don't want to skip this sample
+        if not sample_name in skipsamples_list:
+
+            print(f"Processing {sample_name}")
 
             # Define the output directory based on the sample name
             output_dir = f"dandelion.dir/{sample_name}/"
             os.makedirs(output_dir, exist_ok=True)
 
             # # Copy input files to the new directory 
-            shutil.copy(os.path.join(dir_path, "all_contig.fasta"), output_dir)
-            shutil.copy(os.path.join(dir_path, "all_contig_annotations.csv"), output_dir)
+            shutil.copy(fasta_file, output_dir)
+            shutil.copy(csv_file, output_dir)
             
-            # Symlinked files aren't picked up correctly by dandelion.
-            # absolute_dir_path = PARAMS.get("start_dir") + "/" + dir_path
-            # # link input files to the new directory 
-            # source_file1 = os.path.join(absolute_dir_path, "all_contig.fasta")
-            # link_name1 = os.path.join(output_dir, "all_contig.fasta")
-            # os.symlink(source_file1, link_name1)
-            # source_file2 = os.path.join(absolute_dir_path, "all_contig_annotations.csv")
-            # link_name2 = os.path.join(output_dir, "all_contig_annotations.csv")
-            # os.symlink(source_file2, link_name2)
+            # If we need to demultiplex
+                # 1. Create a new directory called "dandelion.dir.work" in the current directory
+                # 2. Process each line of the metadata file to extract entries only relevant to the current sample
+                # 3. Create a new directory and new meta line for each .key.tsv file generated
+                # 4. Also create a new directory in the output_dir directory named library_id + "_unknown" for any barcodes that are not found
+                # 5. Create individual all_contig.fasta and all_contig_annotations.csv files for each individual within the sample
+                # 6. Remove any "_unknown" directories which were created but are not associated with any barcodes, and move the 
+                #       remaining directories to the dandelion.dir directory for downstream processing                
+                # 7. As this was a multiplexed sample, we can now move the {output_dir} directory which is no longer needed
+                #       to the "dandelion.dir.work" directory to preserve it for potential error checking
+            if multiplexed_bool:
 
-            # Append a line to the meta.csv file in the dandelion.dir directory which 
-            # can then be used by dandelion to label barcodes per sample (by passing --meta meta.csv).
-            # This file can be optionally used by dandelion_preprocessing depending on whether
-            # yml dandelion_meta configuration is True or False. In the future we should modify this
-            # to include the name of the sample followed by the name of the individual that sample
-            # came from.
+                # 1. Create a new directory called "dandelion.dir.work" in the current directory
+                dandelion_dir_work = "dandelion.dir.work"
+                os.makedirs(dandelion_dir_work, exist_ok=True)
+               
 
-            string_to_append = f"{sample_name},{sample_name}\n"
-            # Define the path to the meta.csv file in the dandelion.dir directory
-            meta_csv_path = os.path.join("dandelion.dir", "meta.csv")
-            # Open the file in append mode and write the string
-            with open(meta_csv_path, "a") as meta_file:
-                meta_file.write(string_to_append)
+                if os.path.isfile(metadata_barcode_file_string):
 
-    IOTools.touch_file(outfile)
+                    # 2. Process each line of the metadata_file to extract entries only relevant to the current sample
+                    with open(metadata_barcode_file_string, 'r') as file:
+                        headers = file.readline().strip().split('\t')
+
+                        # Check if all required headers are present
+                        #required_headers = barcode_key_list + [individual_key_string] + ['barcode_final']
+                        required_headers = ['project_name', 'library_id', 'pid', 'barcode_original']
+                        missing_headers = [header for header in required_headers if header not in headers]
+                        
+                        if missing_headers:
+                            print(f"Missing required headers in metadata_file: {', '.join(missing_headers)}")
+                            sys.exit(1)  # Exit the script 
+
+                        # print(headers)
+                        # print(len(headers))
+
+                        project_name_index = headers.index('project_name')
+                        # print(project_name_index)
+                        library_name_index = headers.index('library_id')
+                        # print(library_name_index)
+                        individual_index = headers.index('pid')
+                        # print(individual_index)
+
+                        barcode_original_index = headers.index('barcode_original')
+                        
+                        library_id = library_id_prefix_string + sample_name + library_id_suffix_string
+
+                        # Subdivide the key file into only individual key files that are relevant
+
+                        for line in file:
+                            columns = line.strip().split('\t')
+                            # Only looking at entries within this project, and for the library being processed as part of this task
+                            if columns[project_name_index] == project_name_string and columns[library_name_index] == library_id:
+                                # Create a new key file for each individual from the relevant entries
+                                key_file_path = os.path.join(output_dir,f"{columns[library_name_index]}_{columns[individual_index]}.key.tsv" )
+                                with open(key_file_path, 'a') as kf:
+                                    kf.write(line)
+
+
+                        # 3. Create a new directory and new meta line for each .key.tsv file generated
+                        # This will be equivalent to a new folder for each individual within the sample, which will 
+                        # become the new "sample" processed downstream by Dandelion.
+                        # Iterate over all items in output_dir
+                        for item in os.listdir(output_dir):
+                            # Check if the item is a file and ends with '.key.tsv'
+                            if item.endswith(".key.tsv"):
+                                # Remove the '.key.tsv' extension to get the directory name
+                                dir_name = item[:-8]  # '.key.tsv' is 8 characters long
+                                # Construct the full path for the new directory
+                                new_dir_path = os.path.join(output_dir, dir_name)
+                                # Create the directory if it doesn't already exist
+                                os.makedirs(new_dir_path, exist_ok=True)
+
+                                # Create a meta file for the new directory which includes sample,suffix,individual
+                                # Important: pid can not contain an underscore for this to work
+                                parts = dir_name.split("_")
+                                # Because we used an underscore to attach pid, we can split on underscore to get the pid
+                                the_pid = parts[-1]
+                                # This will be everything before the last barcode, which should be the same as the barcode suffix
+                                the_bc_suffix =  "_".join(parts[:-1])
+                                the_bc_suffix = the_bc_suffix + "-" + project_name_string
+                                metafile = os.path.join(output_dir,f"{dir_name}.meta" )
+                                with open(metafile, 'a') as mf:
+                                    mf.write(f"{dir_name},{the_bc_suffix},{the_pid}\n")
+
+                        # 4. Also create a new directory in the output_dir directory named library_id + "_unknown" for any barcodes that are not found
+                        unknown_dir_name = os.path.join(output_dir, f"{library_id}_unknown")
+                        os.makedirs(unknown_dir_name, exist_ok=True)
+
+                        # 5. Create individual all_contig.fasta and all_contig_annotations.csv files for each individual within the sample
+                        # Load barcodes and their corresponding file names into a dictionary
+                        barcode_to_file = {}
+                        all_file_names = set()  # To keep track of all needed file names
+                        all_file_names.add(unknown_dir_name)
+                        for file in os.listdir(output_dir):
+                            if file.endswith(".key.tsv"):
+                                file_prefix = file.replace(".key.tsv", "")
+                                all_file_names.add(os.path.join(output_dir, file_prefix))
+                                with open(os.path.join(output_dir, file), 'r') as f:
+                                    for line in f:
+                                        # Extract the "original" barcode from the line
+                                        barcode = line.strip().split('\t')[barcode_original_index]
+                                        barcode_to_file[barcode] = os.path.join(output_dir, file_prefix)
+                                    
+                        #print(f"Filenames in all_file_names: {all_file_names}")
+                        # Open all all_contig.fasta file handles
+                        file_handles = {}
+                        for name in all_file_names:
+                            target_file_path =  f"{name}/all_contig.fasta"
+                            # os.makedirs(os.path.dirname(target_file_path), exist_ok=True)  # We know these directories exist
+                            file_handles[name] = open(target_file_path, 'a')
+
+                        try:
+                            # Process the fasta file
+                            with open(fasta_file, 'r') as fasta:
+                                while True:
+                                    header_line = fasta.readline()
+                                    sequence_line = fasta.readline()
+                                    if not header_line or not sequence_line:
+                                        break  # End of file
+
+                                    if header_line.startswith(">"):
+                                        barcode_match = re.search(r">([^_]+)", header_line)
+                                        if barcode_match:
+                                            barcode = barcode_match.group(1)
+                                            # Determine the target directory based on the barcode, defaulting to the unknown directory if not found
+                                            target_dir = barcode_to_file.get(barcode, unknown_dir_name)
+
+                                            # Write to the appropriate file
+                                            file_handle = file_handles[target_dir]
+                                            file_handle.write(header_line)
+                                            file_handle.write(sequence_line)
+                        finally:
+                            # Close all opened file handles
+                            for handle in file_handles.values():
+                                handle.close()
+
+
+                        # Preemptively open all all_contig_annotations.csv file handles
+                        file_handles = {}
+                        for name in all_file_names:
+                            target_file_path =  f"{name}/all_contig_annotations.csv"
+                            # os.makedirs(os.path.dirname(target_file_path), exist_ok=True)  # We know these directories exist
+                            file_handles[name] = open(target_file_path, 'a')
+
+                        try:
+                            # Process the fasta file
+                            with open(csv_file, 'r') as csv:
+                                header_line = csv.readline()
+                                # Write the header line to all files
+                                for file_handle in file_handles.values():
+                                    file_handle.write(header_line)
+
+                                while True:
+                                    record_line = csv.readline()
+                                    if not record_line:
+                                        break  # End of file
+                                    
+                                    barcode = record_line.strip().split(',')[0]
+                                    # Determine the target directory based on the barcode, defaulting to the unknown directory if not found
+                                    target_dir = barcode_to_file.get(barcode, unknown_dir_name)
+
+                                    # Write to the appropriate file
+                                    file_handle = file_handles[target_dir]
+                                    file_handle.write(record_line)
+                        finally:
+                            # Close all opened file handles
+                            for handle in file_handles.values():
+                                handle.close()
+
+                        # 6. Remove any "_unknown" directories which were created but are not associated with any barcodes, and move the 
+                        # remaining directories to the dandelion.dir directory for downstream processing
+                        # Iterate over all items in output_dir
+                        for item in os.listdir(output_dir):
+                            item_path = os.path.join(output_dir, item)
+                            
+                            # Check if the item is a directory and ends with '_unknown'
+                            if os.path.isdir(item_path):
+                                if item.endswith("_unknown"):
+                                    all_contigs_path = os.path.join(item_path, "all_contigs.csv")
+                                    
+                                    # Check if all_contigs.csv exists (it always should, and should always contain at least 1 header line)
+                                    if os.path.exists(all_contigs_path):
+                                        with open(all_contigs_path, 'r') as f:
+                                            lines = f.readlines()
+                                            
+                                            # Check if all_contigs.csv contains only 1 line
+                                            if len(lines) == 1:
+                                                shutil.rmtree(item_path)
+                                                print(f"Removed directory: {item_path} as all barcodes accounted for")
+                                else:
+                                    # Move the directory to the dandelion.dir directory as it will now be the equivalent of a TCR sample directory to be passed to dandelion.
+                                    shutil.move(item_path, "dandelion.dir")
+                            else:
+                                if item.endswith(".meta"):
+                                    shutil.move(item_path, "dandelion.dir")
+
+                        # 7. As this was a multiplexed sample, we can now move the {output_dir} directory which is no longer needed
+                        #   to the "dandelion.dir.work" directory to preserve it for potential error checking
+                        shutil.move(output_dir, dandelion_dir_work)
+                else:
+                    print("Invalid metadata_barcode_file location provided, skipping demultiplexing, no meta file created")
+            else:
+                print("Not demultiplexing, looking up single sample in metadata_file")
+                # Look up the sample and individual name for this folder and add it to the meta.csv file
+                with open(metadata_file_string, 'r') as file:
+                    headers = file.readline().strip().split('\t')
+
+                    # Check if all required headers are present
+                    required_headers = ['project_name', 'library_id' , 'pid']
+                    missing_headers = [header for header in required_headers if header not in headers]
+                    
+                    if missing_headers:
+                        print(f"Missing required headers in metadata_file: {', '.join(missing_headers)}")
+                        sys.exit(1)  # Exit the script 
+
+                    project_name_index = headers.index('project_name')
+                    library_name_index = headers.index('library_id')
+                    individual_index = headers.index('pid')
+                    
+
+                    library_id = library_id_prefix_string + sample_name + library_id_suffix_string
+                    # Note, a somewhat silent error can occur here if tabs are accidentally spaces
+                    # for any entries in the metadata_file_string file, as the split will not work as expected.
+                    # If you don't get a dandelion/all_contig_dandelion.tsv file for a sample,
+                    # check the metadata_file_string file for errors.
+                    for line in file:
+                        columns = line.strip().split('\t')
+                        if columns[project_name_index] == project_name_string and columns[library_name_index] == library_id:
+                            meta_line = f"{columns[library_name_index]},{columns[library_name_index]}{barcode_key_seperator_string}{project_name_string},{columns[individual_index]}\n"
+                            metafile = f"dandelion.dir/{columns[library_name_index]}_{columns[individual_index]}.meta" 
+                            with open(metafile, 'a') as mf:
+                                mf.write(meta_line)
+                            break
+
+            # We only want this outfile created if the sample is not being skipped, so downstream tasks don't need to recheck this.
+            # It doesn't hurt to check this each time in case the skipsamples_list changes.
+            IOTools.touch_file(outfile)
+        else:
+            print(f"Skipping {sample_name} found in skipsamples")
+
+
+def join_meta_files(directory):
+    output_file_path = os.path.join(directory, 'meta.csv')
+    
+    # Use glob to find all .meta files in the directory
+    meta_files = glob.glob(os.path.join(directory, '*.meta'))
+    
+    # Open the output file in write mode (this will overwrite the file if it already exists)
+    with open(output_file_path, 'w') as outfile_meta:
+        # Iterate over each .meta file
+        for file_path in meta_files:
+            # Open the current .meta file in read mode
+            with open(file_path, 'r') as infile:
+                # Read the contents of the file and write them to the output file
+                for line in infile:
+                    outfile_meta.write(line)
 
 
 @follows(dandelion_setup)
+def create_meta():
+    '''
+    Convert single sample metadata files to a single meta.csv file.
+    '''
+    # Join up all the .meta files in the dandelion.dir directory into one file
+
+    join_meta_files("dandelion.dir")
+
+
+
+@follows(create_meta)
 @merge(None, "dandelion.dir/dandelion_preprocessing.sentinel") 
 def dandelion_preprocessing(_input, outfile):
     '''
     Run dandelion pre-processing using the dandelion apptainer.
     '''
-    
-    dandelion_dir_path = "dandelion.dir"  # Path to the dandelion.dir directory
-    dandelion_dir_path_ab = os.path.abspath(dandelion_dir_path)  # Get the absolute path of the dandelion.dir directory
+
+    # Path to the dandelion.dir directory
+    dandelion_dir_path = "dandelion.dir"  
+    # Get the absolute path of the dandelion.dir directory and meta.csv file
+    dandelion_dir_path_ab = os.path.abspath(dandelion_dir_path)  
     meta_csv_path = os.path.join(dandelion_dir_path, "meta.csv")
   
-    use_hc = PARAMS.get("dandelion_high_confidence", True)  # Get 'use_hc' from PARAMS, default to True if not found
-    use_hc = str(use_hc).lower() != "false"  # Ensures string comparison, accounts for "False", "false", etc.
+    # Get 'use_hc' from PARAMS, default to True if not found
+    use_hc = PARAMS.get("dandelion_high_confidence", True)  
+    # Ensures string comparison, accounts for "False", "false", etc.
+    use_hc = str(use_hc).lower() != "false"  
     hc_argument = ""
     if use_hc:
         print("Using high confidence")
@@ -232,14 +524,12 @@ def dandelion_preprocessing(_input, outfile):
     meta_argument = ""
     
 
-    # Check if the meta.csv file exists
+    # Check if the meta.csv file exists and prepend the header if it does
     if os.path.exists(meta_csv_path):
     # Open the existing file in read mode and read its content
         with open(meta_csv_path, "r") as file:
             content = file.read()
-        # Prepend "sample,prefix\n" header to the existing content
-        # In the future we should make this sample,individual as we have decided to prefix barcodes downtream.
-        new_content = "sample,prefix\n" + content
+        new_content = "sample,suffix,individual\n" + content
         # Open the file in write mode and write the new content
         with open(meta_csv_path, "w") as file:
             file.write(new_content)
@@ -248,7 +538,7 @@ def dandelion_preprocessing(_input, outfile):
         
 
     # As we are changing directory we need an updated logfile name
-    log_file_simple =  os.path.realpath(outfile.replace(".sentinel", ".log"))
+    log_file_simple = os.path.realpath(outfile.replace(".sentinel", ".log"))
     log_file_simple = f"{os.path.basename(log_file_simple)}"
 
     t = T.setup(None, outfile, PARAMS,
@@ -264,19 +554,6 @@ def dandelion_preprocessing(_input, outfile):
     # apptainer run -B $PWD -H /users/sansom/efs143/work/SALL/cellhub/dandelion.dir $DNDLN dandelion-preprocess --chain TR --filter_to_high_confidence --meta meta.csv &> dandelion_preprocessing.log
     # The dandelion module must be loaded for this to work (module load dandelion/0.3.5)
     
-    # # Something like this could potentially be used in the future to set memory
-    # # and cpu parameters, however it currently doesn't work due to cgroups v2 requirement with the following error:
-    # # FATAL:   container creation failed: while applying cgroups config: rootless cgroups requires cgroups v2
-    # # Get available memory and convert to bytes to pass to the container
-    # size_in_gb = PARAMS.get("dandelion_memory")
-    # # Strip the "G" and convert to integer
-    # size_in_gb = int(size_in_gb.rstrip('G'))
-    # # Convert to bytes
-    # size_in_bytes = size_in_gb * (1024 ** 3)
-    #
-    # Arguments to apptainer:
-    #         --memory %(size_in_bytes)s
-    #         --cpus %(dandelion_cores)s
 
     statement = '''
         cd dandelion.dir;
@@ -289,76 +566,207 @@ def dandelion_preprocessing(_input, outfile):
         --chain TR 
         %(hc_argument)s                   
         %(meta_argument)s
+        --sep '-'
         &> %(log_file_simple)s
         ''' % dict(PARAMS,**t.var,**locals())
 
 
-    # subprocess.run(cmd, shell=True, cwd=dandelion_dir_path, check=True)
-    # cwd=dandelion_dir_path_ab doesn't work, need to cd in the statement and update log file location
-    P.run(statement, **t.resources) 
+
+    P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
 
 
 
-# This doesn't work because globbing is attempted before files exist.
-# # For each sample, create a dandelion object and save the object and its metadata to separate files for later use
-# #@transform(glob.glob("dandelion.dir/*/dandelion/all_contig_dandelion.tsv"), 
-# @follows(dandelion_preprocessing)
-# @transform(glob.glob("dandelion.dir/*/dandelion/all_contig_dandelion.tsv"), 
-# regex(r"dandelion.dir/(.*)/dandelion/all_contig_dandelion.tsv"),
-# r"dandelion.dir/\1.dand3.sentinel")
-# 
-# Instead performing globbing within function to get the files at runtime
-# To Do: make these run in parallel rather than through a for loop
+def list_directories(base_dir):
+    return [name for name in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, name))]
+
 
 @follows(dandelion_preprocessing)
-@transform(dandelion_preprocessing, # Using None as placeholder, actual input determined at runtime
-           filter=formatter(), # placeholder
-           output=r"dandelion.dir/{subpath[0]}.dandelion.sentinel") # Define output pattern
+@split(None,'dandelion.dir/*placeholder.sentinel')
+def create_dandelion_folder_placeholders(_input, outfile):
+    '''
+    Create placeholder files for jobs downstream of dandelion_preprocessing
+    '''
+
+    # Get directories within 'dandelion.dir'
+    directories = list_directories('dandelion.dir')
+    if not directories:
+        raise RuntimeError("No directories found in 'dandelion.dir'")
+
+
+    # Generate output files based on directory names
+    output_files = ['dandelion.dir/{}.placeholder.sentinel'.format(dir) for dir in directories]
+    for filename in output_files:
+        #Path(filename).touch() 
+        IOTools.touch_file(filename) 
+
+    # Explicitly match output files to the output_files_placeholder
+    outfile[:] = output_files
+
+   
+
+
+@follows(create_dandelion_folder_placeholders)
+@transform(create_dandelion_folder_placeholders, 
+           regex(rf"dandelion.dir/(.*).placeholder.sentinel"),
+            r"dandelion.dir/\1.dandelion.sentinel")
 def dandelionTCR(infile, outfile):
     '''
-    Wrapper function to perform runtime globbing and create TCR chain metadata table and dandelion objects
+    Creates TCR chain metadata table and dandelion objects
     '''
-    # Perform globbing at runtime
-    files = glob.glob("dandelion.dir/*/dandelion/all_contig_dandelion.tsv")
+ 
+    current_file = infile.replace(".placeholder.sentinel", "")
+    # Define the output file based on the sample name
+    #outfile = f"dandelion.dir/{current_file}.dandelion.sentinel"
+
+    current_file = os.path.join(current_file, "dandelion/all_contig_dandelion.tsv")
+
     
-    for current_file in files:
-        # Extract part of the path needed for output filename
-        path_parts = current_file.split(os.sep)
-        subpath = path_parts[1] # get the sample name
+    # Get the prefix for downstream passing to tcr_dandelion
+    outfile_prefix_string = outfile.replace(".sentinel", "") 
+
+    t = T.setup(current_file, outfile, PARAMS,
+                memory=PARAMS["resources_memory"],
+                cpu=PARAMS["resources_cores"])
+
+    statement = '''python %(cellhub_code_dir)s/python/tcr_dandelion.py
+                    --contig_path %(current_file)s
+                    --outfile_prefix %(outfile_prefix_string)s
+                    &> %(log_file)s
+                    ''' % dict(PARAMS, 
+                            **t.var, 
+                            **locals())
+
+    P.run(statement, **t.resources)
+
+    IOTools.touch_file(outfile)
+
+
+
+# This is so that TCR match doesn't get upset whenever there is a stop codon in the CDR3 sequence
+def filter_file(input_file_name, output_file_name, exclude_value, field_number):
+    """
+    Filters lines from the input file and writes them to the output file,
+    excluding lines where the specified field equals the exclude_value.
+    
+    Parameters:
+    input_file_name (str): The path to the input file.
+    output_file_name (str): The path to the output file.
+    exclude_value (str): The value to exclude from the specified field.
+    field_number (int): The number of the field to check, 1-based indexing.
+    """
+    with open(input_file_name, 'r') as infile, open(output_file_name, 'w') as output_file:
+        for line in infile:
+            fields = line.strip().split('\t')
+            # Adjust for zero-based indexing
+            index = field_number - 1
+            if len(fields) > index and fields[index] != exclude_value:
+                output_file.write(line)
+
+
+@active_if(runTCRmatch_bool) 
+@follows(create_dandelion_folder_placeholders)
+@transform(create_dandelion_folder_placeholders, 
+           regex(rf"dandelion.dir/(.*).placeholder.sentinel"),
+            r"dandelion.dir/\1.TCRmatch.sentinel")
+def TCRmatch(infile, outfile):
+    '''
+    Create TCR match output from the Dandelion AIRR output
+    '''
+ 
+    available_cpus = PARAMS["resources_cores"]
+ 
+    sample_name =  os.path.basename(outfile.replace(".TCRmatch.sentinel", "")) 
+
+
+    current_file = infile.replace(".placeholder.sentinel", "")
+    current_file = os.path.join(current_file, "dandelion/all_contig_dandelion.tsv")
+    productive_file =  current_file.replace(".tsv", "_productive.tsv")
+    filter_file(current_file, productive_file, "F", 4)
+
+
+    tcr_database_string = PARAMS.get("TCRmatch_databases", "")
+    tcr_database_list = tcr_database_string.split(';')
+
+
+    for tcr_database in tcr_database_list:
+
         
-        # Define the output file based on the sample name
-        outfile = f"dandelion.dir/{subpath}.dandelion.sentinel"
+        tcr_database_simple = os.path.basename(tcr_database.replace(".tsv", ""))
+        # Define the tcr match output file based on the sample name and database used
+        TCRmatch_outfile = f"dandelion.dir/{sample_name}.TCRmatch.{tcr_database_simple}.tsv"
 
-        # Get the prefix for downstream passing to tcr_dandelion
-        outfile_prefix_string = outfile.replace(".sentinel", "") 
-
+    
         t = T.setup(current_file, outfile, PARAMS,
                     memory=PARAMS["resources_memory"],
                     cpu=PARAMS["resources_cores"])
 
-        statement = '''python %(cellhub_code_dir)s/python/tcr_dandelion.py
-                       --contig_path %(current_file)s
-                       --outfile_prefix %(outfile_prefix_string)s
-                        &> %(log_file)s
-                     ''' % dict(PARAMS, 
-                                **t.var, 
-                                **locals())
+        statement = '''
+            tcrmatch  
+            -i %(productive_file)s
+            -t %(available_cpus)s
+            -s .97
+            -d  %(tcr_database)s
+            -a > %(TCRmatch_outfile)s
+            ''' % dict(PARAMS, 
+                        **t.var, 
+                        **locals())
+    
+        if not sample_name in skipsamples_list:
+            P.run(statement, **t.resources)
+        else:
+            print(f"Skipping {sample_name}")
+        
+    IOTools.touch_file(outfile)
 
-        P.run(statement, **t.resources)
 
-        IOTools.touch_file(outfile)
+
+
+# Join dandelion objects
+def join_dandelion_objects(directory, dandelion_file_prefix_string):
+    output_file_path = os.path.join(directory, f"{dandelion_file_prefix_string}_{project_name_string}.h5ddl")
+    
+    # Use glob to find all dandelion object files in the directory
+    glob_suffix = f"*.{dandelion_file_prefix_string}.h5ddl"
+    dandelion_files = glob.glob(os.path.join(directory, glob_suffix))
+    vdj_list = []
+    # Iterate over each dandelion object file for this project
+    for file_path in dandelion_files:
+        vdj = ddl.read_h5ddl(file_path)
+        vdj_list.append(vdj)
+
+    vdj = ddl.concat(vdj_list)
+    vdj.write(output_file_path)
+
+
+
+
+# Join both unfiltered and filtered dandelion outputs, 
+# however working with unfiltered downstream
+@follows(dandelionTCR)
+def create_dandelion_project_object():
+    '''
+    Convert individual dandelion objects to a single dandelion object.
+    '''
+    # Join up all the .meta files in the dandelion.dir directory into one file
+    # filtered
+    join_dandelion_objects("dandelion.dir", "dandelion_filtered" )
+
+    #unfiltered
+    join_dandelion_objects("dandelion.dir", "dandelion_unfiltered" )
+
 
 
 # ---------------------------< Pipeline targets >------------------------------- #
 
-@follows(dandelionTCR)
+@follows(dandelionTCR, TCRmatch, create_dandelion_project_object)
 def full():
     '''
     Run the full pipeline.
     '''
     pass
+
 
 
 def main(argv=None):

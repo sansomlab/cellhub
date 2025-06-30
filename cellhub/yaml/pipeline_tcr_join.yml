@@ -1,0 +1,42 @@
+#
+# pipeline_tcr_join.py configuration file
+# ==================================
+#
+
+# General options
+# ---------------
+
+# The directory prefix to the top level directory containing project folders for dandelion files (with trailing "/") 
+dirprefix: /users/sansom/efs143/work/
+
+
+# project folder names to combine seperated by a ";" If only for a single project, enter it without a ";"
+projects: "05_ox_va_pb_sf;05_ox_va_pb_sf_additional;06_berlin_pb_sf;07_gut_naples;08_gut_tgu;09_sij;10_spine_enthesis;11_aqh_eye_multi;11_aqh_eye_single;12_cd8_sfmc_berlin;13_aqh_eye_mp"
+
+# The h5ad file to use for the join (experimental)
+gex_file: /gpfs3/well/sansom/users/rrl815/work/08_AS_allPB/10x/03_processed_data/04_cellbender_adt/data/G4_annotated_combined_raw.h5ad
+
+
+resources:
+  # Memory options for each of the tasks run by the pipeline
+  memory: 45G
+  cores: 2
+
+
+join:
+  memory: 300G
+  cores: 8
+  filtered: False
+  filter_unfiltered: False
+  join_gex: False
+
+#TCRmatch is experimental
+TCRmatch:
+  run: False
+  # This should be a list of locations of databases to match against, seperated by a ";"
+  # Each database name must be unique.
+  databases: "/users/sansom/efs143/devel/TCRMatch-1.1.2/data/IEDB_data.tsv"
+
+# Running GLIPH is not yet implemented
+gliph:
+  run: False

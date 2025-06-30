@@ -5,13 +5,54 @@
 
 # General options
 # ---------------
+
+# Adjust this to the project directory  (with trailing "/")
+# For example: /gpfs3/well/sansom/projects/AxSpA/cellhub/05_ox_va_pb_sf/
+dirprefix: /path/to/dir/just/before/cellranger.vdj.t.dir/
+
+
+# To skip certain samples from being processed use a colon seperated list e.g.
+#skipsamples: "Sample09;Sample10"
+
+# If this sample requires demultiplexing, use a csv metadata_file  which includes a:
+# project_name, library_id, pid and barcode_original column. If not then the barcode
+# column can be ommitted. pid must not contain an underscore if demultiplexing.
+project_name: "ox_va_pb_sf"
+
+multiplexed: True
+
+# This file must be a tab seperated file and contain the following columns: project_name, library_id, pid, barcode_library, barcode_original
+#metadata_barcode_file: /users/sansom/efs143/work/reference/sample_metadata_barcode.tsv
+metadata_barcode_file: /users/sansom/efs143/work/reference/sample_metadata_barcode_original.tsv
+
+# This file must be a tab seperated file and contain the following columns: project_name, library_id, pid
+metadata_file: /users/sansom/efs143/work/reference/sample_metadata_condensed.tsv
+
+# If necessary to distinguish between different libraries, you can add a prefix and/or suffix to the library_id
+#library_id_prefix: "b5-"
+#library_id_suffix: "PBMC"
+
+
 resources:
-  # Memory options for the different steps
+  # Memory options for each of the tasks run by the pipeline
   memory: 16G
   cores: 2
 
+scirpy:
+  run: False
+
 dandelion:
   high_confidence: True
-  meta: False
+  meta: True
+  # These parameters apply to the pre-processing task, which must be performed as a single task
+  # to be able to take into account samples from the same individuals across different libraries 
   memory: 32G
   cores: 16
+
+
+TCRmatch:
+  run: False
+  # This should be a list of locations of databases to match against, seperated by a ";"
+  # Each database name must be unique. TCRmatch is still experimental and
+  # very sensitive to anything that is not an exact match.
+  databases: "/users/sansom/efs143/devel/TCRMatch-1.1.2/data/IEDB_data.tsv"

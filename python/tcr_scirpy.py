@@ -11,10 +11,6 @@ from datetime import date
 import glob
 import anndata as ad
 
-#from cycler import cycler
-#from matplotlib import cm as mpl_cm
-#from matplotlib import pyplot as plt
-
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -48,7 +44,7 @@ print(args)
 
 L.info("Running scirpy")
 
-# Step 1: Process each TCR csv file: 
+# 1: Process each TCR csv file: 
 if os.path.exists(args.contig_path):
     # Read the CSV file with ir.io.read_10x_vdj
     adata = ir.io.read_10x_vdj(args.contig_path)
@@ -56,7 +52,7 @@ else:
     raise ValueError("The contig path does not exist: " + args.contig_path)    
 
 
-# Step 2: Run chain quality control, adding to metadata
+# 2: Run chain quality control, adding to metadata
 # Add chain primary and secondary VD/VDJ based on expression level,
 # filter non-productive chains and chains without a valid CDR3,
 # and add multichain label
@@ -66,7 +62,7 @@ else:
 ir.tl.chain_qc(adata)
 
 
-# Step 3: Add 'predicted_TCR_identity' column to adata 
+# 3: Add 'predicted_TCR_identity' column to adata 
 def predict_tcr_identity(row):
     if row['IR_VJ_1_v_call'] == 'TRAV10' and row['IR_VJ_1_j_call'] == 'TRAJ18':
         return 'iNKT'
@@ -77,7 +73,7 @@ def predict_tcr_identity(row):
 
 adata.obs['predicted_TCR_identity'] = adata.obs.apply(predict_tcr_identity, axis=1) 
 
-# Step 4: Add 'predicted_TCR_identity' column to adata
+# 4: Add 'predicted_TCR_identity' column to adata
 adata.obs['barcode'] = adata.obs.index
 
 # ########################################################################### #
