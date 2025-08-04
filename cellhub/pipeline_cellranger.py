@@ -158,6 +158,8 @@ import cellhub.tasks as T
 import cellhub.tasks.cellranger as cellranger
 import cellhub.tasks.samples as samples
 
+import subprocess
+
 # -------------------------- Pipeline Configuration -------------------------- #
 
 # Override function to collect config files
@@ -219,6 +221,9 @@ def count(infile, outfile):
     '''
     Execute the cellranger count pipeline
     '''
+
+    cellranger_version = subprocess.run(["cellranger", "--version"],
+                                        capture_output=True, text=True).stdout.strip()
     
     t = T.setup(infile, outfile, PARAMS,
                 memory=PARAMS["cellranger_localmem"],
@@ -248,12 +253,14 @@ def count(infile, outfile):
         r2len = PARAMS["count_r2-length"]
  
     # deal with flags
-    nosecondary, nobam, includeintrons = "", "", ""
+    nosecondary, bamarg, includeintrons = "", "", ""
     
     if PARAMS["cellranger_nosecondary"]:
         nosecondary = "--nosecondary"
-    if PARAMS["cellranger_no-bam"]:
-        nobam = "--no-bam"
+    if int(cellranger_version.split("-")[1][0]) in [8, 9]:
+        bamarg = "--create-bam=" + str(not PARAMS["cellranger_no-bam"]).lower()
+    elif PARAMS["cellranger_no-bam"]:
+        bamarg = "--no-bam"
     if PARAMS["gex_include-introns"]:
         includeintrons = "--include-introns=true"
  
@@ -268,7 +275,7 @@ def count(infile, outfile):
                     --expect-cells=%(expect_cells)s
                     --chemistry=%(chemistry)s
                     %(nosecondary)s
-                    %(nobam)s
+                    %(bamarg)s
                     --localcores=%(cellranger_localcores)s
                     --localmem=%(cellranger_localmem)s
                     %(includeintrons)s
