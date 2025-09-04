@@ -113,6 +113,8 @@ def cellbender(infile, outfile):
    
     expected_cells = PARAMS[sample_key]["expected_cells"]
     total_droplets = PARAMS[sample_key]["total_droplets_included"]
+    learning_rate = PARAMS[sample_key].get("learning_rate", PARAMS["cellbender_learning_rate"])
+    print(f"Sample {sample}: {expected_cells}, {total_droplets}, {learning_rate}.")
     
 
     # remove path from outfile and log_file 
@@ -137,7 +139,7 @@ def cellbender(infile, outfile):
                  --checkpoint-mins=720
                  --cpu-threads=%(resources_ncpu)s
                  --estimator-multiple-cpu
-                 --learning-rate=%(cellbender_learning_rate)s
+                 --learning-rate=%(learning_rate)s
                  --low-count-threshold=%(cellbender_low_count_threshold)s
                  &> %(log_file_name)s;
               ''' % dict(PARAMS, **t.var, **locals())
