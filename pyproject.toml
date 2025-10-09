@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cellhub"
+dynamic = ["version"]
+description = "cellhub: Python pipelines for large-scale multimodal single-cell data analysis on HPC clusters"
+authors = [
+    {name = "Sansom lab", email = "stephen.sansom@kennedy.ox.ac.uk"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS"
+]
+keywords = ["computational genomics"]
+requires-python = ">=3.0"
+dependencies = [
+    "numpy==1.26.4",
+    "anndata",
+    "argparse",
+    "bbknn",
+    "h5py",
+    "harmonypy",
+    "loompy",
+    "matplotlib",
+    "pandas",
+    "ruffus",
+    "scanorama",
+    "scanpy",
+    "scvelo",
+    "scipy",
+    "scrublet",
+    "pyyaml",
+    "GMM-demux",
+    "hnswlib",
+    "sqlalchemy",
+    "drmaa",
+    "leidenalg",
+    "sphinx",
+    "tables",
+    "cgatcore",
+    "gevent",
+    "apsw",
+    "sphinx_rtd_theme"
+]
+
+[project.scripts]
+cellhub = "cellhub.entry:main"
+
+[tool.setuptools]
+packages = ["cellhub"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cellhub.version.__version__"}
