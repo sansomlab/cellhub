@@ -24,6 +24,8 @@ parser.add_argument("--cellranger_dir", default="", type=str,
                     help="Matrix of counts")
 parser.add_argument("--keep_barcodes_file", default=None, type=str,
                     help="")
+parser.add_argument("--qc_ngenes", default=None, type=int,
+                    help="to exclude barcodes with detected gene number below the threshold before running Scrublet.")
 parser.add_argument("--library_id", default="library_id", type=str,
                     help="library or channel id")
 parser.add_argument("--expected_doublet_rate", default=0.06, type=float,
@@ -89,6 +91,14 @@ L.info("counts matrix shape after subsetting to Gene Expression features:")
 print(np.shape(counts_matrix))
 
 print(counts_matrix[1:200,1:200])
+
+# Apply a modest filter to exclude empty droplets
+if args.qc_ngenes is not None:
+  print(f"excluding barcodes with gene number below {args.qc_ngenes}.")
+  ngenes = (counts_matrix > 0).sum(axis=1).A1
+  counts_matrix = counts_matrix[ngenes >= args.qc_ngenes, :].copy()
+  barcodes = barcodes[ngenes >= args.qc_ngenes].copy()
+  assert (counts_matrix > 0).sum(axis=1).min() >= args.qc_ngenes, "QC pre-filteration seems not working."
 
 # Initialize scrublet object
 L.info('Initializing scrublet object with expected double rate {}'.format(args.expected_doublet_rate))

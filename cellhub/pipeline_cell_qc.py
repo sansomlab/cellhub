@@ -192,6 +192,11 @@ def scrublet(infile, outfile):
     else:
         subset_option = ''' '''
 
+    if PARAMS["scrublet_qc_ngenes"]:
+        qc_option = f"--qc_ngenes {PARAMS['scrublet_qc_ngenes']}"
+    else:
+        qc_option = ''' '''
+
     # Scrublet parameters
     expected_doublet_rate = PARAMS["scrublet_expected_doublet_rate"]
     min_counts = PARAMS["scrublet_min_counts"]
@@ -203,6 +208,7 @@ def scrublet(infile, outfile):
     statement = '''python %(cellhub_code_dir)s/python/qc_scrublet.py
                    --cellranger_dir=%(cellranger_dir)s
                    %(subset_option)s
+                   %(qc_option)s
                    --library_id=%(library_name)s
                    --expected_doublet_rate=%(expected_doublet_rate)s
                    --min_counts=%(min_counts)s

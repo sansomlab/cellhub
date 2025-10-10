@@ -58,6 +58,10 @@ scrublet:
     # https://github.com/AllonKleinLab/scrublet/blob/master/examples/scrublet_basics.ipynb
     expected_doublet_rate: 0.06
 
+    # To apply a modest QC, excluding barcodes with low gene number before running Scrublet
+    # warning: new functionality to be tested
+    # qc_ngenes: 50
+
     # Subset the scrublet run to a list of 'white-listed' barcodes.
     # For each sample this list needs to be provided in the input_samples.tsv as a column
     # named whitelist.
