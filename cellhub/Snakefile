@@ -1,0 +1,38 @@
+import os
+from snakemake.exceptions import WorkflowError
+
+TARGET = config["target"]
+if TARGET not in ["annotation", "cluster"]:
+    raise WorkflowError(f"Unknown module {TARGET} to be run.")
+
+MODE = config.get("mode", "execute")
+if MODE not in ["execute", "genconfig"]:
+    raise WorkflowError(f"Unknown mode {MODE} to be run.")
+
+if MODE == "execute":
+    cfg = f"pipeline_{TARGET}.yml"
+    if not os.path.exists(cfg):
+        raise WorkflowError(
+            f"Config file {cfg} not found.\nPlease rerun with `--config target={TARGET} mode=genconfig`."
+        )
+
+    configfile: cfg
+
+
+module chosen:
+    snakefile:
+        (
+            workflow.source_path(f"modules/{TARGET}.smk")
+            if MODE == "execute"
+            else workflow.source_path(f"modules/copy_yaml.smk")
+        )
+    config:
+        config
+
+
+use rule * from chosen
+
+
+rule all:
+    input:
+        rules.target.output,
