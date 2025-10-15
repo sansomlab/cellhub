@@ -55,7 +55,7 @@ if __name__ == "__main__":
     assert parse_mem(None) == 4, f"parsed result: {parse_mem(None)}"
     assert parse_mem(False) == 4, f"parsed result: {parse_mem(False)}"
     assert parse_mem(" falsE") == 4, f"parsed result: {parse_mem(' falsE')}"
-    assert parse_mem("nOne ") == 4, f"parsed result: {parse_mem(' nOne')}"
+    assert parse_mem("nOne ") == 4, f"parsed result: {parse_mem('nOne ')}"
     assert parse_mem(" defaulT ") == 4, f"parsed result: {parse_mem(' defaulT ')}"
     assert parse_mem("5.3G") == 5, f"parsed result: {parse_mem('5.3G')}"
     assert parse_mem("5300 m") == 5, f"parsed result: {parse_mem(' 5300 m ')}"
