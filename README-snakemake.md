@@ -20,6 +20,7 @@ snakemake -s ${PATH_TO_SNAKEFILE} --config target=${MODULE_TO_RUN} mode=genconfi
 To make real execution:
 
 ```bash
-snakemake -s ${PATH_TO_SNAKEFILE} --config target=${MODULE_TO_RUN} --cores ${NCORES} -p --executor ${EXECUTOR} --jobs ${NJOBS}
+snakemake -s ${PATH_TO_SNAKEFILE} --config target=${MODULE_TO_RUN} --cores ${NCORES} -p --jobs ${NJOBS} \
+    --executor ${EXECUTOR} --default-resources mem_mb=16000
     # ${EXECUTOR} can be `slurm`
 ```

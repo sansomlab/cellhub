@@ -8,8 +8,8 @@ sys.path.append(PROJECT_DIR)
 from utils import parse2int
 
 
-RSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/R/scripts/"
-PYSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/python/"
+RSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/R/scripts"
+PYSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/python"
 IN_ANNDATA = config["source"]["anndata"]
 
 # source
@@ -41,6 +41,9 @@ FULL_SPEED_MODE = "--fullspeed" if config["neighbors"]["full_speed"] else ""
 # cluster
 CLUSTER_ALGORITHM = config["cluster"]["algorithm"]
 
+# UMAP
+MIN_DIST_LST = str(config["umap"]["mindists"]).strip().split(",")
+
 TARGETS = (
     [
         "cluster.dir/preflight.log",  # preflight
@@ -50,12 +53,10 @@ TARGETS = (
         "cluster.dir/loom.dir/{layer}.loom", layer=set([HEATMAP_MAT, "log1p"])
     )  # loom
     + expand(
-        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/{file}",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/{fl}",
         ncomp=RDIMS_LST,
         resolu=RESOLUTION_LST,
-        file=[
-            "cluster_ids.tsv.gz",
-            "cluster_colors.tsv",
+        fl=[
             "cluster_cell_counts.tsv",
             "cluster.dendrogram.png",
         ],  # scanpyCluster + clusterPostProcess + compareClusters
@@ -65,6 +66,24 @@ TARGETS = (
         ncomp=RDIMS_LST,
         fmt=["png", "pdf"],
     )  # clustree
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/{fl}",
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+        fl=[
+            "draw_graph_fa.paga.initialised.png",
+            "draw_graph_fa.png",
+            "paga_init_fa2.tsv.gz",
+            "paga.png",
+            "umap.paga.initialised.png",
+            "umap.paga.init.tsv.gz",
+        ],
+    )  # PAGA
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/umap.dir/umap.{mindist}.tsv.gz",
+        ncomp=RDIMS_LST,
+        mindist=MIN_DIST_LST,
+    )  # UMAP
 )
 
 
@@ -274,6 +293,55 @@ rule clustTree:
         Rscript "{params.script}" \
             --resolutions="{params.res_str}" \
             --clusteridfiles="{params.id_files_str}" \
+            --outdir="{params.outdir}" \
+            &> "{log}"
+        """
+
+
+rule paga:
+    input:
+        neigh_anndata="cluster.dir/out.{ncomp}.comp.dir/neighbour.graph.h5ad",
+        cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv.gz",
+        cluster_colours="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_colors.tsv",
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/draw_graph_fa.paga.initialised.png",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/draw_graph_fa.png",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/paga_init_fa2.tsv.gz",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/paga.png",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/umap.paga.initialised.png",
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/umap.paga.init.tsv.gz",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/paga.log",
+    params:
+        script=f"{PYSCRIPT_DIR}/cluster_paga.py",
+        outdir="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/paga.dir/",
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input.neigh_anndata}" \
+            --outdir="{params.outdir}" \
+            --cluster_ids="{input.cluster_ids}" \
+            --cluster_colors="{input.cluster_colours}" \
+            &> "{log}"
+        """
+
+
+rule UMAP:
+    input:
+        "cluster.dir/out.{ncomp}.comp.dir/neighbour.graph.h5ad",
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/umap.dir/umap.{mindist}.tsv.gz",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/umap.dir/umap.{mindist}.log",
+    params:
+        script=f"{PYSCRIPT_DIR}/cluster_umap.py",
+        mindist="{mindist}",
+        outdir="cluster.dir/out.{ncomp}.comp.dir/umap.dir/",
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input}" \
+            --mindist="{params.mindist}" \
             --outdir="{params.outdir}" \
             &> "{log}"
         """
