@@ -1,27 +1,26 @@
-import sys, os
+import os
+import sys
 
 
 PROJECT_DIR = os.path.abspath(os.path.join(workflow.basedir, os.pardir))
 sys.path.append(PROJECT_DIR)
 
-
-from utils import parse2int
-
+from utils import parse2int, str2list
 
 RSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/R/scripts"
 PYSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/python"
-IN_ANNDATA = config["source"]["anndata"]
 
 # source
+IN_ANNDATA = config["source"]["anndata"]
 RDIM_NAME = config["source"]["rdim_name"]
 HEATMAP_MAT = config["source"]["heatmap_matrix"]
+CELLHUBAPI = config["source"]["cellhub"]
+SINGLER_REFS = str2list(config["source"]["singler_refs"])  # NOTE: newly added
 
 # runspecs
-RDIMS_LST = [
-    parse2int(x) for x in str(config["runspecs"]["n_components"]).strip().split(",")
-]
+RDIMS_LST = [parse2int(x) for x in str2list(str(config["runspecs"]["n_components"]))]
 MAX_RDIMS = max(RDIMS_LST)
-RESOLUTION_LST = str(config["runspecs"]["cluster_resolutions"]).strip().split(",")
+RESOLUTION_LST = str2list(str(config["runspecs"]["cluster_resolutions"]))
 PREDEFINED_CLUSTERS = config["runspecs"].get("predefined_clusters", None)
 
 # run
@@ -30,6 +29,21 @@ GENE_IDS = "--gene_ids" if config["run"]["genesets"] else ""
 # markers
 CONSERVED = "--conserved" if config["markers"]["conserved"] else ""
 CONSERVED_FACTOR = config["markers"]["conserved_factor"]
+
+
+# NOTE: to be tested
+def parse_subsetstat():
+    import pandas as pd
+
+    subset_factor = CONSERVED_FACTOR
+    subset_stat = "--subset_factor=" + subset_factor
+    levels_file = f"cluster.dir/metadata.dir/{CONSERVED_FACTOR}.levels"
+    subset_levels = [x for x in pd.read_csv(levels_file, header=None)[0].values]
+    return subset_levels
+
+
+SUBSET_LEVELS = parse_subsetstat() if CONSERVED else ["all"]
+
 
 # neighbours
 NEIGHBOUR_METHOD = config["neighbors"]["method"]
@@ -42,8 +56,31 @@ FULL_SPEED_MODE = "--fullspeed" if config["neighbors"]["full_speed"] else ""
 CLUSTER_ALGORITHM = config["cluster"]["algorithm"]
 
 # UMAP
-MIN_DIST_LST = str(config["umap"]["mindists"]).strip().split(",")
+MIN_DIST = config["umap"]["mindist"]
+MIN_DIST_LST = str2list(str(config["umap"]["mindists"]))
 
+# plot
+PDF = config["plot"]["pdf"]
+
+GROUPS = str2list(config["plot"].get("groups", "cluster"))
+if "cluster" not in GROUPS:
+    GROUPS += ["cluster"]
+SUBGROUPS = str2list(config["plot"].get("subgroup", None))
+QCVARS = str2list(str(config["plot"]["qcvars"]))
+RDIMCOLOURFACTORS = list(
+    set([x for x in QCVARS + GROUPS + SUBGROUPS if x != "cluster"])
+)
+
+SHAPE = config["plot"].get("shape", None)
+POINTALPHA = config["plot"]["pointalpha"]
+POINTSIZE = config["plot"]["pointsize"]
+POINTPCH = config["plot"]["pointpch"]
+
+# summaries
+SUMMARY_DICT = config["summaries"]
+
+
+# Target files
 TARGETS = (
     [
         "cluster.dir/preflight.log",  # preflight
@@ -84,6 +121,37 @@ TARGETS = (
         ncomp=RDIMS_LST,
         mindist=MIN_DIST_LST,
     )  # UMAP
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.{fct}.png",
+        ncomp=RDIMS_LST,
+        fct=RDIMCOLOURFACTORS,
+    )  # plotRdimsFactors
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/rdims.visualisation.dir/umap.mindist_{mindist}.cluster_id.png",
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+        mindist=MIN_DIST_LST,
+    )  # plotRdimsClusters
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/singleR.dir/UMAP.{ref}.pruned.labels.png",
+        ncomp=RDIMS_LST,
+        ref=SINGLER_REFS,
+    )  # plotRdimsSingleR
+    + expand(
+        "cluster.dir/singleR.dir/{ref}.heatmap.png", ref=SINGLER_REFS
+    )  # plotSingleR
+    + ["cluster.dir/singleR.dir/summary.tex"]  # summariseSingleR
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir/number.plots.tex",
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )  # summariseGroupNumbers
+    + expand(
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/stats.dir/{subset_level}.stats.tsv.gz",
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+        subset_level=SUBSET_LEVELS,
+    )  # clusterStats
 )
 
 
@@ -219,7 +287,7 @@ rule scanpyCluster:
         """
 
 
-# ??????????? PREDEFINED_CLUSTERS not sure
+# NOTE: PREDEFINED_CLUSTERS not sure
 rule clusterPostProcess:
     input:
         "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/"
@@ -345,3 +413,310 @@ rule UMAP:
             --outdir="{params.outdir}" \
             &> "{log}"
         """
+
+
+rule plotRdimsFactors:
+    input:
+        table=f"cluster.dir/out.{{ncomp}}.comp.dir/umap.dir/umap.{MIN_DIST}.tsv.gz",
+        metadata="cluster.dir/metadata.dir/metadata.tsv.gz",
+    output:
+        expand(
+            "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.{fct}.png",
+            ncomp=["{ncomp}"],
+            fct=RDIMCOLOURFACTORS,
+        ),
+        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.tex",
+        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/plot.rdims.factor.tex",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/plot.rdims.factor.log",
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_plot_rdims_factor.R",
+        colour_factor_arg="--colorfactors=" + ",".join(RDIMCOLOURFACTORS),
+        shape_factor_arg=("--shapefactor=" + SHAPE) if SHAPE is not None else "",
+        pointsize=POINTSIZE,
+        pointalpha=POINTALPHA,
+        pointpch=POINTPCH,
+        pdf=PDF,
+        outdir="cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/",
+    shell:
+        """
+        Rscript "{params.script}" \
+            --table="{input.table}" \
+            --metadata="{input.metadata}" \
+            {params.colour_factor_arg} \
+            {params.shape_factor_arg} \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisFactorDir \
+            &> "{log}"
+        """
+
+
+rule plotRdimsClusters:
+    input:
+        table="cluster.dir/out.{ncomp}.comp.dir/umap.dir/umap.{mindist}.tsv.gz",
+        cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv.gz",
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/rdims.visualisation.dir/umap.mindist_{mindist}.cluster_id.png",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/rdims.visualisation.dir/plot.rdims.cluster.{mindist}.log",
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_plot_rdims_factor.R",
+        umap_spec="umap.mindist_" + "{mindist}",
+        shape_factor_arg=("--shapefactor=" + SHAPE) if SHAPE is not None else "",
+        pointsize=POINTSIZE,
+        pointalpha=POINTALPHA,
+        pointpch=POINTPCH,
+        pdf=PDF,
+        outdir="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/rdims.visualisation.dir/",
+    shell:
+        """
+        Rscript "{params.script}" \
+            --method="{params.umap_spec}" \
+            --table="{input.table}" \
+            --metadata="{input.cluster_ids}" \
+            {params.shape_factor_arg} \
+            --colorfactors=cluster_id \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisClusterDir \
+            &> "{log}"
+        """
+
+
+# NOTE: added {ref} in log
+rule plotRdimsSingleR:
+    input:
+        table=f"cluster.dir/out.{{ncomp}}.comp.dir/umap.dir/umap.{MIN_DIST}.tsv.gz",
+        labels=os.path.join(CELLHUBAPI, "api", "singleR", "{ref}", "labels.tsv.gz"),
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/singleR.dir/UMAP.{ref}.pruned.labels.png",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/singleR.dir/rdims.plots.{ref}.log",
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_plot_rdims_factor.R",
+        reference="{ref}",
+        pointsize=POINTSIZE,
+        pointalpha=POINTALPHA,
+        pointpch=POINTPCH,
+        pdf=PDF,
+        outdir="cluster.dir/out.{ncomp}.comp.dir/singleR.dir",
+    shell:
+        """
+        Rscript "{params.script}" \
+            --table="{input.table}" \
+            --metadata="{input.labels}" \
+            --colorfactors=pruned.labels \
+            --analysisname="{params.reference}" \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisClusterDir \
+            &> "{log}"
+        """
+
+
+# NOTE: added {ref} in log
+rule plotSingleR:
+    input:
+        metadata="cluster.dir/metadata.dir/metadata.tsv.gz",
+        scores=os.path.join(CELLHUBAPI, "api", "singleR", "{ref}", "scores.tsv.gz"),
+        labels=os.path.join(CELLHUBAPI, "api", "singleR", "{ref}", "labels.tsv.gz"),
+    output:
+        "cluster.dir/singleR.dir/{ref}.heatmap.png",
+    log:
+        "cluster.dir/singleR.dir/singleR.plots.{ref}.log",
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_singleR_plots.R",
+        reference="{ref}",
+        outdir="cluster.dir/singleR.dir",
+        pdf=PDF,
+    shell:
+        """
+        Rscript "{params.script}" \
+            --metadata="{input.metadata}" \
+            --scores="{input.scores}" \
+            --labels="{input.labels}" \
+            --reference="{params.reference}" \
+            --outdir="{params.outdir}" \
+            --pdf="{params.pdf}" \
+            &> "{log}"
+        """
+
+
+def summariseSingleR(
+    singleR_path,
+    ref_lst,
+    out_path,
+):
+    import os
+    import textwrap
+    from tasks.report import template as template
+
+    singleR_umap_path = os.path.join(singleR_path, "umap")
+    with open(out_path, "w") as tex:
+        for reference in ref_lst:
+            # heatmap
+            tex.write(template.subsection % {"title": reference})
+            tex.write("\n")
+            heatmap_path = os.path.join(singleR_path, reference + ".heatmap")
+
+            if os.path.exists(heatmap_path + ".png"):
+                heatmap_fig = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": heatmap_path,
+                    "caption": "singleR predictions (" + reference + ")",
+                }
+                tex.write(textwrap.dedent(template.figure % heatmap_fig))
+                tex.write("\n")
+
+            umap_path = os.path.join(
+                singleR_umap_path, "umap." + reference + ".pruned.labels"
+            )
+
+            if os.path.exists(umap_path + ".png"):
+                umap_fig = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": umap_path,
+                    "caption": "pruned singleR predictions (" + reference + ")",
+                }
+
+                tex.write(textwrap.dedent(template.figure % umap_fig))
+                tex.write("\n")
+
+
+# NOTE: due to auto-formatter problem, we cannot put python script into `run` module.
+rule summariseSingleR:
+    input:
+        expand("cluster.dir/singleR.dir/{ref}.heatmap.png", ref=SINGLER_REFS),
+    output:
+        "cluster.dir/singleR.dir/summary.tex",
+    run:
+        summariseSingleR(
+            "cluster.dir/singleR.dir",
+            SINGLER_REFS,
+            "cluster.dir/singleR.dir/summary.tex",
+        )
+
+
+def populate_options(summary_key):
+    options = []
+    for k, v in SUMMARY_DICT[summary_key].items():
+        if v == "None" or v == None or v == False or k == "title":
+            pass
+        elif v == True:
+            options.append("--" + k)
+        elif k in ["xlab", "ylab"]:
+            options.append("--" + k + '="' + str(v) + '"')
+        else:
+            options.append("--" + k + '="' + str(v) + '"')
+    return "\t".join(options)
+
+
+rule plotGroupNumbers:
+    input:
+        metadata="cluster.dir/metadata.dir/metadata.tsv.gz",
+        cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv.gz",
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir/{key}.data.tsv.gz",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir/plot.group.numbers.{key}.log",
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_plot_group_numbers.R",
+        key="{key}",
+        options=lambda wc: populate_options(wc.key),
+        outdir="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir",
+    shell:
+        """
+        Rscript "{params.script}" \
+            --metadata="{input.metadata}" \
+            --clusters="{input.cluster_ids}" \
+            --title="{params.key}" \
+            {params.options} \
+            --outdir="{params.outdir}" \
+            --plotdirvar=groupNumbersDir \
+            &> "{log}"
+        """
+
+
+def summariseGroupNumbers(param_dict, outdir):
+    import os
+    import textwrap
+    from tasks.report import template as template
+
+    with open(os.path.join(outdir, "number.plots.tex"), "w") as tex:
+        for fig in param_dict.keys():
+            if "_" in param_dict[fig]["title"]:
+                raise ValueError(
+                    "Underscores are not allowed in the plot"
+                    " titles (due to issues with latex..."
+                )
+
+            # Add the figures, one per subsection, escaping underscores.
+            tex.write(template.subsection % {"title": param_dict[fig]["title"]})
+            tex.write("\n")
+
+            fig_path = os.path.join(outdir, fig)
+            if os.path.exists(fig_path + ".png"):
+                fig_spec = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": fig_path,
+                    "caption": param_dict[fig]["title"],
+                }
+
+                tex.write(textwrap.dedent(template.figure % fig_spec))
+                tex.write("\n")
+
+
+# NOTE: split from the previous plotGroupNumbers
+rule summariseGroupNumbers:
+    input:
+        expand(
+            "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir/{key}.data.tsv.gz",
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            key=SUMMARY_DICT.keys(),
+        ),
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/group.numbers.dir/number.plots.tex",
+    params:
+        outdir=lambda wc: f"cluster.dir/out.{wc.ncomp}.comp.dir/cluster.{wc.resolu}.dir/group.numbers.dir/",
+    run:
+        summariseGroupNumbers(SUMMARY_DICT, params.outdir)
+
+
+rule clusterStats:
+    input:
+        anndata=IN_ANNDATA,
+        cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv.gz",
+    output:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/stats.dir/{subset_level}.stats.tsv.gz",
+    log:
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/stats.dir/cluster.{subset_level}.stats.log",
+    params:
+        script=f"{PYSCRIPT_DIR}/cluster_stats.py",
+        subset_stat="--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
+        subset_level="{subset_level}",
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input.anndata}" \
+            {params.subset_stat} \
+            --subset_level="{params.subset_level}" \
+            --clusterids="{input.cluster_ids}" \
+            --outfile="{output}" \
+            &> "{log}"
+        """
+
+# rule findMarkers:

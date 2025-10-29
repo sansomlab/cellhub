@@ -13,6 +13,21 @@ def parse2int(s):
     raise ValueError(f"Cannot parse `{s}` to int.")
 
 
+def str2list(s):
+    """
+    Convert comma-separated string to list of strings.
+    - Trims whitespace
+    - Filters out empty entries
+    - Accepts list input and returns as-is
+    - Converts None to empty list
+    """
+    if s is None:
+        return []
+    if isinstance(s, list):
+        return s
+    return [x.strip() for x in s.strip().split(",") if x.strip()]
+
+
 def parse_mem(memory):
     """
     Return an integer that represents the amount of memory
