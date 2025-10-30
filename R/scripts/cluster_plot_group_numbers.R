@@ -288,7 +288,7 @@ if(is.numeric(plot_data[[xvar]]))
 
 }
 
-gp <- ggplot(plot_data, aes_string(xvar, opt$stat, fill=fvar))
+gp <- ggplot(plot_data, aes(!!sym(xvar), !!sym(opt$stat), fill=!!sym(fvar)))
 
 if(opt$geom == "bar")
 {

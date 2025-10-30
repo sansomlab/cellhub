@@ -171,10 +171,10 @@ for(color_var in color_vars)
     }
     if(opt$shapefactor=="none" | !(opt$shapefactor %in% colnames(plot_data)))
     {
-        gp <- ggplot(plot_data, aes_string(opt$rdim1, opt$rdim2, color=color_var))
+        gp <- ggplot(plot_data, aes(!!sym(opt$rdim1), !!sym(opt$rdim2), color = !!sym(color_var)))
     } else {
-        gp <- ggplot(plot_data, aes_string(opt$rdim1, opt$rdim2,
-                                           color=color_var, shape=opt$shapefactor))
+        gp <- ggplot(plot_data, aes(!!sym(opt$rdim1), !!sym(opt$rdim2), 
+                     color = !!sym(color_var), shape = !!sym(opt$shapefactor)))
     }
 
     if(numeric)

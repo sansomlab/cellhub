@@ -29,6 +29,8 @@ GENE_IDS = "--gene_ids" if config["run"]["genesets"] else ""
 # markers
 CONSERVED = "--conserved" if config["markers"]["conserved"] else ""
 CONSERVED_FACTOR = config["markers"]["conserved_factor"]
+MARKERS_TEST = config["markers"]["test"]
+MARKERS_PSEUDOCOUNT = config["markers"]["pseudocount"]
 
 
 # NOTE: to be tested
@@ -40,6 +42,32 @@ def parse_subsetstat():
     levels_file = f"cluster.dir/metadata.dir/{CONSERVED_FACTOR}.levels"
     subset_levels = [x for x in pd.read_csv(levels_file, header=None)[0].values]
     return subset_levels
+
+
+def get_clusters(ncomp, resolu):
+    import pandas as pd
+
+    cluster_ids = pd.read_csv(
+        f"cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv",
+        sep="\t",
+        header=None,
+    )[0].unique()
+    return list(cluster_ids)
+
+
+def all_marker_targets():
+    from itertools import product
+
+    targets = []
+    for ncomp in RDIMS_LST:
+        for resolu in RESOLUTION_LST:
+            clusters = get_clusters(ncomp, resolu)
+            for cluster, subset_level in product(clusters, SUBSET_LEVELS):
+                targets.append(
+                    f"cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/markers.dir/{cluster}.{subset_level}.markers.tsv.gz"
+                )
+    print(targets)
+    return targets
 
 
 SUBSET_LEVELS = parse_subsetstat() if CONSERVED else ["all"]
@@ -152,6 +180,7 @@ TARGETS = (
         resolu=RESOLUTION_LST,
         subset_level=SUBSET_LEVELS,
     )  # clusterStats
+    # + expand("{f}", f=all_marker_targets())
 )
 
 
@@ -288,7 +317,7 @@ rule scanpyCluster:
 
 
 # NOTE: PREDEFINED_CLUSTERS not sure
-rule clusterPostProcess:
+checkpoint clusterPostProcess:
     input:
         "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/"
         + (PREDEFINED_CLUSTERS if PREDEFINED_CLUSTERS else "scanpy.clusters.tsv.gz"),
@@ -312,6 +341,24 @@ rule clusterPostProcess:
             --outdir="{params.outdir}" \
             &> "{log}"
         """
+
+
+def target_cluster_markers(wc):
+    cb = checkpoints.clusterPostProcess.get(ncomp=wc.ncomp, resolu=wc.resolu)
+
+    cluster_tsv = cb.output[0]
+
+    if os.path.exists(cluster_tsv):
+        ids = pd.read_csv(cluster_tsv, sep="\t", header=None, dtype=str)[0].tolist()
+    else:
+        raise FileNotFoundError(f"cluster ids not found at {cluster_tsv}.")
+
+    return expand(
+        "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/markers.dir/{cid}.{subset_level}.markers.tsv.gz",
+        ncomp=wc.ncomp,
+        resolu=wc.resolu,
+        cid=cid,
+    )
 
 
 rule compareClusters:
@@ -415,18 +462,21 @@ rule UMAP:
         """
 
 
+# NOTE: ggplot2 aes_string -> aes(!!sym)
+# NOTE: possible to change the cluster_plot_rdims_factor as plotting per factor?
 rule plotRdimsFactors:
     input:
         table=f"cluster.dir/out.{{ncomp}}.comp.dir/umap.dir/umap.{MIN_DIST}.tsv.gz",
         metadata="cluster.dir/metadata.dir/metadata.tsv.gz",
     output:
         expand(
-            "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.{fct}.png",
-            ncomp=["{ncomp}"],
+            "cluster.dir/out.{{ncomp}}.comp.dir/rdims.visualisation.dir/UMAP.{fct}.png",
             fct=RDIMCOLOURFACTORS,
-        ),
-        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.tex",
-        "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/plot.rdims.factor.tex",
+        )
+        + [
+            "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/UMAP.tex",
+            "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/plot.rdims.factor.tex",
+        ],
     log:
         "cluster.dir/out.{ncomp}.comp.dir/rdims.visualisation.dir/plot.rdims.factor.log",
     params:
@@ -623,6 +673,7 @@ def populate_options(summary_key):
     return "\t".join(options)
 
 
+# NOTE: cluster_plot_group_numbers.R aes_string -> aes(!!sym())
 rule plotGroupNumbers:
     input:
         metadata="cluster.dir/metadata.dir/metadata.tsv.gz",
@@ -719,4 +770,41 @@ rule clusterStats:
             &> "{log}"
         """
 
+
+# checkpoint checkClusters:
+#     output:
+#         cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv",
+# # # NOTE: the 911 cluster - what is this?
 # rule findMarkers:
+#     input:
+#         anndata=IN_ANNDATA,
+#         cluster_ids="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/cluster_ids.tsv",
+#     output:
+#         "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/markers.dir/{cluster}.{subset_level}.markers.tsv.gz",
+#     log:
+#         "cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/markers.dir/{cluster}.{subset_level}.markers.log",
+#     params:
+#         script=f"{PYSCRIPT_DIR}/cluster_markers.py",
+#         subset_stat="--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
+#         subset_level="{subset_level}",
+#         cluster="{cluster}",
+#         stats_file="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/stats.dir/{subset_level}.stats.tsv.gz",
+#         sizes_file="cluster.dir/out.{ncomp}.comp.dir/cluster.{resolu}.dir/stats.dir/{subset_level}.sizes.tsv.gz",
+#         markers_test=MARKERS_TEST,
+#         markers_pseudocount=MARKERS_PSEUDOCOUNT,
+#     shell:
+#         """
+#         if [ "{params.cluster}" != "911" ]; then
+#             python "{params.script}" \
+#                 --anndata="{input.anndata}" \
+#                 {params.subset_stat} \
+#                 --subset_level="{params.subset_level}" \
+#                 --clusterids="{params.cluster}" \
+#                 --group_means="{params.stats_file}" \
+#                 --group_sizes="{params.sizes_file}" \
+#                 --method="{params.markers_test}" \
+#                 --pseudocount="{params.markers_pseudocount}" \
+#                 --outfile="{output}" \
+#                 &> {log}
+#         fi
+#         """
