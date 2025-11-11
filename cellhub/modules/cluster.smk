@@ -7,8 +7,8 @@ sys.path.append(PROJECT_DIR)
 
 from utils import parse2int, str2list, parse2float
 
-RSCRIPT_DIR = os.path.join(PROJECT_DIR, os.pardir, "R", "scripts")
-PYSCRIPT_DIR = os.path.join(PROJECT_DIR, os.pardir, "python")
+RSCRIPT_DIR = os.path.join(PROJECT_DIR, "R", "scripts")
+PYSCRIPT_DIR = os.path.join(PROJECT_DIR, "python")
 
 ANNDATA_IN = config["anndata"]
 OUT_DIR = config["out_dir"]
