@@ -14,7 +14,7 @@ ANNOTATION_DIR = "annotation.dir"
 API_DIR = "api/annotation"
 
 
-rule target:
+rule full:
     input:
         f"{API_DIR}/ensembl/ensembl.gene_name.map.tsv.gz",
         f"{API_DIR}/ensembl/ensembl.to.entrez.tsv.gz",
