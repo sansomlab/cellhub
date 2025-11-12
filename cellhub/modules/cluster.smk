@@ -107,33 +107,10 @@ rule full:
             ncomp=RDIMS_LST,
             resolu=RESOLUTION_LST,
         ),
-
-
-# rule preflight:
-#     input:
-#         IN_ANNDATA,
-#     output:
-#         "cluster.dir/preflight.log",
-#     log:
-#         "cluster.dir/preflight.log",
-#     params:
-#         script=f"{PYSCRIPT_DIR}/cluster_preflight.py",
-#         rdim_name=config["dimension_reduction"]["rdim_name"],
-#         max_rdims=max(RDIMS_LST),
-#         geneids=GENE_IDS,
-#         conserved=CONSERVED,
-#         conserved_factor=CONSERVED_FACTOR,
-#     shell:
-#         """
-#         python "{params.script}" \
-#             --anndata="{input}" \
-#             --reduced_dims_name="{params.rdim_name}" \
-#             --max_reduced_dims="{params.max_rdims}" \
-#             {params.conserved} \
-#             {params.geneids} \
-#             --conserved_factor="{params.conserved_factor}" \
-#             &> "{log}"
-#         """
+        expand(
+            os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.h5ad"),
+            ncomp=RDIMS_LST,
+        ),
 
 
 # NOTE: to implement conserved
@@ -152,6 +129,8 @@ rule metadata:
         script=os.path.join(PYSCRIPT_DIR, "cluster_metadata.py"),
         conserved=CONSERVED,
         conserved_factor=CONSERVED_FACTOR,
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -174,6 +153,8 @@ rule loom:
         script=os.path.join(PYSCRIPT_DIR, "cluster_loom.py"),
         layers="{layer}",
         outdir=LOOM_DIR(),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -201,6 +182,8 @@ rule neighbourGraph:
         metric=config["neighbor_graph"]["metric"],
         fullspeedmode="--fullspeed" if config["neighbor_graph"]["full_speed"] else "",
     threads: config["neighbor_graph"]["threads"]
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -230,6 +213,8 @@ rule scanpyCluster:
         algorithm=config["clustering"]["algorithm"],
         resolution="{resolu}",
         outdir=CLUSTER_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -259,6 +244,8 @@ checkpoint clusterPostProcess:
         script=os.path.join(RSCRIPT_DIR, "cluster_post_process.R"),
         predefined="",  #f"--predefined={PREDEFINED_CLUSTERS}" if PREDEFINED_CLUSTERS else "",
         outdir=CLUSTER_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -283,6 +270,8 @@ rule compareClusters:
         ncomp="{ncomp}",
         outdir=CLUSTER_DIR("{ncomp}", "{resolu}"),
         reductiontype=config["dimension_reduction"]["rdim_name"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -312,6 +301,8 @@ rule clustTree:
         res_str=",".join(RESOLUTION_LST),
         id_files_str=lambda wc, input: ",".join(input),
         outdir=RDIM_DIR("{ncomp}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -333,6 +324,8 @@ rule UMAP:
         script=os.path.join(PYSCRIPT_DIR, "cluster_umap.py"),
         mindist="{mindist}",
         outdir=UMAP_DIR("{ncomp}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -363,6 +356,8 @@ rule clusterStats:
         script=f"{PYSCRIPT_DIR}/cluster_stats.py",
         subset_stat="",  # "--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
         subset_level="{subset_level}",
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -412,6 +407,8 @@ rule findMarkers:
         cluster="{cluster}",
         markers_test=config["markers"]["test"],
         markers_pseudocount=config["markers"]["pseudocount"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         python "{params.script}" \
@@ -457,6 +454,8 @@ checkpoint summariseMarkers:
         min_pct=config["markers"]["min_pct"],
         min_fc=config["markers"]["min_fc"],
         outdir=MARKERS_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -494,6 +493,8 @@ rule topMarkerHeatmap:
             else ""
         ),
         outdir=MARKERS_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -528,6 +529,8 @@ rule dePlots:
         cluster="{cluster}",
         outdir=DE_PLOTS_DIR("{ncomp}", "{resolu}"),
         pdf=config["plot"]["pdf"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -559,6 +562,8 @@ rule summarise_dePlots:
         ),
     output:
         os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_dePlots.sentinel"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         touch "{output}"
@@ -619,6 +624,8 @@ rule markerPlots:
         outdir=MARKER_PLOTS_DIR("{ncomp}", "{resolu}"),
         group_opt="",
         pdf=config["plot"]["pdf"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -651,6 +658,8 @@ rule summarise_markerPlots:
         os.path.join(
             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_markerPlots.sentinel"
         ),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         touch "{output}"
@@ -673,6 +682,8 @@ rule plotMarkerNumbers:
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_plot_marker_numbers.R"),
         outdir=MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -767,6 +778,8 @@ rule genesetAnalysis:
         ),
         adjpthreshold=config["geneset"]["marker_adjpthreshold"],
         outdir=GENESETS_DIR("{ncomp}", "{resolu}"),
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -829,6 +842,8 @@ rule summariseGenesetAnalysis:
         show_common=config["geneset"]["show_common"],
         out_prefix=os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets"),
         pdf=config["plot"]["pdf"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
     shell:
         """
         Rscript "{params.script}" \
@@ -846,5 +861,59 @@ rule summariseGenesetAnalysis:
             --prefix="genesets" \
             --plotdirvar="clusterGenesetsDir" \
             --pdf="{params.pdf}" \
+            &> "{log}"
+        """
+
+
+def cellxgene_resolutions():
+    if config["cellxgene"]["resolution"] == "all":
+        return RESOLUTION_LST
+    else:
+        return list(config["cellxgene"]["resolution"])
+
+
+def cellxgene_resolution_files(resolu_list, ncomp):
+    return [
+        os.path.join(CLUSTER_DIR(ncomp, resolu), "cluster_ids.tsv.gz")
+        for resolu in resolu_list
+    ]
+
+
+rule cellxgene:
+    input:
+        cellxgene_resolution_files(cellxgene_resolutions(), "{ncomp}"),
+        anndata=ANNDATA_IN,
+        umap_path=os.path.join(
+            UMAP_DIR("{ncomp}"), f"umap.{config['plot']['umap_mindist']}.tsv.gz"
+        ),
+    output:
+        os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.h5ad"),
+    log:
+        os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.log"),
+    params:
+        script=os.path.join(PYSCRIPT_DIR, "cluster_cellxgene.py"),
+        obs=config["cellxgene"]["obs"],
+        umap_facet_x=config["cellxgene"]["umap_facet_x"],
+        umap_facet_y=config["cellxgene"]["umap_facet_y"],
+        cluster_names=",".join([f"leiden_r{x}" for x in cellxgene_resolutions()]),
+        cluster_paths=",".join(
+            cellxgene_resolution_files(cellxgene_resolutions(), "{ncomp}")
+        ),
+        cluster_split=config["cellxgene"]["cluster_split"],
+    resources:
+        mem_mb=config["resources"]["mem_mb"],
+    shell:
+        """
+        python "{params.script}" \
+            --source_anndata="{input.anndata}" \
+            --obs="{params.obs}" \
+            --umap="{input.umap_path}" \
+            --umap_facet_x="{params.umap_facet_x}" \
+            --umap_facet_y="{params.umap_facet_y}" \
+            --cluster_paths="{params.cluster_paths}" \
+            --cluster_names="{params.cluster_names}" \
+            --cluster_split="{params.cluster_split}" \
+            --adt=None \
+            --outfile="{output}" \
             &> "{log}"
         """

@@ -52,7 +52,7 @@ python -m pip install --upgrade pip
 ```bash
 cd $CELLHUB_DIR
 python setup.py develop
-pip install snakemake
+pip install snakemake snakemake-executor-plugin-slurm
 pip install -r python/requirements.txt
 Rscript R/install.packages.R # may need firstly install devtools, BiocManager, Cairo, stringi
 R CMD INSTALL R/cellhub
