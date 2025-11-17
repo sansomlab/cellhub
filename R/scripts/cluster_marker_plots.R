@@ -169,7 +169,7 @@ do_plot()
 cids <- read.table(opt$clusterids, header=T, sep="\t")
 
 nclusters <- length(unique(cids$cluster_id))
-height = min(nclusters/20 * 5,10)
+height = max(min(nclusters/20 * 5, 10), 3)
 
 ## save the plots
 save_plots(paste(outprefix,"violins",sep="."),

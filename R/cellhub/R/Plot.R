@@ -31,7 +31,7 @@ plotMA <- function(data, xlab="xlab", ylab="ylab",
     gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
 
     gp <- gp + scale_color_viridis_c(option="rocket", direction=-1)
-    gp <- gp + geom_text_repel(data=top, aes_string(label=label_col), color="black",
+    gp <- gp + geom_text_repel(data=top, aes(label=!!sym(label_col)), color="black",
                                min.segment.length=0, size=3)
     gp <- gp + geom_hline(yintercept=c(-1,1), linetype="dashed", color="grey")
     gp <- gp + geom_hline(yintercept=0, linetype="dashed")
@@ -73,7 +73,7 @@ plotVolcano <- function(data, xlab="xlab", ylab="ylab",
     gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
    
     gp <- gp + scale_color_viridis_c(option="rocket", direction=-1)
-    gp <- gp + geom_text_repel(data=top, aes_string(label=label_col), color="black",
+    gp <- gp + geom_text_repel(data=top, aes(label=!!sym(label_col)), color="black",
                                min.segment.length=0,size=3)
     gp <- gp + geom_vline(xintercept=c(-1,1), linetype="dashed", color="grey")
     gp <- gp + geom_vline(xintercept=c(0), linetype="dashed", color="black")
@@ -121,7 +121,7 @@ plotFvE <- function(data, p_col="p.adj", label_col="gene_name",
     gp <- gp + geom_point(data=sig, aes(color=-log10(get(p_col))), size=0.75 )
 
 
-    gp <- gp + geom_text_repel(data=top, aes_string(label=label_col),
+    gp <- gp + geom_text_repel(data=top, aes(label=!!sym(label_col)),
                                color="black", min.segment.length=0, size=3)
 
     gp <- gp + geom_hline(yintercept=0, linetype="dashed", color="grey")
@@ -871,7 +871,7 @@ expressionPlots <- function(
 
   fill_df <- melt(fill_frame, id.vars=c(x, y))
 
-  gp <- ggplot(fill_df, aes_string(x, y, color="value"))
+  gp <- ggplot(fill_df, aes(x, y, color=value))
   gp <- gp + geom_point(size=point_size,
                         alpha=1,
                         stroke = 0,
@@ -935,7 +935,7 @@ expressionPlots3D <- function(seurat_object, features,
 
   print("drawing the plot")
 
-  gp <- ggplot(fill_df, aes_string(x=x, y=y, z=z, color="value"))
+  gp <- ggplot(fill_df, aes(x=!!sym(x), y=!!sym(y), z=!!sym(z), color=value))
   gp <- gp + theme_void()
 
   if(draw_axes) {

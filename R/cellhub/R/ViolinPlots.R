@@ -166,7 +166,7 @@ makeViolins <- function(ggData,
     gp <- ggplot(ggData, aes(value, cluster, fill=cluster))
   } else {
     ggData[[group]] <- factor(ggData[[group]])
-    gp <- ggplot(ggData, aes_string("value", "cluster", fill=group))
+    gp <- ggplot(ggData, aes(value, cluster, fill=!!sym(group)))
   }
   gp <- gp + geom_violinh(scale = "width", trim = TRUE, alpha=alpha)
   gp <- gp + facet_wrap(~gene_name, scales="free_x", ncol=ncol, drop=F)

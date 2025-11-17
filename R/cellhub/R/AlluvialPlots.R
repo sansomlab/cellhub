@@ -58,8 +58,8 @@ plotAlluvial <- function(
   
   message("Generate plot ... \n")
   gp <- ggplot(merged_links[merged_links$value > min_cells,],
-               aes_string(y = "value", axis1 = name_left, axis2 = name_right)) 
-  gp <- gp + geom_alluvium(aes_string(fill = name_left), width = 1/12) 
+               aes(y=value, axis1=!!sym(name_left), axis2=!!sym(name_right))) 
+  gp <- gp + geom_alluvium(aes(fill=!!sym(name_left)), width = 1/12) 
   gp <- gp + scale_x_discrete(limits = c(name_left, name_right), expand = c(.05, .05))
   gp <- gp + geom_stratum(width = 1/12) + guides(fill = FALSE) 
   gp <- gp + scale_fill_manual(values = colors_use)

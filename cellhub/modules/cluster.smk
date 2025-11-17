@@ -69,48 +69,62 @@ def GENESETS_DIR(ncomp, resolu):
     return os.path.join(CLUSTER_DIR(ncomp, resolu), "genesets.dir")
 
 
+CORE_OUTPUTS = (
+    expand(
+        os.path.join(RDIM_DIR("{ncomp}"), "clustree.png"),
+        ncomp=RDIMS_LST,
+    )
+    + expand(
+        os.path.join(
+            MARKER_PLOTS_DIR("{ncomp}", "{resolu}"),
+            "summarised_markerPlots.sentinel",
+        ),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+    + expand(
+        os.path.join(MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"), "deNumbers.png"),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+    + expand(
+        os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.h5ad"),
+        ncomp=RDIMS_LST,
+    )
+)
+
+OPTIONAL_OUTPUTS = []
+if config["enable"].get("compare_clusters", False):
+    OPTIONAL_OUTPUTS += expand(
+        os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster.dendrogram.png"),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+if config["enable"].get("de_plots", False):
+    OPTIONAL_OUTPUTS += expand(
+        os.path.join(
+            DE_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_dePlots.sentinel"
+        ),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+if config["enable"].get("top_marker_heatmap", False):
+    OPTIONAL_OUTPUTS += expand(
+        os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.heatmap.png"),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+if config["enable"].get("genesets", False):
+    OPTIONAL_OUTPUTS += expand(
+        os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.xlsx"),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+    )
+
+
 rule full:
     input:
-        expand(
-            os.path.join(RDIM_DIR("{ncomp}"), "clustree.png"),
-            ncomp=RDIMS_LST,
-        ),
-        expand(
-            os.path.join(
-                MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.heatmap.png"
-            ),
-            ncomp=RDIMS_LST,
-            resolu=RESOLUTION_LST,
-        ),
-        expand(
-            os.path.join(
-                DE_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_dePlots.sentinel"
-            ),
-            ncomp=RDIMS_LST,
-            resolu=RESOLUTION_LST,
-        ),
-        expand(
-            os.path.join(
-                MARKER_PLOTS_DIR("{ncomp}", "{resolu}"),
-                "summarised_markerPlots.sentinel",
-            ),
-            ncomp=RDIMS_LST,
-            resolu=RESOLUTION_LST,
-        ),
-        expand(
-            os.path.join(MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"), "deNumbers.png"),
-            ncomp=RDIMS_LST,
-            resolu=RESOLUTION_LST,
-        ),
-        expand(
-            os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.xlsx"),
-            ncomp=RDIMS_LST,
-            resolu=RESOLUTION_LST,
-        ),
-        expand(
-            os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.h5ad"),
-            ncomp=RDIMS_LST,
-        ),
+        CORE_OUTPUTS + OPTIONAL_OUTPUTS,
 
 
 # NOTE: to implement conserved
@@ -165,6 +179,7 @@ rule loom:
         """
 
 
+# NOTE: precomputed works.
 rule neighbourGraph:
     input:
         ANNDATA_IN,
@@ -275,7 +290,7 @@ rule compareClusters:
     shell:
         """
         python "{params.script}" \
-            --source_anndata="{input.source_anndata}" \
+            --source_anndata="{input.anndata}" \
             --clusterids="{input.cids}" \
             --ncomp="{params.ncomp}" \
             --outdir="{params.outdir}" \
@@ -430,16 +445,15 @@ def get_cluster_marker_files(ncomp, resolu):
     return [
         os.path.join(
             MARKERS_DIR(ncomp, resolu),
-            f"{cluster}.{subset_level}.markers.tsv.gz",
+            f"{cluster}.all.markers.tsv.gz",
         )
         for cluster in get_clusters(ncomp, resolu)
-        for subset_level in ["all"]
     ]
 
 
 checkpoint summariseMarkers:
     input:
-        metadata=os.path.join(OUT_DIR, "metadata.dir", "metadata.tsv.gz"),
+        metadata=os.path.join(METADATA_DIR(), "metadata.tsv.gz"),
         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
         cluster_markers=lambda wc: get_cluster_marker_files(wc.ncomp, wc.resolu),
     output:
@@ -543,13 +557,25 @@ rule dePlots:
         """
 
 
+def get_clusters_with_marker(ncomp, resolu):
+    markerfile = checkpoints.summariseMarkers.get(ncomp=ncomp, resolu=resolu).output[0]
+    markers = pd.read_csv(markerfile, sep="\t")
+    markers = markers.loc[(markers["p.adj"] < 0.1) & (markers["p.adj"].notna()), :]
+    clusters_with_markers = list(markers["cluster"].unique())
+    assert (
+        "911" not in clusters_with_markers
+    ), "cluster 911 should not used for markerPlots."
+
+    return clusters_with_markers
+
+
 rule summarise_dePlots:
     input:
         expand(
             os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "dePlots.{cluster}.png"),
             ncomp=["{ncomp}"],
             resolu=["{resolu}"],
-            cluster=lambda wc: get_clusters(wc.ncomp, wc.resolu),
+            cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
         ),
         expand(
             os.path.join(
@@ -558,7 +584,7 @@ rule summarise_dePlots:
             ),
             ncomp=["{ncomp}"],
             resolu=["{resolu}"],
-            cluster=lambda wc: get_clusters(wc.ncomp, wc.resolu),
+            cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
         ),
     output:
         os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_dePlots.sentinel"),
@@ -570,21 +596,10 @@ rule summarise_dePlots:
         """
 
 
-def get_clusters_with_marker(ncomp, resolu):
-    markerfile = checkpoints.summariseMarkers.get(ncomp=ncomp, resolu=resolu).output[0]
-    markers = pd.read_csv(markerfile, sep="\t")
-    clusters_with_markers = list(markers["cluster"].unique())
-    assert (
-        "911" not in clusters_with_markers
-    ), "cluster 911 should not used for markerPlots."
-
-    return clusters_with_markers
-
-
 # NOTE: parallelised
 # NOTE: markers in CGAT version line 1244?
 # NOTE: group_opt not implemented
-# NOTE: violinplot not visible when few clusters
+# NOTE: violinplot not visible when few clusters => height = max(min(nclusters/20 * 5, 10), 3)
 rule markerPlots:
     input:
         marker_table=os.path.join(
@@ -666,7 +681,8 @@ rule summarise_markerPlots:
         """
 
 
-# NOTE: minfc and minpadj hard coded?
+# NOTE: cluster_ids not used.
+# NOTE: minfc and minpadj hard coded? => from yaml
 rule plotMarkerNumbers:
     input:
         marker_table=os.path.join(
@@ -697,40 +713,40 @@ rule plotMarkerNumbers:
         """
 
 
-# NOTE: re-written
-def parseGMTfiles(config_contents):
-    """
-    Helper function for parsing the lists of GMT files
-    """
-    all_files = []
-    for gmt_dict in config_contents:
-        if gmt_dict is not None:
-            for gmt_file in gmt_dict.values():
-                if gmt_file is not None:
-                    all_files += [gmt_file]
-    if len(all_files) == 0:
-        all_files = "none"
-    else:
-        all_files = ",".join(all_files)
-    return all_files
+# # NOTE: re-written
+# def parseGMTfiles(config_contents):
+#     """
+#     Helper function for parsing the lists of GMT files
+#     """
+#     all_files = []
+#     for gmt_dict in config_contents:
+#         if gmt_dict is not None:
+#             for gmt_file in gmt_dict.values():
+#                 if gmt_file is not None:
+#                     all_files += [gmt_file]
+#     if len(all_files) == 0:
+#         all_files = "none"
+#     else:
+#         all_files = ",".join(all_files)
+#     return all_files
 
 
-# NOTE: re-written
-def parseGMTnames(config_contents):
-    """
-    Helper function for parsing the lists of GMT files
-    """
-    all_names = []
-    for gmt_dict in config_contents:
-        if gmt_dict is not None:
-            for gmt_name in gmt_dict.keys():
-                if gmt_name is not None:
-                    all_names += [gmt_name]
-    if len(all_names) == 0:
-        all_names = "none"
-    else:
-        all_names = ",".join(all_names)
-    return all_names
+# # NOTE: re-written
+# def parseGMTnames(config_contents):
+#     """
+#     Helper function for parsing the lists of GMT files
+#     """
+#     all_names = []
+#     for gmt_dict in config_contents:
+#         if gmt_dict is not None:
+#             for gmt_name in gmt_dict.keys():
+#                 if gmt_name is not None:
+#                     all_names += [gmt_name]
+#     if len(all_names) == 0:
+#         all_names = "none"
+#     else:
+#         all_names = ",".join(all_names)
+#     return all_names
 
 
 # NOTE: replaced the dependence of CellHub API by actual annotation files
@@ -768,14 +784,10 @@ rule genesetAnalysis:
             MARKERS_DIR("{ncomp}", "{resolu}"), "{cluster}.universe.tsv.gz"
         ),
         species=config["geneset"]["species"],
-        ensembl=config["geneset"]["cellhub_ensembl_annotations"],
-        kegg=config["geneset"]["cellhub_kegg_pathways"],
-        gmt_names=parseGMTnames(
-            [config["gmt_celltype_files"], config["gmt_pathway_files"]]
-        ),
-        gmt_files=parseGMTfiles(
-            [config["gmt_celltype_files"], config["gmt_pathway_files"]]
-        ),
+        ensembl=config["cellhub_ensembl_annotations"],
+        kegg=config["cellhub_kegg_pathways"],
+        gmt_names=",".join(config.get("gmt_files", {}).keys()) or "none",
+        gmt_files=",".join(config.get("gmt_files", {}).values()) or "none",
         adjpthreshold=config["geneset"]["marker_adjpthreshold"],
         outdir=GENESETS_DIR("{ncomp}", "{resolu}"),
     resources:
@@ -806,9 +818,10 @@ rule summariseGenesetAnalysis:
     input:
         lambda wc: [
             os.path.join(
-                GENESETS_DIR(wc.ncomp, wc.resolu), f"genesets.{cluster}.{file}.tsv.gz"
+                GENESETS_DIR(wc.ncomp, wc.resolu),
+                f"genesets.{cluster}.{filetype}.tsv.gz",
             )
-            for file in [
+            for filetype in [
                 "GO.BP",
                 "GO.CC",
                 "GO.MF",
@@ -818,7 +831,7 @@ rule summariseGenesetAnalysis:
             ]
             for cluster in get_clusters_with_marker(wc.ncomp, wc.resolu)
         ],
-        cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
+        cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv"),
     output:
         os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.xlsx"),
         os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.table.tex"),
@@ -830,9 +843,7 @@ rule summariseGenesetAnalysis:
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_geneset_summary.R"),
         geneset_dir=GENESETS_DIR("{ncomp}", "{resolu}"),
-        gmt_names=parseGMTnames(
-            [config["gmt_celltype_files"], config["gmt_pathway_files"]]
-        ),
+        gmt_names=",".join(config.get("gmt_files", {}).keys()) or "none",
         show_detailed=config["geneset"]["show_detailed"],
         min_genes=config["geneset"]["min_fg_genes"],
         pvalue_threshold=config["geneset"]["pvalue_threshold"],
