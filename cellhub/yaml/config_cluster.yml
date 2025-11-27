@@ -1,0 +1,133 @@
+# ================= #
+# Data and Metadata
+# ================= #
+
+# The path to the anndata file
+#       X -> scaled_data # not required if '..heatmap_matrix: log1p'
+#       layers["counts"] -> count data
+#       layers["log1p"] -> normalised, log1p transformed data
+anndata: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/anndata.dir/integrated.h5ad
+
+# The path to output directory folder
+out_dir: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/new-cluster.dir/ # default as ./
+
+# ENSEMBL and KEGG annotations produced by CellHub
+# Cellhub
+cellhub_ensembl_annotations: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/annotation.dir/ensembl.to.entrez.tsv.gz
+cellhub_kegg_pathways: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/annotation.dir/kegg.pathways.rds
+
+# Arbitrary genesets can be specified here using gmt files.
+#       the key is taken as the set name, and the value as the path to the gmt file,
+#       i.e., set_name: gmt_file_path
+gmt_files:
+        # note that the below files are species and site specific
+        # > human msigdb sets >
+        msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.gmt
+        msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.gmt
+        msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.gmt
+        msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.gmt
+        msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.gmt
+
+        # > mouse msigdb sets >
+        # msigdb_biocarta: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.biocarta.v7.1.entrez.mouse.gmt
+        # msigdb_reactome: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.reactome.v7.1.entrez.mouse.gmt
+        # msigdb_canonical_pathways: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c2.cp.v7.1.entrez.mouse.gmt
+        # msigdb_tf_motifs: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c3.tft.v7.1.entrez.mouse.gmt
+        # msigdb_immunological_signatures: /well/kir/mirror/msigdb/msigdb_v7.1/msigdb_v7.1_GMTs/c7.all.v7.1.entrez.mouse.gmt
+
+        # > human cell types >
+        xCell: /well/kir/mirror/xCell/xCell_entrezID.gmt
+
+# ============ #
+# Tasks to run #
+# ============ #
+
+enable:
+        compare_clusters: True
+        de_plots: True
+        top_marker_heatmap: True
+        paga: False
+        genesets: True
+
+# ================== #
+# Parameter settings #
+# ================== #
+
+resources:
+        mem_mb: 32000
+
+dimension_reduction:
+        # The name of the reduced dimension space.
+        #       this must exist in the source annadata obsm,
+        #       e.g., for source_anndata.obsm["X_pca"] set to "pca"
+        rdim_name: pca
+        # Number(s) of components of the reduced dimension space to use
+        n_components: 30,50
+
+neighbor_graph:
+        # Choices: scanpy | hnsw | precomputed
+        #       if precomputed -> adata file needs to have neighbors to read
+        method: hnsw
+        threads: 4 # for hnsw
+        full_speed: False # for hnsw
+        # The number of neighbors to use when constructing the nearest neighbor graph
+        #       it is recommended to match the value chosen for UMAP
+        n_neighbors: 30
+        # The distance metric (as supported by Scanpy)
+        #       e.g., euclidean | cosine
+        metric: euclidean
+
+clustering:
+        # Clustering algorithm (as supported by Scanpy)
+        #       "leiden" | "louvain"
+        algorithm: leiden
+        # Clustering resolution(s)
+        resolutions: 0.5,1
+        # To manually specify cluster assignments set to True
+        #       TODO: reimplement this taking an anndata column
+        #       - Manual cluster assignmets should be provided as sample_name.cluster_ids.rds file(s)
+        #       - one per sample must be present in the run directory
+        #       - the .rds files should contained a name vector of cell barcodes (names) and clusters (values)
+        predefined_clusters: False
+
+markers:
+        test: wilcoxon
+        pseudocount: 0.1
+        min_pct: 0.1
+        min_fc: 1.5
+
+geneset:
+        # Choices: 'hs' (for human) | 'mm' (for mouse)
+        #       TODO: automatically detect from cellhub.
+        species: hs
+        marker_adjpthreshold: 0.1
+        padjust_method: BH
+        use_adjusted_pvalues: True
+        pvalue_threshold: 0.05
+        min_odds_ratio: 1.5
+        min_fg_genes: 3
+        show_common: True
+        show_detailed: GO.BP
+
+plot:
+        umap_mindist: 0.5
+        # The matrix to be used for making the heatmaps: "X" or "log1p"
+        #       if "log1p" is passed the values will be z-scored for the heatmaps.
+        #       (all other plots are made from the "log1p" matrix)
+        heatmap_matrix: log1p
+        # Make pdf versions of the plots
+        #       use of this parameter is currently only implemented
+        #       for the singleR heatmaps, the top marker heatmap, the plots for
+        #       characterisation of DE genes, rdims_plot_genes and
+        #       rdims_plot_factor.
+        pdf: False
+        groups: cluster
+        subgroup: NULL
+        qcvars: total_UMI,pct_mitochondrial,ngenes
+
+cellxgene:
+        obs: all
+        resolution: all
+        umap_facet_x: None
+        umap_facet_y: None
+        cluster_split: None

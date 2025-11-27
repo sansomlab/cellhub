@@ -3,10 +3,10 @@ import os
 TARGET = config["target"]
 
 
-rule target:
+rule full:
     input:
-        f"{workflow.basedir}/yaml/pipeline_{TARGET}.yml",
+        f"{workflow.basedir}/yaml/config_{TARGET}.yml",
     output:
-        f"pipeline_{TARGET}.yml",
+        f"config_{TARGET}.yml",
     shell:
         "cp {input} {output}"

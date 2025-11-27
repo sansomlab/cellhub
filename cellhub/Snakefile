@@ -10,10 +10,10 @@ if MODE not in ["make", "config"]:
     raise WorkflowError(f"Unknown mode {MODE} to be run.")
 
 if MODE == "make":
-    cfg = f"pipeline_{TARGET}.yml"
+    cfg = f"config_{TARGET}.yml"
     if not os.path.exists(cfg):
         raise WorkflowError(
-            f"Config file {cfg} not found.\nPlease rerun with `--config target={TARGET} mode=config`."
+            f"Config file {cfg} not found.\nPlease rerun with `cellhub {TARGET} config`."
         )
 
     configfile: cfg

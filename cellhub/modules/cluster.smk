@@ -11,7 +11,7 @@ RSCRIPT_DIR = os.path.join(PROJECT_DIR, "R", "scripts")
 PYSCRIPT_DIR = os.path.join(PROJECT_DIR, "python")
 
 ANNDATA_IN = config["anndata"]
-OUT_DIR = config["out_dir"]
+OUT_DIR = config.get("out_dir", "./")
 
 RDIMS_LST = [
     parse2int(ncomp, positive_only=True)
@@ -36,12 +36,24 @@ def RDIM_DIR(ncomp):
     return os.path.join(OUT_DIR, f"out.{ncomp}.comp.dir")
 
 
+def RDIMS_VISUALISATION_DIR_FACT(ncomp):
+    return os.path.join(RDIM_DIR(ncomp), "rdims.visualisation.dir")
+
+
 def UMAP_DIR(ncomp):
     return os.path.join(RDIM_DIR(ncomp), "umap.dir")
 
 
 def CLUSTER_DIR(ncomp, resolu):
     return os.path.join(RDIM_DIR(ncomp), f"cluster.{resolu}.dir")
+
+
+def RDIMS_VISUALISATION_DIR_CLUST(ncomp, resolu):
+    return os.path.join(CLUSTER_DIR(ncomp, resolu), "rdims.visualisation.dir")
+
+
+def PAGA_DIR(ncomp, resolu):
+    return os.path.join(CLUSTER_DIR(ncomp, resolu), "paga.dir")
 
 
 def STATS_DIR(ncomp, resolu):
@@ -52,7 +64,6 @@ def MARKERS_DIR(ncomp, resolu):
     return os.path.join(CLUSTER_DIR(ncomp, resolu), "markers.dir")
 
 
-# NOTE: possible to combine MARKER PLOT FOLDERS?
 def MARKER_PLOTS_DIR(ncomp, resolu):
     return os.path.join(CLUSTER_DIR(ncomp, resolu), "marker.plots.dir")
 
@@ -99,6 +110,13 @@ if config["enable"].get("compare_clusters", False):
         os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster.dendrogram.png"),
         ncomp=RDIMS_LST,
         resolu=RESOLUTION_LST,
+    )
+if config["enable"].get("paga", False):
+    OPTIONAL_OUTPUTS += expand(
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "{fig}"),
+        ncomp=RDIMS_LST,
+        resolu=RESOLUTION_LST,
+        fig=["draw_graph_fa.png", "paga.png"],
     )
 if config["enable"].get("de_plots", False):
     OPTIONAL_OUTPUTS += expand(
@@ -179,7 +197,6 @@ rule loom:
         """
 
 
-# NOTE: precomputed works.
 rule neighbourGraph:
     input:
         ANNDATA_IN,
@@ -328,6 +345,122 @@ rule clustTree:
         """
 
 
+rule paga:
+    input:
+        neighs=os.path.join(RDIM_DIR("{ncomp}"), "neighbour.graph.h5ad"),
+        cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
+        ccolours=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_colors.tsv"),
+    output:
+        os.path.join(
+            PAGA_DIR("{ncomp}", "{resolu}"),
+            "draw_graph_fa.paga.initialised.png",
+        ),
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "draw_graph_fa.png"),
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "paga_init_fa2.tsv.gz"),
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "paga.png"),
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "umap.paga.initialised.png"),
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "umap.paga.init.tsv.gz"),
+    log:
+        os.path.join(PAGA_DIR("{ncomp}", "{resolu}"), "paga.log"),
+    params:
+        script=os.path.join(PYSCRIPT_DIR, "cluster_paga.py"),
+        outdir=PAGA_DIR("{ncomp}", "{resolu}"),
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input.neighs}" \
+            --outdir="{params.outdir}" \
+            --cluster_ids="{input.cids}" \
+            --cluster_colors="{input.ccolours}" \
+            &> "{log}"
+        """
+
+
+rule plotRdimsFactors:
+    input:
+        table=os.path.join(UMAP_DIR("{ncomp}"), "umap.{MIN_DIST}.tsv.gz"),
+        metadata=os.path.join(METADATA_DIR(), "metadata.tsv.gz"),
+    output:
+        pngs=expand(
+            os.path.join(RDIMS_VISUALISATION_DIR_FACT("{ncomp}"), "UMAP.{fct}.png"),
+            fct=RDIM_FACTORS,
+        ),
+        tex1=os.path.join(RDIMS_VISUALISATION_DIR_FACT("{ncomp}"), "UMAP.tex"),
+        tex2=os.path.join(
+            RDIMS_VISUALISATION_DIR_FACT("{ncomp}"), "plot.rdims.factor.tex"
+        ),
+    log:
+        os.path.join(RDIMS_VISUALISATION_DIR_FACT("{ncomp}"), "plot.rdims.factor.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
+        colour_factor_arg="--colorfactors=" + ",".join(RDIMCOLOURFACTORS),
+        shape_factor_arg=("--shapefactor=" + SHAPE) if SHAPE is not None else "",
+        pointsize=POINTSIZE,
+        pointalpha=POINTALPHA,
+        pointpch=POINTPCH,
+        pdf=PDF,
+        outdir=RDIMS_VISUALISATION_DIR_FACT("{ncomp}"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --table="{input.table}" \
+            --metadata="{input.metadata}" \
+            {params.colour_factor_arg} \
+            {params.shape_factor_arg} \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisFactorDir \
+            &> "{log}"
+        echo "\\input{{{params.outdir}UMAP}}" > "{output.tex2}"
+        """
+
+
+# rule plotRdimsClusters:
+#     input:
+#         table=os.path.join(UMAP_DIR("{ncomp}"), "umap.{mindist}.tsv.gz"),
+#         cluster_ids=os.path.join(
+#             CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"
+#         ),
+#     output:
+#         os.path.join(
+#             RDIMS_VISUALISATION_DIR_CLUST("{ncomp}", "{resolu}"),
+#             "umap.mindist_{mindist}.cluster_id.png",
+#         ),
+#     log:
+#         os.path.join(
+#             RDIMS_VISUALISATION_DIR_CLUST("{ncomp}", "{resolu}"),
+#             "plot.rdims.cluster.{mindist}.log",
+#         ),
+#     params:
+#         script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
+#         umap_spec="umap.mindist_" + "{mindist}",
+#         shape_factor_arg=("--shapefactor=" + SHAPE) if SHAPE is not None else "",
+#         pointsize=POINTSIZE,
+#         pointalpha=POINTALPHA,
+#         pointpch=POINTPCH,
+#         pdf=PDF,
+#         outdir=RDIMS_VISUALISATION_DIR_CLUST("{ncomp}", "{resolu}"),
+#     shell:
+#         """
+#         Rscript "{params.script}" \
+#             --method="{params.umap_spec}" \
+#             --table="{input.table}" \
+#             --metadata="{input.cluster_ids}" \
+#             {params.shape_factor_arg} \
+#             --colorfactors=cluster_id \
+#             --pointsize="{params.pointsize}" \
+#             --pointalpha="{params.pointalpha}" \
+#             --pointpch="{params.pointpch}" \
+#             --pdf="{params.pdf}" \
+#             --outdir="{params.outdir}" \
+#             --plotdirvar=rdimsVisClusterDir \
+#             &> "{log}"
+#         """
+
+
 rule UMAP:
     input:
         os.path.join(RDIM_DIR("{ncomp}"), "neighbour.graph.h5ad"),
@@ -368,7 +501,7 @@ rule clusterStats:
             STATS_DIR("{ncomp}", "{resolu}"), "cluster.{subset_level}.stats.log"
         ),
     params:
-        script=f"{PYSCRIPT_DIR}/cluster_stats.py",
+        script=os.path.join(PYSCRIPT_DIR, "cluster_stats.py"),
         subset_stat="",  # "--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
         subset_level="{subset_level}",
     resources:
@@ -711,42 +844,6 @@ rule plotMarkerNumbers:
             --plotdirvar=clusterMarkerDEPlotsDir \
             &> "{log}"
         """
-
-
-# # NOTE: re-written
-# def parseGMTfiles(config_contents):
-#     """
-#     Helper function for parsing the lists of GMT files
-#     """
-#     all_files = []
-#     for gmt_dict in config_contents:
-#         if gmt_dict is not None:
-#             for gmt_file in gmt_dict.values():
-#                 if gmt_file is not None:
-#                     all_files += [gmt_file]
-#     if len(all_files) == 0:
-#         all_files = "none"
-#     else:
-#         all_files = ",".join(all_files)
-#     return all_files
-
-
-# # NOTE: re-written
-# def parseGMTnames(config_contents):
-#     """
-#     Helper function for parsing the lists of GMT files
-#     """
-#     all_names = []
-#     for gmt_dict in config_contents:
-#         if gmt_dict is not None:
-#             for gmt_name in gmt_dict.keys():
-#                 if gmt_name is not None:
-#                     all_names += [gmt_name]
-#     if len(all_names) == 0:
-#         all_names = "none"
-#     else:
-#         all_names = ",".join(all_names)
-#     return all_names
 
 
 # NOTE: replaced the dependence of CellHub API by actual annotation files
