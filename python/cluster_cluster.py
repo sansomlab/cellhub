@@ -45,6 +45,8 @@ parser.add_argument("--anndata", default="anndata.h5ad", type=str,
                     help="File with the cell barcodes")
 parser.add_argument("--algorithm",default="leiden", type=str,
                     help="the clustering algorithm to use")
+parser.add_argument("--cluster_colname", default=None, type=str,
+                    help="the predefined table column name indicating clusters")
 parser.add_argument("--outdir",default=".", type=str,
                     help="path to output directory")
 parser.add_argument("--resolution", default=1, type=str,
@@ -75,16 +77,22 @@ sc.settings.set_figure_params(dpi=300, dpi_save=300)
 adata = anndata.read_h5ad(args.anndata)
 
 # compute clusters
-resolution = float(args.resolution)
 
 if args.algorithm == "leiden":
-    sc.tl.leiden(adata, resolution=resolution)
+    resolution = float(args.resolution)
+    sc.tl.leiden(adata, resolution=resolution, key_added="cluster_id")
 elif args.algorithm == "louvain":
-    sc.tl.louvain(adata, resolution=resolution)
+    resolution = float(args.resolution)
+    sc.tl.louvain(adata, resolution=resolution, key_added="cluster_id")
+elif args.algorithm == "predefined":
+    if args.cluster_colname is None:
+        raise ValueError("Must provide a cluster column name for predefined clustering")
+    adata.obs["cluster_id"] = adata.obs[args.cluster_colname].cat.codes.astype(str)
+    adata.obs["cluster_id"].replace({"-1": "911"}, inplace=True)  # reassign unclustered cells to cluster 911
+    adata.obs["cluster_id"] = adata.obs["cluster_id"].astype("category")
 else:
     raise ValueError("Clustering algorithm not recognised")
 
-adata.obs["cluster_id"] = adata.obs[args.algorithm]
 
 adata.obs[["cluster_id"]].to_csv(os.path.join(args.outdir,
                           "scanpy.clusters.tsv.gz"), sep="\t", 

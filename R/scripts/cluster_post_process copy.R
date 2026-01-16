@@ -17,6 +17,8 @@ option_list <- list(
 
     make_option(c("--clusters"), default="scanpy.clusters.tsv.gz",
                 help="the scanpy cluster assignments"),
+    make_option(c("--predefined"), default="none",
+                help="a file containing a set of predefined clusters"),
     make_option(c("--mincells"), type="integer", default=10,
                 help="clusters with fewer cells are set to NA"),
     make_option(c("--outdir"), default="seurat.out.dir",
@@ -29,13 +31,22 @@ cat("Running with options:\n")
 print(opt)
 
 
-clusters <- read.table(opt$clusters, sep="\t", header=T, as.is=T)
-cluster_ids <- clusters$cluster_id
-x <- table(cluster_ids)
+if(opt$predefined=="none")
+    {
+        clusters <- read.table(opt$clusters, sep="\t", header=T, as.is=T)
+        cluster_ids <- clusters$cluster_id
+        x <- table(cluster_ids)
 
-rejected_clusters <- names(x[x<opt$mincells])
-cluster_ids[cluster_ids %in% rejected_clusters] <- "911"
+        rejected_clusters <- names(x[x<opt$mincells])
+        cluster_ids[cluster_ids %in% rejected_clusters] <- "911"
 
+
+    } else {
+
+        clusters <- read.table(opt$predefined, sep="\t", header=T, as.is=T)
+        cluster_ids <- clusters$cluster_id
+
+        }
 
 cluster_ids <- factor(as.numeric(cluster_ids))
 names(cluster_ids) <- clusters$barcode_id

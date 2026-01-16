@@ -1,3 +1,13 @@
+# =============================================== #
+# Pipeline pipeline_cluster.py configuration file #
+# =============================================== #
+
+# Project name
+projectname: 10x single cell analysis
+
+# Author
+author: Sansom group
+
 # ================= #
 # Data and Metadata
 # ================= #
@@ -13,8 +23,11 @@ out_dir: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/new-cluster.dir/ # de
 
 # ENSEMBL and KEGG annotations produced by CellHub
 # Cellhub
-cellhub_ensembl_annotations: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/annotation.dir/ensembl.to.entrez.tsv.gz
-cellhub_kegg_pathways: /users/sansom/vlw740/work/CellHub_Reimpl/test-new/annotation.dir/kegg.pathways.rds
+cellhub:
+        # cellhub_dir: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/ # could be omitted if the two annotation files being indicated below
+        ensembl_annotations: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/annotation.dir/ensembl.to.entrez.tsv.gz
+        kegg_pathways: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/annotation.dir/kegg.pathways.rds
+        singleR_dir: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/singleR.dir/
 
 # Arbitrary genesets can be specified here using gmt files.
 #       the key is taken as the set name, and the value as the path to the gmt file,
@@ -42,8 +55,10 @@ gmt_files:
 # Tasks to run #
 # ============ #
 
-enable:
+run:
+        singleR: True
         compare_clusters: True
+        characterise_markers: True
         de_plots: True
         top_marker_heatmap: True
         paga: False
@@ -54,7 +69,10 @@ enable:
 # ================== #
 
 resources:
-        mem_mb: 32000
+        # Memory options for the different steps
+        memory_low: 8G
+        memory_standard: 16G
+        memory_high: 64G
 
 dimension_reduction:
         # The name of the reduced dimension space.
@@ -64,7 +82,7 @@ dimension_reduction:
         # Number(s) of components of the reduced dimension space to use
         n_components: 30,50
 
-neighbor_graph:
+neighbour_graph:
         # Choices: scanpy | hnsw | precomputed
         #       if precomputed -> adata file needs to have neighbors to read
         method: hnsw
@@ -79,22 +97,130 @@ neighbor_graph:
 
 clustering:
         # Clustering algorithm (as supported by Scanpy)
-        #       "leiden" | "louvain"
+        #       "leiden" | "louvain" | "predefined"
         algorithm: leiden
         # Clustering resolution(s)
         resolutions: 0.5,1
-        # To manually specify cluster assignments set to True
-        #       TODO: reimplement this taking an anndata column
-        #       - Manual cluster assignmets should be provided as sample_name.cluster_ids.rds file(s)
-        #       - one per sample must be present in the run directory
-        #       - the .rds files should contained a name vector of cell barcodes (names) and clusters (values)
-        predefined_clusters: False
+        # Predefined cluster column name (if algorithm is "predefined")
+        clust_col: Null
+
+summaries:
+        # Summary plots of data statistics
+        # --------------------------------
+        #
+        # Each plot is individually defined.
+        #
+        # title: the name of the plot for the report (the key is used as the file basename)
+        #
+        # group: major grouping factor (must be present in metadata)
+        # subgroup: either a factor or None (must be present in metadata if set)
+        # subgrouplevels: manually order levels for plots (comma separated list)
+        #
+        # replicate: if set the pct stat will be normalised to total counts per-replicate.
+        #            if not set the pct stat will be computed within the grouped data.
+        #
+        # stat: the statistic to plot. Either:
+        #
+        #       (1)  "count" or "pct" which will be computed from the grouped date (dplyr)
+        #       (2) a column from the metadata
+        #       (3) "ngenes" or "total_UMI" which will be computed on the seurat object
+        #           (if not present in the metadata)
+        #
+        # trans: transformation to apply to the y axis (only "sqrt" supported)
+        #
+        # geom: the plot geom to use: supported are 'bar' and 'boxplot'
+        #
+        # facet: should the plot be facted by the major grouping factor?
+        # freey: whould the y scales be free (when facetting)
+        #
+        # width: width of the plot in inches
+        # height: height of the plot in inches
+        # ncol: number of columns for facets
+        #
+        # for a full list of the options supported please see the
+        # R/plot_group_numbers.R script
+        #
+
+        # Note: (i) in labels % symbols must be escaped as %%
+        #       (ii) use of "_" and "%" in titles is not supported (even if escaped!).
+        #
+        cells_by_cluster:
+                title: Number of cells by cluster
+                group: cluster
+                subgroup: None
+                replicate: None
+                stat: count
+                geom: bar
+                facet: False
+                freey: False
+                xlab: cluster
+                ylab: number of cells
+                width: 8
+                height: 4
+
+        pct_cells_by_cluster:
+                title: Percentate of cells by cluster
+                group: cluster
+                subgroup: None
+                replicate: None
+                stat: pct
+                geom: bar
+                facet: False
+                freey: False
+                xlab: cluster
+                ylab: cells (%%)
+                width: 8
+                height: 4
+
+        ngenes_by_cluster:
+                title: Number of genes per cell per cluster
+                group: cluster
+                subgroup: None
+                # subgroup: stim
+                # subgrouplevels: CTRL,STIM
+                stat: ngenes
+                replicate: barcode_id
+                geom: boxplot
+                facet: True
+                freey: False
+                xlab: Source
+                ylab: Number of genes
+                trans: sqrt
+                width: 8
+                height: 10
+                ncol: 5
+
+        numi_by_cluster:
+                title: Number of umi per cell per cluster
+                group: cluster
+                subgroup: None
+                stat: total_UMI
+                replicate: barcode_id
+                geom: boxplot
+                facet: True
+                freey: False
+                xlab: Source
+                ylab: Number of genes
+                trans: sqrt
+                width: 8
+                height: 10
+                ncol: 5
 
 markers:
         test: wilcoxon
         pseudocount: 0.1
         min_pct: 0.1
         min_fc: 1.5
+
+        # Conserved cluster marker identification (optional)
+        # -------------------------------------------------
+        # Identify conserved cluster markers
+        conserved: True
+        # Set the below to a colname in seurat@metadata
+        # to find cluster markers that are conserved
+        # across all levels of this factor
+        conserved_factor: condition
+        conserved_padj: 0.05
 
 geneset:
         # Choices: 'hs' (for human) | 'mm' (for mouse)
@@ -110,20 +236,44 @@ geneset:
         show_detailed: GO.BP
 
 plot:
+        # the selected mindist to use for the plots.
         umap_mindist: 0.5
+        # mindists to run (comma separated list).
+        umap_mindists: 0,0.5,0.7
+        # Groups to be visualised
+        # e.g. 'genotype,cluster'
+        # 'cluster' is automatically added if not specified.
+        groups: cluster
+        # Subgroup used to break down the bar plots and cell counts.
+        # Note that it also visualised in t-SNE plots and marker heatmaps
+        subgroup: null
+        # QC variable to be visualised on the tSNE plot
+        qcvars: total_UMI,pct_mitochondrial,ngenes
         # The matrix to be used for making the heatmaps: "X" or "log1p"
         #       if "log1p" is passed the values will be z-scored for the heatmaps.
         #       (all other plots are made from the "log1p" matrix)
-        heatmap_matrix: log1p
+        # Column in metadata.tsv represented by the shape of data points
+        shape: null
+        # Opacity of data points
+        pointalpha: 0.8
+        # Size of data points
+        pointsize: 0.5
+        # set the point shape:
+        # for the smallest shapes and
+        # fast plotting of large datasets use '.'
+        pointpch: 16
+        # The matrix to be used for making the heatmaps
+        # "X" or "log1p"
+        # if "log1p" is passed the values will be z-scored
+        # for the heatmaps.
+        # (all other plots are made from the "log1p" matrix)
+        heatmap_matrix: X
         # Make pdf versions of the plots
         #       use of this parameter is currently only implemented
         #       for the singleR heatmaps, the top marker heatmap, the plots for
         #       characterisation of DE genes, rdims_plot_genes and
         #       rdims_plot_factor.
         pdf: False
-        groups: cluster
-        subgroup: NULL
-        qcvars: total_UMI,pct_mitochondrial,ngenes
 
 cellxgene:
         obs: all

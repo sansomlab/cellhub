@@ -86,6 +86,8 @@ def main_smk(proj_dir, cmdargs):
     snakefile = os.path.join(proj_dir, "Snakefile")
     if not "--cores" in addit_ops:
         addit_ops = ["--cores=1"] + addit_ops
+    if not "--executor" in addit_ops:
+        addit_ops = ["--executor=drmaa", "--jobs=4"] + addit_ops
     cmd = [
         "snakemake",
         "-s",
@@ -126,10 +128,10 @@ def main(argv=None):
         ), f"Python >= 3.11 required, found {sys.version}."
         main_smk(proj_dir=path, cmdargs=cmdargs)
     else:
-        assert sys.version_info <= (
+        assert sys.version_info < (
             3,
-            10,
-        ), f"Python <= 3.10 required, found {sys.version}."
+            11,
+        ), f"Python < 3.11 required, found {sys.version}."
         main_cgat(proj_dir=path, cmdargs=cmdargs)
 
 

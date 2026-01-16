@@ -1,3 +1,5 @@
+# vim: ft=smk
+
 import os
 from snakemake.exceptions import WorkflowError
 
@@ -31,8 +33,3 @@ module chosen:
 
 
 use rule * from chosen
-
-
-rule all:
-    input:
-        rules.full.output,

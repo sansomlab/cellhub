@@ -3,10 +3,10 @@ import sys
 import yaml
 import logging
 import argparse
-import cellhub.tasks.cluster as C
-
 from pathlib import Path
 from types import SimpleNamespace
+from cgatcore import pipeline as P
+import cellhub.tasks.cluster as C
 
 # ########################################################################### #
 # ###################### Set up the logging ################################# #
@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 L = logging.getLogger(__name__)
 log_handler = logging.StreamHandler(sys.stdout)
-log_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+log_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
 log_handler.setLevel(logging.INFO)
 L.addHandler(log_handler)
 L.setLevel(logging.INFO)
@@ -25,8 +25,10 @@ L.setLevel(logging.INFO)
 # ########################################################################### #
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--configfile", default=None, type=str, help="configfile")
-parser.add_argument("--outfile", default=None, type=str, help="outfile")
+parser.add_argument("--infile", default=None, type=str,
+                    help="infile")
+parser.add_argument("--outfile",default=None, type=str,
+                    help="outfile")
 
 args = parser.parse_args()
 
@@ -38,12 +40,16 @@ print(args)
 # ########################################################################### #
 
 # load options from the config file
-PARAMS = yaml.load(args.configfile)
+PARAMS = P.get_parameters(
+    ["%s/pipeline_cluster.yml" % os.path.splitext(__file__)[0],
+     "../pipeline_cluster.yml",
+     "pipeline_cluster.yml"])
 
 # set the location of the code directory
 PARAMS["cellhub_code_dir"] = Path(__file__).parents[1]
 
 # get the task specification
+t = C.setup(args.infile, args.outfile, PARAMS)
 outfile_name = os.path.basename(args.outfile)
 
 # initialise the namespace & alias the path function
@@ -74,7 +80,7 @@ x.threshUse = PARAMS["markers_min_fc"]
 x.minPct = PARAMS["markers_min_pct"]
 
 x.deTest = PARAMS["markers_test"]
-x.clusteringAlgorithm = PARAMS["cluster_algorithm"]
+x.clusteringAlgorithm= PARAMS["cluster_algorithm"]
 x.reductionType = PARAMS["source_rdim_name"].replace("_", "\\_")
 x.rdimsVisMethod = "umap.mindist_" + str(PARAMS["umap_mindist"])
 
@@ -96,23 +102,17 @@ x.umapDir = p(x.compDir, "umap.dir")
 x.rdimsVisClusterDir = p(x.clusterDir, "rdims.visualisation.dir")
 x.rdimsVisFactorDir = p(x.compDir, "rdims.visualisation.dir")
 x.rdimsVisSingleRDir = p(x.compDir, "singleR.dir", "rdims.visualisation.dir")
-x.pagaDir = p(x.clusterDir, "paga.dir")
+x.pagaDir = p(x.clusterDir,  "paga.dir")
 
 # <------------------------------ blob variables ---------------------------> #
 
 x.runName = x.nComponents + "\\_" + x.resolution
-x.jobName = x.runName
+x.jobName = x.runName 
 
-x.runDetails = (
-    "no. components: "
-    + str(x.nComponents)
-    + ", cluster resolution: "
-    + str(x.resolution)
-    + ", cluster algorithm: "
-    + str(x.clusteringAlgorithm)
-    + ", de test: "
-    + x.deTest
-)
+x.runDetails = ("no. components: " + str(x.nComponents) +
+                ", cluster resolution: " + str(x.resolution) +
+                ", cluster algorithm: " + str(x.clusteringAlgorithm) +
+                ", de test: " + x.deTest)
 
 # <-------------------------- conditional variables ------------------------> #
 
@@ -131,7 +131,7 @@ else:
 
 # <-------------------------- depreceated variables ------------------------> #
 
-# x.sampleDir = t.sample_dir
+#x.sampleDir = t.sample_dir
 # x.phateDir = p(x.compDir, "phate.dir")
 # x.velocityDir = p(x.compDir, "velocity.dir")
 # x.qcMinGenes = PARAMS["qc_mingenes"]

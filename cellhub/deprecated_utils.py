@@ -131,29 +131,29 @@ def parse_mem(memory):
     )
 
 
-if __name__ == "__main__":
-    assert parse2int("42") == 42, f"parsed result: {parse2int('42')}"
-    assert parse2int("  007 ") == 7, f"parsed result: {parse2int('  007 ')}"
-    assert parse2int(" -5  ") == -5, f"parsed result: {parse2int(' -5  ')}"
-    try:
-        assert parse2int(" -5  ", positive_only=True)
-    except ValueError:
-        pass
+# if __name__ == "__main__":
+#     assert parse2int("42") == 42, f"parsed result: {parse2int('42')}"
+#     assert parse2int("  007 ") == 7, f"parsed result: {parse2int('  007 ')}"
+#     assert parse2int(" -5  ") == -5, f"parsed result: {parse2int(' -5  ')}"
+#     try:
+#         assert parse2int(" -5  ", positive_only=True)
+#     except ValueError:
+#         pass
 
-    assert parse2float("   3.14 ") == 3.14, f"parsed result: {parse2float('   3.14 ')}"
-    assert parse2float("1e-3 ") == 0.001, f"parsed result: {parse2float('1e-3 ')}"
-    try:
-        parse2float("   inf ", finite_only=True)
-    except ValueError:
-        pass
+#     assert parse2float("   3.14 ") == 3.14, f"parsed result: {parse2float('   3.14 ')}"
+#     assert parse2float("1e-3 ") == 0.001, f"parsed result: {parse2float('1e-3 ')}"
+#     try:
+#         parse2float("   inf ", finite_only=True)
+#     except ValueError:
+#         pass
 
-    assert parse_mem(5) == 5, f"parsed result: {parse_mem(5)}"
-    assert parse_mem(5.2) == 5, f"parsed result: {parse_mem(5.2)}"
-    assert parse_mem(None) == 4, f"parsed result: {parse_mem(None)}"
-    assert parse_mem(False) == 4, f"parsed result: {parse_mem(False)}"
-    assert parse_mem(" falsE") == 4, f"parsed result: {parse_mem(' falsE')}"
-    assert parse_mem("nOne ") == 4, f"parsed result: {parse_mem('nOne ')}"
-    assert parse_mem(" defaulT ") == 4, f"parsed result: {parse_mem(' defaulT ')}"
-    assert parse_mem("5.3G") == 5, f"parsed result: {parse_mem('5.3G')}"
-    assert parse_mem("5300 m") == 5, f"parsed result: {parse_mem(' 5300 m ')}"
-    assert parse_mem(" 4.6 g ") == 5, f"parsed result: {parse_mem(' 4.6 g ')}"
+#     assert parse_mem(5) == 5, f"parsed result: {parse_mem(5)}"
+#     assert parse_mem(5.2) == 5, f"parsed result: {parse_mem(5.2)}"
+#     assert parse_mem(None) == 4, f"parsed result: {parse_mem(None)}"
+#     assert parse_mem(False) == 4, f"parsed result: {parse_mem(False)}"
+#     assert parse_mem(" falsE") == 4, f"parsed result: {parse_mem(' falsE')}"
+#     assert parse_mem("nOne ") == 4, f"parsed result: {parse_mem('nOne ')}"
+#     assert parse_mem(" defaulT ") == 4, f"parsed result: {parse_mem(' defaulT ')}"
+#     assert parse_mem("5.3G") == 5, f"parsed result: {parse_mem('5.3G')}"
+#     assert parse_mem("5300 m") == 5, f"parsed result: {parse_mem(' 5300 m ')}"
+#     assert parse_mem(" 4.6 g ") == 5, f"parsed result: {parse_mem(' 4.6 g ')}"

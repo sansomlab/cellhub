@@ -5,7 +5,7 @@
 ### Development notes
 
 ```bash
-$ module load Python/3.11 R
+$ module load R # version 4.5.1
 $ module list
 
 Currently Loaded Modules:
@@ -44,6 +44,10 @@ Currently Loaded Modules:
 ```
 
 ```bash
+module load R
+```
+
+```bash
 python -m venv cellhub-new-py311
 source cellhub-new-py311/bin/activate
 python -m pip install --upgrade pip
@@ -52,9 +56,9 @@ python -m pip install --upgrade pip
 ```bash
 cd $CELLHUB_DIR
 python setup.py develop
-pip install snakemake snakemake-executor-plugin-slurm
-pip install -r python/requirements.txt
-Rscript R/install.packages.R # may need firstly install devtools, BiocManager, Cairo, stringi
+pip install snakemake snakemake-executor-plugin-drmaa snakemake-executor-plugin-slurm
+pip install -r python/requirements.txt # original CellHub Python environment
+Rscript R/install.packages.R # original CellHub R environment, may need firstly install devtools, BiocManager, Cairo, stringi
 R CMD INSTALL R/cellhub
 ```
 

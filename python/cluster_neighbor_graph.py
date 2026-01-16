@@ -41,6 +41,8 @@ parser.add_argument("--k", default=20, type=int,
                     help="number of neighbors")
 parser.add_argument("--metric", default="euclidean", type=str,
                     help="the distance metric")
+parser.add_argument("--keep_obs", default=None, type=str,
+                    help="the .obs column name to keep from the source anndata")
 parser.add_argument("--threads", default=4, type=int,
                     help="number of threads")
 parser.add_argument("--fullspeed", default=False, action="store_true",
@@ -61,6 +63,8 @@ sourceAdata = ad.read_h5ad(args.source_anndata, backed='r')
 # make the anndata and populate the obs and vars
 adata = ad.AnnData(shape = (sourceAdata.shape[0],0))
 adata.obs.index = sourceAdata.obs.index.copy()
+if args.keep_obs is not None:
+    adata.obs[args.keep_obs] = sourceAdata.obs[args.keep_obs].astype("category").copy()
 
 rdims = "X_" + args.reduced_dims_name
 
@@ -74,7 +78,7 @@ adata.obsm[nn_rdims] = sourceAdata.obsm[rdims][:,0:args.ncomps].copy()
 # ########################################################################### #
 
 # Run neighbors
-L.info( "Using " + str(args.k) + " neighbors")
+L.info("Using " + str(args.k) + " neighbors")
 
 if args.method == "scanpy":
 
