@@ -4,8 +4,6 @@ import os
 from snakemake.exceptions import WorkflowError
 
 TARGET = config["target"]
-if TARGET not in ["annotation", "cluster"]:
-    raise WorkflowError(f"Unknown module {TARGET} to be run.")
 
 MODE = config.get("mode", "make")
 if MODE not in ["make", "config"]:

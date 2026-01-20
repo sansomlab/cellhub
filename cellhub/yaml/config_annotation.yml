@@ -3,6 +3,10 @@
 # ==============================================
 #
 
+workdir: NULL
+
+resources:
+    mem_mb: 4000
 
 # Gene annotations
 # ----------------
