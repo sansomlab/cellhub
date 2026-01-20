@@ -1,5 +1,3 @@
-import os
-
 TARGET = config["target"]
 
 
