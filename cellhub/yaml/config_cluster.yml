@@ -56,8 +56,8 @@ gmt_files:
 # ============ #
 
 run:
-        singleR: True
         compare_clusters: True
+        singleR: True
         characterise_markers: True
         de_plots: True
         top_marker_heatmap: True
@@ -210,6 +210,7 @@ markers:
         test: wilcoxon
         pseudocount: 0.1
         min_pct: 0.1
+        min_padj: 0.05
         min_fc: 1.5
 
         # Conserved cluster marker identification (optional)

@@ -2,7 +2,10 @@ import os
 
 from cellhub.parser.annotation_setup import AnnotationSetup
 
+
+print(config)
 annot = AnnotationSetup(config)
+
 
 RSCRIPT_DIR = f"{workflow.basedir}/{os.pardir}/R/scripts/"
 

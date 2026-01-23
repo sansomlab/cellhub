@@ -22,7 +22,7 @@ import subprocess
 import sys
 import re
 import glob
-import imp
+# import imp
 
 # import pipelines
 
@@ -75,10 +75,10 @@ def main_cgat(proj_dir, cmdargs=None):
     # specify a named logfile
     sys.argv.append("--pipeline-logfile=" + pipeline + ".log")
 
-    (file, pathname, description) = imp.find_module(pipeline, [proj_dir])
+    # (file, pathname, description) = imp.find_module(pipeline, [proj_dir])
 
-    module = imp.load_module(pipeline, file, pathname, description)
-    module.main(cmdargs)
+    # module = imp.load_module(pipeline, file, pathname, description)
+    # module.main(cmdargs)
 
 
 def main_smk(proj_dir, cmdargs):
@@ -86,8 +86,8 @@ def main_smk(proj_dir, cmdargs):
     snakefile = os.path.join(proj_dir, "Snakefile")
     if not "--cores" in addit_ops:
         addit_ops = ["--cores=1"] + addit_ops
-    if not "--executor" in addit_ops:
-        addit_ops = ["--executor=drmaa", "--jobs=4"] + addit_ops
+    #if not "--executor" in addit_ops:
+    #    addit_ops = ["--executor=drmaa", "--jobs=4"] + addit_ops
     cmd = [
         "snakemake",
         "-s",

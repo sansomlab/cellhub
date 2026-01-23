@@ -8,26 +8,87 @@ from pathlib import Path
 from reports.template import template
 
 
-def generate_report_vars(outfile, cluster, code_dir, ncomp, resolu):
+def summariseSingleR(singleR_path, ref_lst, out_path):
+    import os
+    import textwrap
+    from tasks.report import template as template
+
+    singleR_umap_path = os.path.join(singleR_path, "umap")
+    with open(out_path, "w") as tex:
+        for reference in ref_lst:
+            # heatmap
+            tex.write(template.subsection % {"title": reference})
+            tex.write("\n")
+            heatmap_path = os.path.join(singleR_path, reference + ".heatmap")
+
+            if os.path.exists(heatmap_path + ".png"):
+                heatmap_fig = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": heatmap_path,
+                    "caption": "singleR predictions (" + reference + ")",
+                }
+                tex.write(textwrap.dedent(template.figure % heatmap_fig))
+                tex.write("\n")
+
+            umap_path = os.path.join(
+                singleR_umap_path, "umap." + reference + ".pruned.labels"
+            )
+
+            if os.path.exists(umap_path + ".png"):
+                umap_fig = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": umap_path,
+                    "caption": "pruned singleR predictions (" + reference + ")",
+                }
+
+                tex.write(textwrap.dedent(template.figure % umap_fig))
+                tex.write("\n")
+
+
+def summariseGroupNumbers(param_dict, outdir):
+    import os
+    import textwrap
+    from tasks.report import template as template
+
+    with open(os.path.join(outdir, "number.plots.tex"), "w") as tex:
+        for fig in param_dict.keys():
+            if "_" in param_dict[fig]["title"]:
+                raise ValueError(
+                    "Underscores are not allowed in the plot"
+                    " titles (due to issues with latex..."
+                )
+            # Add the figures, one per subsection, escaping underscores.
+            tex.write(template.subsection % {"title": param_dict[fig]["title"]})
+            tex.write("\n")
+            fig_path = os.path.join(outdir, fig)
+            if os.path.exists(fig_path + ".png"):
+                fig_spec = {
+                    "width": "1",
+                    "height": "0.9",
+                    "path": fig_path,
+                    "caption": param_dict[fig]["title"],
+                }
+                tex.write(textwrap.dedent(template.figure % fig_spec))
+                tex.write("\n")
+
+
+def generate_report_vars(outfile, path_dict, cluster, ncomp, resolu):
 
     # ########################################################################### #
     # ############## Create outdir and set results file ######################### #
     # ########################################################################### #
-    # load options from the config file
-    PARAMS = cluster.params.copy()
-
-    # set the location of the code directory
-    PARAMS["cellhub_code_dir"] = os.path.abspath(code_dir)
-
     # initialise the namespace & alias the path function
     x = SimpleNamespace()
 
     # <---------------------------- base variables -----------------------------> #
-    x.outdir = cluster.latex_dir(ncomp, resolu, abspath=False)
-    x.clusterDir = cluster.cluster_dir(ncomp, resolu, abspath=False)
-    x.compDir = cluster.comp_dir(ncomp, abspath=False)
+    print(path_dict)
+    x.outdir = path_dict["latex"].format(ncomp=ncomp, resolu=resolu)
+    x.clusterDir = path_dict["cluster"].format(ncomp=ncomp, resolu=resolu)
+    x.compDir = path_dict["rdims"].format(ncomp=ncomp)
     x.rdimsVisMethodShort = "umap"
-    x.clusterDirBaseName = os.path.basename(x.clusterDir)
+    # x.clusterDirBaseName = os.path.basename(x.clusterDir)
 
     x.nComponents = ncomp
     x.resolution = resolu
@@ -36,37 +97,39 @@ def generate_report_vars(outfile, cluster, code_dir, ncomp, resolu):
     x.sample = x.sample.replace("_", "\\_")
 
     # <---------------------------- PARAMS variables -----------------------------> #
-    x.projectName = PARAMS["projectname"]
-    x.reportAuthor = PARAMS["author"]
-    x.cellhubDir = PARAMS["cellhub_code_dir"]
+    x.projectName = cluster.projectname
+    x.reportAuthor = cluster.author
+    x.cellhubDir = path_dict["cellhub_code_dir"]
 
-    x.nnK = PARAMS["neighbor_graph"]["n_neighbors"]
-    x.nnMethod = PARAMS["neighbor_graph"]["method"]
-    x.nnMetric = PARAMS["neighbor_graph"]["metric"]
+    x.nnK = cluster.n_neigh
+    x.nnMethod = cluster.neigh_method
+    x.nnMetric = cluster.neigh_metric
 
-    x.threshUse = PARAMS["markers"]["min_fc"]
-    x.minPct = PARAMS["markers"]["min_pct"]
-    x.deTest = PARAMS["markers"]["test"]
+    x.threshUse = cluster.min_fc
+    x.minPct = cluster.min_pct
+    x.deTest = cluster.test_method
 
-    x.clusteringAlgorithm = PARAMS["clustering"]["algorithm"]
+    x.clusteringAlgorithm = cluster.clust_algo
 
     # NOTE: .replace should no longer be needed
-    x.reductionType = PARAMS["dimension_reduction"]["rdim_name"]  # .replace("_", "\\_")
+    x.reductionType = cluster.rdim_name  # .replace("_", "\\_")
 
-    x.rdimsVisMethod = "umap.mindist_" + str(PARAMS["plot"]["umap_mindist"])
+    x.rdimsVisMethod = "umap.mindist_" + str(cluster.main_mindist)
 
     # <------------------------------ path variables ---------------------------> #
-    x.umapDir = cluster.umap_dir(ncomp, abspath=False)
-    x.rdimsVisFactorDir = cluster.rdims_vis_factor_dir(ncomp, abspath=False)
-    x.groupNumbersDir = cluster.group_numbers_dir(ncomp, resolu, abspath=False)
-    x.rdimsVisClusterDir = cluster.rdims_vis_cluster_dir(ncomp, resolu, abspath=False)
-    x.clusterGenesetsDir = cluster.genesets_dir(ncomp, resolu, abspath=False)
-    x.clusterMarkerDEPlotsDir = cluster.marker_de_plots_dir(
-        ncomp, resolu, abspath=False
+    x.umapDir = path_dict["umap"].format(ncomp=ncomp)
+    x.rdimsVisFactorDir = path_dict["rdims_factors"].format(ncomp=ncomp)
+    x.groupNumbersDir = path_dict["group_numbers"].format(ncomp=ncomp, resolu=resolu)
+    x.rdimsVisClusterDir = path_dict["rdims_clusters"].format(
+        ncomp=ncomp, resolu=resolu
     )
-    x.clusterMarkersDir = cluster.markers_dir(ncomp, resolu, abspath=False)
-    x.pagaDir = cluster.paga_dir(ncomp, resolu, abspath=False)
-    # x.singleRDir = p(x.compDir, "singleR.dir")
+    x.clusterGenesetsDir = path_dict["genesets"].format(ncomp=ncomp, resolu=resolu)
+    x.clusterMarkerDEPlotsDir = path_dict["marker_de_plots"].format(
+        ncomp=ncomp, resolu=resolu
+    )
+    x.clusterMarkersDir = path_dict["markers"].format(ncomp=ncomp, resolu=resolu)
+    x.pagaDir = path_dict["paga"].format(ncomp=ncomp, resolu=resolu)
+    x.singleRDir = path_dict["rdims_singler"].format(ncomp=ncomp)
     # NOTE: may no longer be needed
     # x.clusterMarkerRdimsPlotsDir = cluster.marker_rdims_plots_dir(ncomp, resolu, abspath=False)
     # x.conditionGenesetsDir = p(x.clusterDir, "condition.genesets.dir")
@@ -93,17 +156,17 @@ def generate_report_vars(outfile, cluster, code_dir, ncomp, resolu):
     )
 
     # <-------------------------- conditional variables ------------------------> #
-    if PARAMS["markers"]["conserved"]:
-        x.conservedFactor = PARAMS["markers"]["conserved_factor"]
+    if cluster.conserved:
+        x.conservedFactor = cluster.conserved_fact
         x.conservedFactor = x.conservedFactor.replace("_", "\\_")
     else:
         x.conservedFactor = "None"
 
-    if PARAMS["markers"]["conserved_between"]:
-        x.conservedBetweenFactor = PARAMS["markers"]["conserved_between_factor"]
-        x.conservedBetweenFactor = x.conservedBetweenFactor.replace("_", "\\_")
-    else:
-        x.conservedBetweenFactor = "None"
+    # if PARAMS["markers"]["conserved_between"]:
+    #     x.conservedBetweenFactor = PARAMS["markers"]["conserved_between_factor"]
+    #     x.conservedBetweenFactor = x.conservedBetweenFactor.replace("_", "\\_")
+    # else:
+    #     x.conservedBetweenFactor = "None"
 
     # <-------------------------- depreceated variables ------------------------> #
     # x.sampleDir = t.sample_dir
@@ -126,101 +189,107 @@ def generate_report_vars(outfile, cluster, code_dir, ncomp, resolu):
             ofh.write("\\newcommand{\\" + command + "}{" + str(value) + "}\n")
 
 
-def generate_summary_report(outfile, cluster, code_dir, ncomp, resolu):
+def generate_summary_report(outfile, cluster, path_dir, ncomp, resolu):
 
     # ########################################################################### #
     # ############## Create outdir and set results file ######################### #
     # ########################################################################### #
-    # load options from the config file
-    PARAMS = cluster.params.copy()
-
     # set the location of the code directory
-    source_dir = os.path.join(code_dir, "cellhub/reports/cluster_summary")
-
-    latexvars = os.path.join(
-        cluster.latex_dir(ncomp, resolu, abspath=False), "report.vars.sty"
+    source_dir = os.path.join(
+        path_dir["cellhub_code_dir"], "cellhub/reports/cluster_summary"
     )
 
-    outfile_name = os.path.basename(outfile)
-    jobName = outfile_name[: -len(".tex")]
+    latexvars = os.path.join(
+        path_dir["latex"].format(ncomp=ncomp, resolu=resolu),
+        "report.vars.sty",
+    )
+
+    # outfile_name = os.path.basename(outfile)
+    # jobName = outfile_name[: -len(".tex")]
 
     outdir = os.path.dirname(outfile)
     rundir = os.path.abspath(os.path.join(outdir, os.pardir))
 
     # get the latex variables
-    s = ["""\\input %(latexvars)s"""]
-    s.append("""\\def\\reportTitle{Cellhub cluster: summary report}""")
+    s = [f"\\input {latexvars}"]
+    s.append("\\def\\reportTitle{Cellhub cluster: summary report}")
 
     # get the intro
-    s.append("""\\input %(source_dir)s/introReport.tex""")
-    s.append("""\\input %(source_dir)s/introductionSection.tex""")
-    s.append("""\\input %(source_dir)s/taskSummary.tex""")
+    s.append(f"\\input {source_dir}/introReport.tex")
+    s.append(f"\\input {source_dir}/introductionSection.tex")
+    s.append(f"\\input {source_dir}/taskSummary.tex")
 
     # add the section to visualise clusters and factors in reduced dimensions
     # (plots made by tsne or umap)
-    s.append("""\\input %(source_dir)s/rdimsVisSection.tex""")
-
+    s.append(f"\\input {source_dir}/rdimsVisSection.tex")
     # singleR section
-    # if PARAMS["run_singleR"]:
-    #     s.append("""\\input %(source_dir)s/singleRSection.tex""")
+    if cluster.task_dict.get("singleR", False):
+        s.append(f"\\input {source_dir}/singleRSection.tex")
 
     # add the section with plots of cell and gene numbers etc.
-    s.append("""\\input %(source_dir)s/numbersSection.tex""")
+    s.append(f"\\input {source_dir}/numbersSection.tex")
+    if cluster.task_dict.get("compare_clusters", False):
+        s.append(f"\\input {source_dir}/clusteringSection.tex")
 
-    if PARAMS["enable"]["compare_clusters"]:
-        s.append("""\\input %(source_dir)s/clusteringSection.tex""")
-
-    nresolutions = len(cluster.get_param("clustering", "resolutions", parse2list=True))
+    nresolutions = len(cluster.clust_r_lst)
     if nresolutions > 1:
-        s.append("""\\input %(source_dir)s/clustree.tex""")
+        s.append(f"\\input {source_dir}/clustree.tex")
 
-    if PARAMS["enable"]["paga"]:
-        s.append("""\\input %(source_dir)s/pagaSection.tex""")
-
+    if cluster.task_dict.get("paga", False):
+        s.append(f"\\input {source_dir}/pagaSection.tex")
     # if(PARAMS["run_knownmarkers"]):
     #    s.append('''\\input %(source_dir)s/knownmarkersSection.tex''')
 
-    s.append("""\\input %(source_dir)s/markerGenes.tex""")
+    s.append(f"\\input {source_dir}/markerGenes.tex")
 
-    if PARAMS["enable"]["top_marker_heatmap"]:
-        s.append("""\\input %(source_dir)s/topMarkerHeatmap.tex""")
+    if cluster.task_dict.get("top_marker_heatmap", False):
+        s.append(f"\\input {source_dir}/topMarkerHeatmap.tex")
 
-    if PARAMS["enable"]["characterise_markers"]:  # and not ...
-        s.append("""\\input %(source_dir)s/markerGenesByCluster.tex""")
+    if cluster.task_dict.get("characterise_markers", False):  # and not ...
+        s.append(f"\\input {source_dir}/markerGenesByCluster.tex")
 
-    if PARAMS["enable"]["genesets"]:
-        s.append("""\\input %(source_dir)s/genesetSection.tex""")
+    if cluster.task_dict.get("genesets", False):
+        s.append(f"\\input {source_dir}/genesetSection.tex")
 
     # When relevant, add section that compares
     # two conditions within each cluster
-    if os.path.exists(
-        os.path.join(
-            rundir, "condition.markers.dir", "findMarkersBetweenConditions.sentinel"
-        )
-    ):
-        wcc_section_name = "withinClusterComparisonSection.tex"
-        s.append("""\\input %(source_dir)s/%(wcc_section_name)s""")
-        if PARAMS["run_genesets"]:
-            s.append("""\\input %(source_dir)s/genesetBetweenSection.tex""")
+    # if os.path.exists(
+    #     os.path.join(
+    #         rundir, "condition.markers.dir", "findMarkersBetweenConditions.sentinel"
+    #     )
+    # ):
+    #     wcc_section_name = "withinClusterComparisonSection.tex"
+    #     s.append("""\\input %(source_dir)s/%(wcc_section_name)s""")
+    #     if PARAMS["run_genesets"]:
+    #         s.append("""\\input %(source_dir)s/genesetBetweenSection.tex""")
 
-    s.append("""\\input %(code_dir)s/cellhub/reports/latex/endmatter.tex""")
+    s.append(
+        f"\\input {path_dir['cellhub_code_dir']}/cellhub/reports/latex/endmatter.tex"
+    )
 
     with open(outfile, "w") as out_file:
         out_file.write("\n".join(s) % locals() + "\n")
 
 
 def _add_figure(plot_file=None, caption=None, width="1", height="0.9"):
-    heatmap_fig = {"width": "1", "height": "0.9", "path": plot_file, "caption": caption}
+    heatmap_fig = {
+        "width": width,
+        "height": height,
+        "path": plot_file,
+        "caption": caption,
+    }
     fig_tex = textwrap.dedent(template.figure % heatmap_fig)
     return fig_tex
 
 
 def generate_marker_report(
-    outfile, markers, latexvars, cluster, code_dir, ncomp, resolu
+    outfile, markers, latexvars, path_dict, cluster, ncomp, resolu
 ):
 
     # set the location of the code directory
-    source_dir = os.path.join(code_dir, "cellhub/reports/cluster_marker")
+    source_dir = os.path.join(
+        path_dict["cellhub_code_dir"], "cellhub/reports/cluster_marker"
+    )
 
     # not all clusters may have degenes
     markers = pd.read_csv(markers, sep="\t")
@@ -229,9 +298,9 @@ def generate_marker_report(
     tex = []
 
     # <----------------------------- front matter ----------------------------> #
-    tex.append("""\\input %(latexvars)s""")
-    tex.append("""\\def\\reportTitle{CellHub cluster: marker report}""")
-    tex.append("""\\input %(source_dir)s/clusterMarkerReport.tex""")
+    tex.append(f"\\input {latexvars}")
+    tex.append("\\def\\reportTitle{CellHub cluster: marker report}")
+    tex.append(f"\\input {source_dir}/clusterMarkerReport.tex")
 
     # <----------------------------- overview plots ----------------------------> #
     tex.append(template.subsection % {"title": "overview plots"})
@@ -239,14 +308,11 @@ def generate_marker_report(
     tex.append(
         _add_figure(
             os.path.join(
-                cluster.cluster_dir(ncomp, resolu),
-                "rdims.visualisation.dir",
-                "umap.mindist_"
-                + str(cluster.get_param("plot", "umap_mindist"))
-                + ".cluster_id",
+                path_dict["rdims_clusters"].format(ncomp=ncomp, resolu=resolu),
+                "umap.mindist_" + str(cluster.main_mindist) + ".cluster_id",
             ),
             width="1",
-            height=".9",
+            height="0.9",
             caption="UMAP coloured by cluster  (resolution " + resolu + ")",
         )
     )
@@ -254,7 +320,8 @@ def generate_marker_report(
     tex.append("""\clearpage""")
 
     tmh = os.path.join(
-        cluster.cluster_dir(ncomp, resolu), "markers.dir", "markers.summary.heatmap"
+        path_dict["markers"].format(ncomp=ncomp, resolu=resolu),
+        "markers.summary.heatmap",
     )
 
     if os.path.exists(tmh + ".png"):
@@ -282,8 +349,7 @@ def generate_marker_report(
         tex.append(
             _add_figure(
                 os.path.join(
-                    cluster.cluster_dir(ncomp, resolu),
-                    "marker.plots.dir",
+                    path_dict["marker_plots"].format(ncomp=ncomp, resolu=resolu),
                     "cluster." + str(clust) + "." + fig,
                 ),
                 width="1",
@@ -302,8 +368,7 @@ def generate_marker_report(
         tex.append(
             _add_figure(
                 os.path.join(
-                    cluster.cluster_dir(ncomp, resolu),
-                    "marker.plots.dir",
+                    path_dict["marker_plots"].format(ncomp=ncomp, resolu=resolu),
                     "cluster." + str(clust) + "." + fig,
                 ),
                 width="1",
@@ -316,8 +381,7 @@ def generate_marker_report(
         tex.append(
             _add_figure(
                 os.path.join(
-                    cluster.cluster_dir(ncomp, resolu),
-                    "de.plots.dir",
+                    path_dict["de_plots"].format(ncomp=ncomp, resolu=resolu),
                     "dePlots." + str(clust),
                 ),
                 width="1",
@@ -331,8 +395,7 @@ def generate_marker_report(
         tex.append(
             _add_figure(
                 os.path.join(
-                    cluster.cluster_dir(ncomp, resolu),
-                    "marker.plots.dir",
+                    path_dict["marker_plots"].format(ncomp=ncomp, resolu=resolu),
                     "cluster." + str(clust) + "." + fig,
                 ),
                 width="1",
@@ -341,7 +404,9 @@ def generate_marker_report(
             )
         )
 
-    tex.append("""\\input %(code_dir)s/cellhub/reports/latex/endmatter.tex""")
+    tex.append(
+        f"\\input {path_dict['cellhub_code_dir']}/cellhub/reports/latex/endmatter.tex"
+    )
 
     with open(outfile, "w") as out_file:
         out_file.write("\n".join(tex) % locals())

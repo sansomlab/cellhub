@@ -2,23 +2,172 @@ import os
 import sys
 import pandas as pd
 
-CELLHUB_CODE_DIR = os.path.abspath(os.path.join(workflow.basedir, os.pardir))
-sys.path.append(CELLHUB_CODE_DIR)
 
 from parser.parse_args import parse2int, str2list, parse2float
 from parser.cluster_setup import ClusterSetup
+
+CELLHUB_CODE_DIR = os.path.abspath(os.path.join(workflow.basedir, os.pardir))
+sys.path.append(CELLHUB_CODE_DIR)
 
 RSCRIPT_DIR = os.path.join(CELLHUB_CODE_DIR, "R", "scripts")
 PYSCRIPT_DIR = os.path.join(CELLHUB_CODE_DIR, "python")
 LATEX_DIR = os.path.join(CELLHUB_CODE_DIR, "cellhub", "reports")
 
 cluster = ClusterSetup(config)
-cluster.print_targets()
+
+OUTDIR = cluster.outdir
+RDIMS_DIR_TPL = r"out.{ncomp}.comp.dir"
+CLUSTER_DIR_TPL = os.path.join(RDIMS_DIR_TPL, r"cluster.{resolu}.dir")
+RELAT_DIR_TPL = {
+    "cellhub_code_dir": CELLHUB_CODE_DIR,
+    "rdims": RDIMS_DIR_TPL,
+    "cluster": CLUSTER_DIR_TPL,
+    "metadata": "metadata.dir",
+    "loom": "loom.dir",
+    "hm_singler": "singleR.dir",
+    "reports": "reports.dir",
+    "neighbour_graph": os.path.join(RDIMS_DIR_TPL, "neighbor_graph.dir"),
+    "rdims_factors": os.path.join(RDIMS_DIR_TPL, "rdims.visualisation.dir"),
+    "rdims_singler": os.path.join(RDIMS_DIR_TPL, "singleR.dir"),
+    "umap": os.path.join(RDIMS_DIR_TPL, "umap.dir"),
+    "rdims_clusters": os.path.join(CLUSTER_DIR_TPL, "rdims.visualisation.dir"),
+    "group_numbers": os.path.join(CLUSTER_DIR_TPL, "group.numbers.dir"),
+    "stats": os.path.join(CLUSTER_DIR_TPL, "stats.dir"),
+    "paga": os.path.join(CLUSTER_DIR_TPL, "paga.dir"),
+    "markers": os.path.join(CLUSTER_DIR_TPL, "markers.dir"),
+    "de_plots": os.path.join(CLUSTER_DIR_TPL, "de.plots.dir"),
+    "marker_plots": os.path.join(CLUSTER_DIR_TPL, "marker.plots.dir"),
+    "marker_de_plots": os.path.join(CLUSTER_DIR_TPL, "marker.de.plots.dir"),
+    "genesets": os.path.join(CLUSTER_DIR_TPL, "genesets.dir"),
+    "latex": os.path.join(CLUSTER_DIR_TPL, "latex.dir"),
+}
+DIR_TPL = {k: os.path.join(OUTDIR, v) for k, v in RELAT_DIR_TPL.items()}
 
 
+# <------------------------- Exit Rules -------------------------> #
+rule core:
+    input:
+        task_summary=os.path.join(OUTDIR, "task.summary.table.tex"),
+        preflight=os.path.join(OUTDIR, "preflight.log"),
+        # metadata=expand(
+        #     os.path.join(DIR_TPL["metadata"], "{outfile}"),
+        #     outfile=(
+        #         ["metadata.tsv.gz", f"{cluster.conserved_fact}.levels"]
+        #         if cluster.conserved
+        #         else ["metadata.tsv.gz"]
+        #     ),
+        # ),
+        # clustree=expand(
+        #     os.path.join(RDIMS_DIR_TPL, "clustree.png"),
+        #     ncomp=cluster.ncomp_lst,
+        # ),
+        # rdims_factors=expand(
+        #     os.path.join(DIR_TPL["rdims_factors"], "plot.rdims.factor.tex"),
+        #     ncomp=cluster.ncomp_lst,
+        # ),
+        # rdims_clusters=expand(
+        #     os.path.join(DIR_TPL["rdims_clusters"], "plot.rdims.factor.tex"),
+        #     ncomp=cluster.ncomp_lst,
+        #     resolu=cluster.clust_r_lst,
+        # ),
+        # group_numbers=expand(
+        #     os.path.join(DIR_TPL["group_numbers"], "number.plots.tex"),
+        #     ncomp=cluster.ncomp_lst,
+        #     resolu=cluster.clust_r_lst,
+        # ),
+        reports=expand(
+            os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
+            ncomp=cluster.ncomp_lst,
+            resolu=cluster.clust_r_lst,
+            report=[
+                "summaryReport.pdf",
+                "clusterMarkerReport.pdf",
+                "markers.summary.table.xlsx",
+                "cluster.genesets.xlsx",
+            ],
+        ),
+
+
+rule optional:
+    input:
+        compare_clusters=(
+            expand(
+                os.path.join(CLUSTER_DIR_TPL, "cluster.dendrogram.png"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+            )
+            if cluster.task_dict.get("compare_clusters", False)
+            else []
+        ),
+        paga=(
+            expand(
+                os.path.join(DIR_TPL["paga"], "{outfile}"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+                outfile=[
+                    "paga.png",
+                    "draw_graph_fa.paga.initialised.png",
+                    "paga_init_fa2.tsv.gz",
+                    "umap.paga.initialised.png",
+                    "umap.paga.init.tsv.gz",
+                ],
+            )
+            if cluster.task_dict.get("paga", False)
+            else []
+        ),
+        markers_summary=(
+            expand(
+                os.path.join(DIR_TPL["markers"], "markers.summary.table.tsv.gz"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+            )
+            if cluster.task_dict.get("characterise_markers", False)
+            else []
+        ),
+        singler_summary=(
+            os.path.join(DIR_TPL["hm_singler"], "summary.tex")
+            if cluster.task_dict.get("singleR", False)
+            else []
+        ),
+        top_marker_heatmap=(
+            expand(
+                os.path.join(DIR_TPL["markers"], "markers.summary.heatmap.png"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+            )
+            if cluster.task_dict.get("top_marker_heatmap", False)
+            else []
+        ),
+        de_plots=(
+            expand(
+                os.path.join(DIR_TPL["de_plots"], "characteriseClusterMarkers.tex"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+            )
+            if cluster.task_dict.get("de_plots", False)
+            else []
+        ),
+        genesets=(
+            expand(
+                os.path.join(DIR_TPL["genesets"], "cluster.genesets.figure.tex"),
+                ncomp=cluster.ncomp_lst,
+                resolu=cluster.clust_r_lst,
+            )
+            if cluster.task_dict.get("genesets", False)
+            else []
+        ),
+
+
+rule full:  # rule full is required to be after core and optional
+    input:
+        rules.core.input,
+        rules.optional.input,
+
+
+# <------------------------- Process Rules -------------------------> #
 rule task_summary:
     output:
-        cluster.path_tpl["task_summary"]["output"],
+        os.path.join(OUTDIR, "task.summary.table.tex"),
     run:
         tasks = cluster.task_dict.keys()
         runs = cluster.task_dict.values()
@@ -30,12 +179,12 @@ rule preflight:
     input:
         cluster.anndata,
     output:
-        cluster.path_tpl["preflight"]["log"],
+        os.path.join(OUTDIR, "preflight.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_preflight.py"),
         rdim_name=cluster.rdim_name,
         max_rdims=cluster.max_rdims,
-        conserved=cluster.conserved,
+        conserved=cluster.conserved_arg,
         geneids=cluster.preflight_geneids,
         conserved_factor=cluster.conserved_fact,
     resources:
@@ -53,16 +202,21 @@ rule preflight:
         """
 
 
-rule metadata:
+checkpoint metadata:
     input:
         cluster.anndata,
     output:
-        cluster.path_tpl["metadata"]["outputs"],
+        metatab=[os.path.join(DIR_TPL["metadata"], "metadata.tsv.gz")],
+        levels=(
+            [os.path.join(DIR_TPL["metadata"], f"{cluster.conserved_fact}.levels")]
+            if cluster.conserved
+            else []
+        ),
     log:
-        cluster.path_tpl["metadata"]["log"],
+        os.path.join(DIR_TPL["metadata"], "metadata.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_metadata.py"),
-        conserved=cluster.conserved,
+        conserved=cluster.conserved_arg,
         conserved_factor=cluster.conserved_fact,
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
@@ -77,17 +231,28 @@ rule metadata:
         """
 
 
+def get_conserved_levels(wc):
+    ck = checkpoints.metadata.get(**wc)
+    if cluster.conserved:
+        levels_path = os.path.join(
+            DIR_TPL["metadata"], f"{cluster.conserved_fact}.levels"
+        )
+        return pd.read_csv(levels_path, header=None)[0].tolist()
+    else:
+        return ["all"]
+
+
 rule loom:
     input:
         cluster.anndata,
     output:
-        cluster.path_tpl["loom"]["output"],
+        os.path.join(DIR_TPL["loom"], "{layer}.loom"),
     log:
-        cluster.path_tpl["loom"]["log"],
+        os.path.join(DIR_TPL["loom"], "loom.{layer}.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_loom.py"),
         layers="{layer}",
-        outdir=cluster.path_tpl["loom"]["dir"],
+        outdir=DIR_TPL["loom"],
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
     shell:
@@ -104,9 +269,9 @@ rule neighbour_graph:
     input:
         cluster.anndata,
     output:
-        cluster.path_tpl["neighbour_graph"]["output"],
+        os.path.join(DIR_TPL["neighbour_graph"], "neighbour_graph.h5ad"),
     log:
-        cluster.path_tpl["neighbour_graph"]["log"],
+        os.path.join(DIR_TPL["neighbour_graph"], "neighbour_graph.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_neighbor_graph.py"),
         rdim_name=cluster.rdim_name,
@@ -145,9 +310,9 @@ rule scanpy_cluster:
     input:
         rules.neighbour_graph.output,
     output:
-        cluster.path_tpl["scanpy_cluster"]["output"],
+        os.path.join(CLUSTER_DIR_TPL, "scanpy.clusters.tsv.gz"),
     log:
-        cluster.path_tpl["scanpy_cluster"]["log"],
+        os.path.join(CLUSTER_DIR_TPL, "scanpy.clusters.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_cluster.py"),
         ncomp="{ncomp}",
@@ -158,7 +323,7 @@ rule scanpy_cluster:
             if cluster.clust_algo == "predefined"
             else ""
         ),
-        outdir=cluster.path_tpl["scanpy_cluster"]["dir"],
+        outdir=CLUSTER_DIR_TPL,
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
     shell:
@@ -173,16 +338,19 @@ rule scanpy_cluster:
         """
 
 
-rule cluster_post_process:
+checkpoint cluster_postprocess:
     input:
         rules.scanpy_cluster.output,
     output:
-        list(cluster.path_tpl["cluster_postprocess"]["outputs"].values()),
+        cids_uq=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv"),
+        cids_full=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+        ccolors=os.path.join(CLUSTER_DIR_TPL, "cluster_colors.tsv"),
+        cccounts=os.path.join(CLUSTER_DIR_TPL, "cluster_cell_counts.tsv"),
     log:
-        cluster.path_tpl["cluster_postprocess"]["log"],
+        os.path.join(CLUSTER_DIR_TPL, "cluster_postprocess.log"),
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_post_process.R"),
-        outdir=cluster.path_tpl["cluster_postprocess"]["dir"],
+        outdir=CLUSTER_DIR_TPL,
     resources:
         mem_mb=cluster.get_mem("memory_low"),
     shell:
@@ -195,18 +363,24 @@ rule cluster_post_process:
         """
 
 
+def get_valid_clusters(ncomp, resolu):
+    ck = checkpoints.cluster_postprocess.get(ncomp=ncomp, resolu=resolu)
+    cid_file = ck.output["cids_uq"]
+    return [x for x in pd.read_csv(cid_file, header=None)[0] if x != 911]
+
+
 rule compare_clusters:
     input:
         anndata=cluster.anndata,
-        cids=cluster.path_tpl["cluster_postprocess"]["outputs"]["cids_full"],
+        cids=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
     output:
-        cluster.path_tpl["compare_clusters"]["output"],
+        os.path.join(CLUSTER_DIR_TPL, "cluster.dendrogram.png"),
     log:
-        cluster.path_tpl["compare_clusters"]["log"],
+        os.path.join(CLUSTER_DIR_TPL, "compare_clusters.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_compare.py"),
         ncomp="{ncomp}",
-        outdir=cluster.path_tpl["compare_clusters"]["dir"],
+        outdir=CLUSTER_DIR_TPL,
         reductiontype=cluster.rdim_name,
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
@@ -225,19 +399,19 @@ rule compare_clusters:
 rule clustree:
     input:
         expand(
-            cluster.path_tpl["cluster_postprocess"]["outputs"]["cids_full"],
+            os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
             ncomp=["{ncomp}"],
             resolu=cluster.clust_r_lst,
         ),
     output:
-        cluster.path_tpl["clustree"]["output"],
+        os.path.join(RDIMS_DIR_TPL, "clustree.png"),
     log:
-        cluster.path_tpl["clustree"]["log"],
+        os.path.join(RDIMS_DIR_TPL, "clustree.log"),
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_clustree.R"),
         res_str=cluster.clust_r_str,
         id_files_str=lambda wc, input: ",".join(input),
-        outdir=cluster.path_tpl["clustree"]["dir"],
+        outdir=RDIMS_DIR_TPL,
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
     shell:
@@ -252,16 +426,27 @@ rule clustree:
 
 rule paga:
     input:
-        neighs=cluster.path_tpl["neighbour_graph"]["output"],
-        cids=cluster.path_tpl["cluster_postprocess"]["outputs"]["cids_full"],
-        ccolours=cluster.path_tpl["cluster_postprocess"]["outputs"]["ccolors"],
+        neighs=os.path.join(DIR_TPL["neighbour_graph"], "neighbour_graph.h5ad"),
+        cids=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+        ccolours=os.path.join(CLUSTER_DIR_TPL, "cluster_colors.tsv"),
     output:
-        cluster.path_tpl["paga"]["outputs"],
+        expand(
+            os.path.join(DIR_TPL["paga"], "{outfile}"),
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            outfile=[
+                "paga.png",
+                "draw_graph_fa.paga.initialised.png",
+                "paga_init_fa2.tsv.gz",
+                "umap.paga.initialised.png",
+                "umap.paga.init.tsv.gz",
+            ],
+        ),
     log:
-        cluster.path_tpl["paga"]["log"],
+        os.path.join(DIR_TPL["paga"], "paga.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_paga.py"),
-        outdir=cluster.path_tpl["paga"]["dir"],
+        outdir=DIR_TPL["paga"],
     resources:
         mem_mb=cluster.get_mem("memory_high"),
     shell:
@@ -277,15 +462,15 @@ rule paga:
 
 rule umap:
     input:
-        cluster.path_tpl["neighbour_graph"]["output"],
+        os.path.join(DIR_TPL["neighbour_graph"], "neighbour_graph.h5ad"),
     output:
-        cluster.path_tpl["umap"]["output"],
+        os.path.join(DIR_TPL["umap"], r"umap.{mindist}.tsv.gz"),
     log:
-        cluster.path_tpl["umap"]["log"],
+        os.path.join(DIR_TPL["umap"], r"umap.{mindist}.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_umap.py"),
         mindist="{mindist}",
-        outdir=cluster.path_tpl["umap"]["dir"],
+        outdir=DIR_TPL["umap"],
     threads: 2
     resources:
         mem_mb=cluster.get_mem("memory_standard"),
@@ -299,550 +484,504 @@ rule umap:
         """
 
 
-# rule plot_rdims_factors:
-#     input:
-#         rdims_table=cluster.umap_paths("{ncomp}", "{mindist}")["tsv"],
-#         metadata=cluster.metadata_paths()["output"],
-#     output:
-#         pngs=expand(
-#             os.path.join(RDIMS_VIS_FACTOR_DIR("{ncomp}"), "UMAP.{fct}.png"),
-#             ncomp=["{ncomp}"],
-#             fct=COLOR_FACTORS,
-#         ),
-#         tex1=os.path.join(RDIMS_VIS_FACTOR_DIR("{ncomp}"), "UMAP.tex"),
-#         tex2=os.path.join(RDIMS_VIS_FACTOR_DIR("{ncomp}"), "plot.rdims.factor.tex"),
-#     log:
-#         os.path.join(RDIMS_VIS_FACTOR_DIR("{ncomp}"), "plot.rdims.factor.log"),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
-#         colour_factor_arg="--colorfactors=" + ",".join(COLOR_FACTORS),
-#         shape_factor_arg=(
-#             ""
-#             if config["plot"].get("shape", None) is None
-#             else "--shapefactor=" + config["plot"]["shape"]
-#         ),
-#         pointsize=config["plot"]["pointsize"],
-#         pointalpha=config["plot"]["pointalpha"],
-#         pointpch=config["plot"]["pointpch"],
-#         pdf=config["plot"]["pdf"],
-#         outdir=RDIMS_VIS_FACTOR_DIR("{ncomp}"),
-#     resources:
-#         mem_mb=config["resources"]["memory_low"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --table="{input.rdims_table}" \
-#             --metadata="{input.metadata}" \
-#             {params.colour_factor_arg} \
-#             {params.shape_factor_arg} \
-#             --pointsize="{params.pointsize}" \
-#             --pointalpha="{params.pointalpha}" \
-#             --pointpch="{params.pointpch}" \
-#             --pdf="{params.pdf}" \
-#             --outdir="{params.outdir}" \
-#             --plotdirvar=rdimsVisFactorDir \
-#             &> "{log}"
-#         echo "\\input{{{params.outdir}/UMAP}}" > "{output.tex2}"
-#         """
-
-
-rule full:
+rule plot_rdims_factors:
     input:
-        cluster.target_lst,
+        rdims_table=os.path.join(DIR_TPL["umap"], f"umap.{cluster.main_mindist}.tsv.gz"),
+        metadata=rules.metadata.output.metatab[0],
+    output:
+        expand(
+            os.path.join(DIR_TPL["rdims_factors"], "{outfile}"),
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            outfile=[f"UMAP.{fact}.png" for fact in cluster.cfact_lst],
+        ),
+        os.path.join(DIR_TPL["rdims_factors"], "UMAP.tex"),
+        summary_tex=os.path.join(DIR_TPL["rdims_factors"], "plot.rdims.factor.tex"),
+    log:
+        os.path.join(DIR_TPL["rdims_factors"], "plot.rdims.factor.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
+        colour_factor_arg=cluster.cfact_arg,
+        shape_factor_arg=cluster.sfact_arg,
+        pointsize=cluster.pt_size,
+        pointalpha=cluster.pt_alpha,
+        pointpch=cluster.pt_pch,
+        pdf=cluster.pdf,
+        outdir=DIR_TPL["rdims_factors"],
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --table="{input.rdims_table}" \
+            --metadata="{input.metadata}" \
+            {params.colour_factor_arg} \
+            {params.shape_factor_arg} \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisFactorDir \
+            &> "{log}"
+        echo "\\input{{{params.outdir}/UMAP}}" > "{output.summary_tex}"
+        """
 
 
-# rule plotRdimsClusters:
-#     input:
-#         rdims_table=os.path.join(UMAP_DIR("{ncomp}"), "umap.{mindist}.tsv.gz"),
-#         cluster_ids=os.path.join(
-#             CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"
-#         ),
-#     output:
-#         png=os.path.join(
-#             RDIMS_VIS_CLUSTER_DIR("{ncomp}", "{resolu}"),
-#             "umap.mindist_{mindist}.cluster_id.png",
-#         ),
-#         tex=os.path.join(
-#             cluster.rdims_vis_cluster_dir("{ncomp}", "{resolu}"),
-#             "umap.mindist_{mindist}.tex",
-#         ),
-#     log:
-#         os.path.join(
-#             RDIMS_VIS_CLUSTER_DIR("{ncomp}", "{resolu}"),
-#             "plot.rdims.cluster.{mindist}.log",
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
-#         umap_spec="umap.mindist_" + "{mindist}",
-#         shape_factor_arg=(
-#             ""
-#             if config["plot"].get("shape", None) is None
-#             else "--shapefactor=" + config["plot"]["shape"]
-#         ),
-#         pointsize=config["plot"]["pointsize"],
-#         pointalpha=config["plot"]["pointalpha"],
-#         pointpch=config["plot"]["pointpch"],
-#         pdf=config["plot"]["pdf"],
-#         outdir=RDIMS_VIS_CLUSTER_DIR("{ncomp}", "{resolu}"),
-#     resources:
-#         mem_mb=config["resources"]["memory_low"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --method="{params.umap_spec}" \
-#             --table="{input.rdims_table}" \
-#             --metadata="{input.cluster_ids}" \
-#             {params.shape_factor_arg} \
-#             --colorfactors=cluster_id \
-#             --pointsize="{params.pointsize}" \
-#             --pointalpha="{params.pointalpha}" \
-#             --pointpch="{params.pointpch}" \
-#             --pdf="{params.pdf}" \
-#             --outdir="{params.outdir}" \
-#             --plotdirvar=rdimsVisClusterDir \
-#             &> "{log}"
-#         """
-# checkpoint summariseRdimsClusters:
-#     input:
-#         expand(
-#             os.path.join(
-#                 cluster.rdims_vis_cluster_dir("{ncomp}", "{resolu}"),
-#                 "umap.mindist_{mindist}.tex",
-#             ),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             mindist=cluster.get_param("plot", "umap_mindists", parse2list=True),
-#         ),
-#     output:
-#         os.path.join(
-#             cluster.rdims_vis_cluster_dir("{ncomp}", "{resolu}"),
-#             "plot.rdims.factor.tex",
-#         ),
-#     shell:
-#         """
-#         inputlist=( "{input}" )
-#         for input in ${{inputlist[@]}}; do
-#             echo "\\input{{$input}}" >> "{output}"
-#         done
-#         """
-# def populate_options(summary_key):
-#     options = []
-#     for k, v in config["summaries"][summary_key].items():
-#         if v == "None" or v == None or v == False or k == "title":
-#             pass
-#         elif v == True:
-#             options.append("--" + k)
-#         elif k in ["xlab", "ylab"]:
-#             options.append("--" + k + '="' + str(v) + '"')
-#         else:
-#             options.append("--" + k + '="' + str(v) + '"')
-#     return "\t".join(options)
-# rule plotGroupNumbers:
-#     input:
-#         metadata=os.path.join(METADATA_DIR(), "metadata.tsv.gz"),
-#         cluster_ids=os.path.join(
-#             CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"
-#         ),
-#     output:
-#         os.path.join(GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"), "{key}.data.tsv.gz"),
-#     log:
-#         os.path.join(
-#             GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"), "plot.group.numbers.{key}.log"
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_plot_group_numbers.R"),
-#         key="{key}",
-#         options=lambda wc: populate_options(wc.key),
-#         outdir=GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"),
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --metadata="{input.metadata}" \
-#             --clusters="{input.cluster_ids}" \
-#             --title="{params.key}" \
-#             {params.options} \
-#             --outdir="{params.outdir}" \
-#             --plotdirvar=groupNumbersDir \
-#             &> "{log}"
-#         """
-# def summariseGroupNumbers(param_dict, outdir):
-#     import os
-#     import textwrap
-#     from tasks.report import template as template
-#     with open(os.path.join(outdir, "number.plots.tex"), "w") as tex:
-#         for fig in param_dict.keys():
-#             if "_" in param_dict[fig]["title"]:
-#                 raise ValueError(
-#                     "Underscores are not allowed in the plot"
-#                     " titles (due to issues with latex..."
-#                 )
-#             # Add the figures, one per subsection, escaping underscores.
-#             tex.write(template.subsection % {"title": param_dict[fig]["title"]})
-#             tex.write("\n")
-#             fig_path = os.path.join(outdir, fig)
-#             if os.path.exists(fig_path + ".png"):
-#                 fig_spec = {
-#                     "width": "1",
-#                     "height": "0.9",
-#                     "path": fig_path,
-#                     "caption": param_dict[fig]["title"],
-#                 }
-#                 tex.write(textwrap.dedent(template.figure % fig_spec))
-#                 tex.write("\n")
-# # NOTE: split from the previous plotGroupNumbers
-# rule summariseGroupNumbers:
-#     input:
-#         expand(
-#             os.path.join(
-#                 GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"), "{key}.data.tsv.gz"
-#             ),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             key=config["summaries"].keys(),
-#         ),
-#     output:
-#         os.path.join(GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"), "number.plots.tex"),
-#     params:
-#         outdir=GROUP_NUMBERS_DIR("{ncomp}", "{resolu}"),
-#     run:
-#         summariseGroupNumbers(config["summaries"], params.outdir)
-# # NOTE: to implement subset_factor and subset_level
-# rule clusterStats:
-#     input:
-#         anndata=cluster.get_param("anndata"),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#     output:
-#         outfile1=os.path.join(
-#             STATS_DIR("{ncomp}", "{resolu}"), "{subset_level}.stats.tsv.gz"
-#         ),
-#         outfile2=os.path.join(
-#             STATS_DIR("{ncomp}", "{resolu}"), "{subset_level}.sizes.tsv.gz"
-#         ),
-#     log:
-#         os.path.join(
-#             STATS_DIR("{ncomp}", "{resolu}"), "cluster.{subset_level}.stats.log"
-#         ),
-#     params:
-#         script=os.path.join(PYSCRIPT_DIR, "cluster_stats.py"),
-#         subset_stat="",  # "--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
-#         subset_level="{subset_level}",
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         python "{params.script}" \
-#             --anndata="{input.anndata}" \
-#             {params.subset_stat} \
-#             --subset_level="{params.subset_level}" \
-#             --clusterids="{input.cids}" \
-#             --outfile="{output.outfile1}" \
-#             &> "{log}"
-#         """
-# def get_clusters(ncomp, resolu):
-#     cid_file = checkpoints.clusterPostProcess.get(ncomp=ncomp, resolu=resolu).output[0]
-#     with open(cid_file) as f:
-#         clusters = [
-#             line.strip() for line in f if line.strip() and (line.strip() != "911")
-#         ]
-#     return clusters
-# # NOTE: to implement subset_factor and subset_level
-# rule findMarkers:
-#     input:
-#         anndata=cluster.get_param("anndata"),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#         stats=os.path.join(
-#             STATS_DIR("{ncomp}", "{resolu}"), "{subset_level}.stats.tsv.gz"
-#         ),
-#         sizes=os.path.join(
-#             STATS_DIR("{ncomp}", "{resolu}"), "{subset_level}.sizes.tsv.gz"
-#         ),
-#     output:
-#         os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"),
-#             "{cluster}.{subset_level}.markers.tsv.gz",
-#         ),
-#     log:
-#         os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"),
-#             "{cluster}.{subset_level}.markers.log",
-#         ),
-#     params:
-#         script=f"{PYSCRIPT_DIR}/cluster_markers.py",
-#         subset_stat="",  # "--subset_factor=" + CONSERVED_FACTOR if CONSERVED else "",
-#         subset_level="{subset_level}",
-#         cluster="{cluster}",
-#         markers_test=config["markers"]["test"],
-#         markers_pseudocount=config["markers"]["pseudocount"],
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         python "{params.script}" \
-#             --anndata="{input.anndata}" \
-#             {params.subset_stat} \
-#             --subset_level="{params.subset_level}" \
-#             --clusterids="{input.cids}" \
-#             --cluster="{params.cluster}" \
-#             --group_means="{input.stats}" \
-#             --group_sizes="{input.sizes}" \
-#             --method="{params.markers_test}" \
-#             --pseudocount="{params.markers_pseudocount}" \
-#             --outfile="{output}" \
-#             &> {log}
-#         """
-# def get_cluster_marker_files(ncomp, resolu):
-#     return [
-#         os.path.join(
-#             MARKERS_DIR(ncomp, resolu),
-#             f"{cluster}.all.markers.tsv.gz",
-#         )
-#         for cluster in get_clusters(ncomp, resolu)
-#     ]
-# checkpoint summariseMarkers:
-#     input:
-#         metadata=os.path.join(METADATA_DIR(), "metadata.tsv.gz"),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#         cluster_markers=lambda wc: get_cluster_marker_files(wc.ncomp, wc.resolu),
-#     output:
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"),
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.xlsx"),
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.stats.tsv"),
-#     log:
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers_summary.log"),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_summarise_markers.R"),
-#         markers_str=lambda wc: ",".join(get_cluster_marker_files(wc.ncomp, wc.resolu)),
-#         min_pct=config["markers"]["min_pct"],
-#         min_fc=config["markers"]["min_fc"],
-#         outdir=MARKERS_DIR("{ncomp}", "{resolu}"),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --marker_files="{params.markers_str}" \
-#             --minpct="{params.min_pct}" \
-#             --minfc="{params.min_fc}" \
-#             --clusterids="{input.cids}" \
-#             --outdir="{params.outdir}" \
-#             &> "{log}"
-#         """
-# rule topMarkerHeatmap:
-#     input:
-#         loom_file=os.path.join(
-#             OUT_DIR, "loom.dir", f"{config['plot']['heatmap_matrix']}.loom"
-#         ),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#         metadata=os.path.join(OUT_DIR, "metadata.dir", "metadata.tsv.gz"),
-#         marker_table=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#     output:
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.heatmap.png"),
-#     log:
-#         os.path.join(MARKERS_DIR("{ncomp}", "{resolu}"), "topMarkerHeatmap.log"),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_top_marker_heatmap.R"),
-#         matrix_loc="matrix",
-#         scale=(config["plot"]["heatmap_matrix"] == "log1p"),
-#         pdf=config["plot"]["pdf"],
-#         subgroup=(
-#             f"--subgroup={config['plot']['subgroup']}"
-#             if config["plot"]["subgroup"]
-#             else ""
-#         ),
-#         outdir=MARKERS_DIR("{ncomp}", "{resolu}"),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --loom="{input.loom_file}" \
-#             --clusterids="{input.cids}" \
-#             --metadata="{input.metadata}" \
-#             --matrix_loc="{params.matrix_loc}" \
-#             --scale="{params.scale}" \
-#             --markers="{input.marker_table}" \
-#             --pdf="{params.pdf}" \
-#             {params.subgroup} \
-#             --outdir="{params.outdir}" \
-#             &> "{log}"
-#         """
-# # NOTE: parallelised
-# rule dePlots:
-#     input:
-#         marker_table=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#     output:
-#         os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "dePlots.{cluster}.png"),
-#         os.path.join(
-#             DE_PLOTS_DIR("{ncomp}", "{resolu}"), "characterise.degenes.{cluster}.tex"
-#         ),
-#     log:
-#         os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "dePlots.{cluster}.log"),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_de_plots.R"),
-#         cluster="{cluster}",
-#         outdir=DE_PLOTS_DIR("{ncomp}", "{resolu}"),
-#         pdf=config["plot"]["pdf"],
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --degenes="{input.marker_table}" \
-#             --cluster="{params.cluster}" \
-#             --outdir="{params.outdir}" \
-#             --pdf="{params.pdf}" \
-#             --plotdirvar=clusterMarkerDEPlotsDir \
-#             &> "{log}"
-#         """
-# def get_clusters_with_marker(ncomp, resolu):
-#     markerfile = checkpoints.summariseMarkers.get(ncomp=ncomp, resolu=resolu).output[0]
-#     markers = pd.read_csv(markerfile, sep="\t")
-#     markers = markers.loc[(markers["p.adj"] < 0.1) & (markers["p.adj"].notna()), :]
-#     clusters_with_markers = list(markers["cluster"].unique())
-#     assert (
-#         "911" not in clusters_with_markers
-#     ), "cluster 911 should not used for markerPlots."
-#     return clusters_with_markers
-# rule summariseDEPlots:
-#     input:
-#         expand(
-#             os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "dePlots.{cluster}.png"),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
-#         ),
-#         expand(
-#             os.path.join(
-#                 DE_PLOTS_DIR("{ncomp}", "{resolu}"),
-#                 "characterise.degenes.{cluster}.tex",
-#             ),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
-#         ),
-#     output:
-#         os.path.join(DE_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_dePlots.sentinel"),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         touch "{output}"
-#         """
-# # NOTE: parallelised
-# # NOTE: markers in CGAT version line 1244?
-# # NOTE: group_opt not implemented
-# # NOTE: violinplot not visible when few clusters => height = max(min(nclusters/20 * 5, 10), 3)
-# rule markerPlots:
-#     input:
-#         marker_table=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#         loom_file=os.path.join(LOOM_DIR(), "log1p.loom"),
-#         metadata_file=os.path.join(METADATA_DIR(), "metadata.tsv.gz"),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#         rdims_table=os.path.join(
-#             UMAP_DIR("{ncomp}"), f"umap.{config['plot']['umap_mindist']}.tsv.gz"
-#         ),
-#     output:
-#         rdims=os.path.join(
-#             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "cluster.{cluster}.rdims.png"
-#         ),
-#         violins=os.path.join(
-#             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "cluster.{cluster}.violins.png"
-#         ),
-#         heatmap=os.path.join(
-#             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "cluster.{cluster}.heatmap.png"
-#         ),
-#     log:
-#         os.path.join(
-#             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "marker.plots.{cluster}.log"
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_marker_plots.R"),
-#         scaled_loom=(
-#             f"--scaled_loom={os.path.join(LOOM_DIR(), 'X.loom')}"
-#             if config["plot"]["heatmap_matrix"] == "X"
-#             else ""
-#         ),
-#         rdims_table=os.path.join(
-#             UMAP_DIR("{ncomp}"), f"umap.{config['plot']['umap_mindist']}.tsv.gz"
-#         ),
-#         cluster="{cluster}",
-#         outdir=MARKER_PLOTS_DIR("{ncomp}", "{resolu}"),
-#         group_opt="",
-#         pdf=config["plot"]["pdf"],
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --markers="{input.marker_table}" \
-#             --loom="{input.loom_file}" \
-#             {params.scaled_loom} \
-#             --metadata="{input.metadata_file}" \
-#             --clusterids="{input.cids}" \
-#             --rdimstable="{input.rdims_table}" \
-#             --cluster="{params.cluster}" \
-#             --outdir="{params.outdir}" \
-#             {params.group_opt} \
-#             --pdf="{params.pdf}" \
-#             &> "{log}"
-#         """
-# rule summariseMarkerPlots:
-#     input:
-#         expand(
-#             os.path.join(
-#                 MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "cluster.{cluster}.{plot}.png"
-#             ),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
-#             plot=["rdims", "violins", "heatmap"],
-#         ),
-#     output:
-#         os.path.join(
-#             MARKER_PLOTS_DIR("{ncomp}", "{resolu}"), "summarised_markerPlots.sentinel"
-#         ),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         touch "{output}"
-#         """
-# # NOTE: cluster_ids not used.
-# # NOTE: minfc and minpadj hard coded? => from yaml
-# rule plotMarkerNumbers:
-#     input:
-#         marker_table=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv.gz"),
-#     output:
-#         os.path.join(MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"), "deNumbers.png"),
-#     log:
-#         os.path.join(
-#             MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"), "plotMarkerNumbers.log"
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_plot_marker_numbers.R"),
-#         outdir=MARKER_DE_PLOTS_DIR("{ncomp}", "{resolu}"),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --degenes="{input.marker_table}" \
-#             --clusterids="{input.cids}" \
-#             --outdir="{params.outdir}" \
-#             --minfc=2 \
-#             --minpadj=0.05 \
-#             --plotdirvar=clusterMarkerDEPlotsDir \
-#             &> "{log}"
-#         """
+rule plot_rdims_clusters:
+    input:
+        rdims_table=rules.umap.output,
+        cluster_ids=rules.cluster_postprocess.output.cids_full,
+    output:
+        png=os.path.join(
+            DIR_TPL["rdims_clusters"], "umap.mindist_{mindist}.cluster_id.png"
+        ),
+        tex=os.path.join(DIR_TPL["rdims_clusters"], "umap.mindist_{mindist}.tex"),
+    log:
+        os.path.join(DIR_TPL["rdims_clusters"], "plot.rdims.cluster.{mindist}.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_plot_rdims_factor.R"),
+        umap_spec="umap.mindist_{mindist}",
+        shape_factor_arg=cluster.sfact_arg,
+        pointsize=cluster.pt_size,
+        pointalpha=cluster.pt_alpha,
+        pointpch=cluster.pt_pch,
+        pdf=cluster.pdf,
+        outdir=DIR_TPL["rdims_clusters"],
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --method="{params.umap_spec}" \
+            --table="{input.rdims_table}" \
+            --metadata="{input.cluster_ids}" \
+            {params.shape_factor_arg} \
+            --colorfactors=cluster_id \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisClusterDir \
+            &> "{log}"
+        """
+
+
+rule summarise_rdims_clusters:
+    input:
+        expand(
+            rules.plot_rdims_clusters.output.tex,
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            mindist=cluster.mindists_lst,
+        ),
+    output:
+        os.path.join(DIR_TPL["rdims_clusters"], "plot.rdims.factor.tex"),
+    shell:
+        """
+        inputlist=( "{input}" )
+        for input in ${{inputlist[@]}}; do
+            echo "\\input{{$input}}" >> "{output}"
+        done
+        """
+
+
+rule plot_rdims_singler:
+    input:
+        table=rules.plot_rdims_factors.input.rdims_table,
+        labels=cluster.singler_labels_tpl,
+    output:
+        os.path.join(DIR_TPL["rdims_singler"], "UMAP.{ref}.pruned.labels.png"),
+    log:
+        os.path.join(DIR_TPL["rdims_singler"], "rdims.plots.{ref}.log"),
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_plot_rdims_factor.R",
+        reference="{ref}",
+        pointsize=cluster.pt_size,
+        pointalpha=cluster.pt_alpha,
+        pointpch=cluster.pt_pch,
+        pdf=cluster.pdf,
+        outdir=DIR_TPL["rdims_singler"],
+    shell:
+        """
+        Rscript "{params.script}" \
+            --table="{input.table}" \
+            --metadata="{input.labels}" \
+            --colorfactors=pruned.labels \
+            --analysisname="{params.reference}" \
+            --pointsize="{params.pointsize}" \
+            --pointalpha="{params.pointalpha}" \
+            --pointpch="{params.pointpch}" \
+            --pdf="{params.pdf}" \
+            --outdir="{params.outdir}" \
+            --plotdirvar=rdimsVisClusterDir \
+            &> "{log}"
+        """
+
+
+rule plot_singler:
+    input:
+        metadata=rules.metadata.output.metatab,
+        labels=cluster.singler_labels_tpl,
+        scores=cluster.singler_scores_tpl,
+    output:
+        os.path.join(DIR_TPL["hm_singler"], r"{ref}.heatmap.png"),
+    log:
+        os.path.join(DIR_TPL["hm_singler"], r"singleR.plots.{ref}.log"),
+    params:
+        script=f"{RSCRIPT_DIR}/cluster_singleR_plots.R",
+        reference="{ref}",
+        outdir=DIR_TPL["hm_singler"],
+        pdf=cluster.pdf,
+    shell:
+        """
+        Rscript "{params.script}" \
+            --metadata="{input.metadata}" \
+            --scores="{input.scores}" \
+            --labels="{input.labels}" \
+            --reference="{params.reference}" \
+            --outdir="{params.outdir}" \
+            --pdf="{params.pdf}" \
+            &> "{log}"
+        """
+
+
+rule summarise_singler:
+    input:
+        umaps=expand(
+            rules.plot_rdims_singler.output,
+            ncomp=cluster.ncomp_lst,
+            ref=cluster.singler_ref_lst,
+        ),
+        heatmaps=expand(
+            rules.plot_singler.output,
+            ref=cluster.singler_ref_lst,
+        ),
+    output:
+        # NOTE: changed location from rdims_singler to hm_singler
+        os.path.join(DIR_TPL["hm_singler"], "summary.tex"),
+    run:
+        from utils.cluster import summariseSingleR
+
+        summariseSingleR(DIR_TPL["hm_singler"], cluster.singler_ref_lst, output[0])
+
+
+rule plot_group_numbers:
+    input:
+        metadata=rules.metadata.output.metatab,
+        cluster_ids=rules.cluster_postprocess.output.cids_full,
+    output:
+        os.path.join(DIR_TPL["group_numbers"], r"{key}.data.tsv.gz"),
+    log:
+        os.path.join(DIR_TPL["group_numbers"], r"plot.group.numbers.{key}.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_plot_group_numbers.R"),
+        key="{key}",
+        options=lambda wc: cluster.populate_options(wc.key),
+        outdir=DIR_TPL["group_numbers"],
+    shell:
+        """
+        Rscript "{params.script}" \
+            --metadata="{input.metadata}" \
+            --clusters="{input.cluster_ids}" \
+            --title="{params.key}" \
+            {params.options} \
+            --outdir="{params.outdir}" \
+            --plotdirvar=groupNumbersDir \
+            &> "{log}"
+        """
+
+
+rule summarise_group_numbers:
+    input:
+        expand(
+            rules.plot_group_numbers.output,
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            key=cluster.summary_dict.keys(),
+        ),
+    output:
+        os.path.join(DIR_TPL["group_numbers"], "number.plots.tex"),
+    log:
+        os.path.join(DIR_TPL["group_numbers"], "summarise.group.numbers.log"),
+    params:
+        outdir=DIR_TPL["group_numbers"],
+    run:
+        from utils.cluster import summariseGroupNumbers
+
+        summariseGroupNumbers(cluster.summary_dict, params.outdir)
+
+
+rule cluster_stats:
+    input:
+        anndata=cluster.anndata,
+        cids=rules.cluster_postprocess.output.cids_full,
+    output:
+        stats=os.path.join(DIR_TPL["stats"], "{level}.stats.tsv.gz"),
+        sizes=os.path.join(DIR_TPL["stats"], "{level}.sizes.tsv.gz"),
+    log:
+        os.path.join(DIR_TPL["stats"], "{level}.stats.log"),
+    params:
+        script=os.path.join(PYSCRIPT_DIR, "cluster_stats.py"),
+        subset_stat=cluster.subset_stat,
+        subset_level="{level}",
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input.anndata}" \
+            {params.subset_stat} \
+            --subset_level="{params.subset_level}" \
+            --clusterids="{input.cids}" \
+            --outfile="{output.stats}" \
+            &> "{log}"
+        """
+
+
+rule find_markers:
+    input:
+        anndata=cluster.anndata,
+        cids=rules.cluster_postprocess.output.cids_full,
+        stats=rules.cluster_stats.output.stats,
+        sizes=rules.cluster_stats.output.sizes,
+    output:
+        os.path.join(DIR_TPL["markers"], "{cluster}.{level}.markers.tsv.gz"),
+    log:
+        os.path.join(DIR_TPL["markers"], "{cluster}.{level}.markers.log"),
+    params:
+        script=f"{PYSCRIPT_DIR}/cluster_markers.py",
+        subset_stat=cluster.subset_stat,
+        level="{level}",
+        cluster="{cluster}",
+        markers_test=cluster.test_method,
+        markers_pseudocount=cluster.pseudocount,
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        python "{params.script}" \
+            --anndata="{input.anndata}" \
+            {params.subset_stat} \
+            --subset_level="{params.level}" \
+            --clusterids="{input.cids}" \
+            --cluster="{params.cluster}" \
+            --group_means="{input.stats}" \
+            --group_sizes="{input.sizes}" \
+            --method="{params.markers_test}" \
+            --pseudocount="{params.markers_pseudocount}" \
+            --outfile="{output}" \
+            &> {log}
+        """
+
+
+def get_valid_cluster_marker_files(wc):
+    return [
+        os.path.join(DIR_TPL["markers"], "{cluster}.{level}.markers.tsv.gz").format(
+            ncomp=wc.ncomp, resolu=wc.resolu, level=level, cluster=cluster
+        )
+        for level in get_conserved_levels(wc)
+        for cluster in get_valid_clusters(wc.ncomp, wc.resolu)
+    ]
+
+
+checkpoint summarise_markers:
+    input:
+        metadata=rules.metadata.output.metatab,
+        cids=rules.cluster_postprocess.output.cids_full,
+        cluster_files=lambda wc: get_valid_cluster_marker_files(wc),
+    output:
+        markers_tsv=os.path.join(DIR_TPL["markers"], "markers.summary.table.tsv.gz"),
+        markers_xlsx=os.path.join(DIR_TPL["markers"], "markers.summary.table.xlsx"),
+        stats_tsv=os.path.join(DIR_TPL["markers"], "markers.summary.stats.tsv"),
+    log:
+        os.path.join(DIR_TPL["markers"], "markers_summary.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_summarise_markers.R"),
+        markers_str=lambda wc: ",".join(get_valid_cluster_marker_files(wc)),
+        min_pct=cluster.min_pct,
+        min_fc=cluster.min_fc,
+        outdir=DIR_TPL["markers"],
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --marker_files="{params.markers_str}" \
+            --minpct="{params.min_pct}" \
+            --minfc="{params.min_fc}" \
+            --clusterids="{input.cids}" \
+            --outdir="{params.outdir}" \
+            &> "{log}"
+        """
+
+
+rule top_marker_heatmap:
+    input:
+        loom_file=os.path.join(DIR_TPL["loom"], f"{cluster.hm_layer}.loom"),
+        cids=rules.cluster_postprocess.output.cids_full,
+        metadata=rules.metadata.output.metatab,
+        marker_table=rules.summarise_markers.output.markers_tsv,
+    output:
+        os.path.join(DIR_TPL["markers"], "markers.summary.heatmap.png"),
+    log:
+        os.path.join(DIR_TPL["markers"], "topMarkerHeatmap.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_top_marker_heatmap.R"),
+        matrix_loc="matrix",
+        scale=cluster.scale_matrix,
+        pdf=cluster.pdf,
+        subgroup=cluster.vis_subgrp_arg,
+        outdir=DIR_TPL["markers"],
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --loom="{input.loom_file}" \
+            --clusterids="{input.cids}" \
+            --metadata="{input.metadata}" \
+            --matrix_loc="{params.matrix_loc}" \
+            --scale="{params.scale}" \
+            --markers="{input.marker_table}" \
+            --pdf="{params.pdf}" \
+            {params.subgroup} \
+            --outdir="{params.outdir}" \
+            &> "{log}"
+        """
+
+
+rule de_plots:
+    input:
+        mkgtab=rules.summarise_markers.output.markers_tsv,
+    output:
+        png=os.path.join(DIR_TPL["de_plots"], r"dePlots.{cluster}.png"),
+        tex=os.path.join(DIR_TPL["de_plots"], r"characterise.degenes.{cluster}.tex"),
+    log:
+        os.path.join(DIR_TPL["de_plots"], r"dePlots.{cluster}.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_de_plots.R"),
+        cluster="{cluster}",
+        outdir=DIR_TPL["de_plots"],
+        pdf=cluster.pdf,
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --degenes="{input.mkgtab}" \
+            --cluster="{params.cluster}" \
+            --outdir="{params.outdir}" \
+            --pdf="{params.pdf}" \
+            --plotdirvar=clusterMarkerDEPlotsDir \
+            &> "{log}"
+        """
+
+
+def get_clusters_with_marker(ncomp, resolu):
+    markerfile = checkpoints.summarise_markers.get(ncomp=ncomp, resolu=resolu).output[0]
+    markers = pd.read_csv(markerfile, sep="\t")
+    clusters_with_markers = (
+        markers.loc[(markers["p.adj"] < 0.1) & (markers["p.adj"].notna()), "cluster"]
+        .unique()
+        .tolist()
+    )
+    assert (
+        "911" not in clusters_with_markers
+    ), "cluster 911 should not used for markerPlots."
+    return clusters_with_markers
+
+
+rule summarise_de_plots:
+    input:
+        expand(
+            rules.de_plots.output.tex,
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
+        ),
+    output:
+        os.path.join(DIR_TPL["de_plots"], "characteriseClusterMarkers.tex"),
+    shell:
+        """
+        for texpath in {input}; do
+            texfile=$(basename "$texpath")
+            echo "\\input{{\\clusterMarkerDEPlotsDir/$texfile}}" >> "{output}"
+        done
+        """
+
+
+rule marker_plots:
+    input:
+        mkgtab=rules.summarise_markers.output.markers_tsv,
+        loom_file=os.path.join(DIR_TPL["loom"], "log1p.loom"),
+        metatab=rules.metadata.output.metatab,
+        cids=rules.cluster_postprocess.output.cids_full,
+        rdims_tab=os.path.join(DIR_TPL["umap"], f"umap.{cluster.main_mindist}.tsv.gz"),
+    output:
+        rdims=os.path.join(DIR_TPL["marker_plots"], r"cluster.{cluster}.rdims.png"),
+        violins=os.path.join(DIR_TPL["marker_plots"], r"cluster.{cluster}.violins.png"),
+        heatmap=os.path.join(DIR_TPL["marker_plots"], r"cluster.{cluster}.heatmap.png"),
+    log:
+        os.path.join(DIR_TPL["marker_plots"], r"marker.plots.{cluster}.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_marker_plots.R"),
+        scaled_loom=(
+            f"--scaled_loom={os.path.join(DIR_TPL['loom'], 'X.loom')}"
+            if cluster.hm_layer == "X"
+            else ""
+        ),
+        rdims_table=os.path.join(DIR_TPL["umap"], f"umap.{cluster.main_mindist}.tsv.gz"),
+        cluster="{cluster}",
+        outdir=DIR_TPL["marker_plots"],
+        group_opt=(f"--group={cluster.vis_subgrp}" if cluster.vis_subgrp else ""),
+        pdf=cluster.pdf,
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --markers="{input.mkgtab}" \
+            --loom="{input.loom_file}" \
+            {params.scaled_loom} \
+            --metadata="{input.metatab}" \
+            --clusterids="{input.cids}" \
+            --rdimstable="{input.rdims_tab}" \
+            --cluster="{params.cluster}" \
+            --outdir="{params.outdir}" \
+            {params.group_opt} \
+            --pdf="{params.pdf}" \
+            &> "{log}"
+        """
+
+
+rule plot_marker_numbers:
+    input:
+        mkgtab=rules.summarise_markers.output.markers_tsv,
+    output:
+        os.path.join(DIR_TPL["marker_de_plots"], "deNumbers.png"),
+    log:
+        os.path.join(DIR_TPL["marker_de_plots"], "plotMarkerNumbers.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_plot_marker_numbers.R"),
+        outdir=DIR_TPL["marker_de_plots"],
+        minfc=cluster.min_fc,
+        minpadj=cluster.min_padj,
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --degenes="{input.mkgtab}" \
+            --outdir="{params.outdir}" \
+            --minfc={params.minfc} \
+            --minpadj={params.minpadj} \
+            --plotdirvar=clusterMarkerDEPlotsDir \
+            &> "{log}"
+        """
+
+
 # checkpoint plots:
 #     input:
 #         rules.compareClusters.output,
@@ -850,7 +989,7 @@ rule full:
 #         rules.paga.output,
 #         rules.plotRdimsFactors.output,
 #         expand(
-#             rules.plotRdimsClusters.output,
+#             rules.plot_rdims_clusters.output,
 #             ncomp=["{ncomp}"],
 #             resolu=["{resolu}"],
 #             mindist=str2list(config["plot"]["umap_mindists"]),
@@ -869,290 +1008,290 @@ rule full:
 #         """
 #         touch "{output}"
 #         """
-# # NOTE: replaced the dependence of CellHub API by actual annotation files
-# rule genesetAnalysis:
-#     input:
-#         marker_table=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#     output:
-#         expand(
-#             os.path.join(
-#                 GENESETS_DIR("{ncomp}", "{resolu}"),
-#                 "genesets.{cluster}.{files}.tsv.gz",
-#             ),
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             cluster=["{cluster}"],
-#             files=[
-#                 "GO.BP",
-#                 "GO.CC",
-#                 "GO.MF",
-#                 "KEGG",
-#                 "msigdb_biocarta",
-#                 "msigdb_reactome",
-#             ],
-#         ),
-#     log:
-#         os.path.join(
-#             GENESETS_DIR("{ncomp}", "{resolu}"), "geneset.analysis.{cluster}.log"
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_geneset_analysis.R"),
-#         cluster="{cluster}",
-#         universe=os.path.join(
-#             MARKERS_DIR("{ncomp}", "{resolu}"), "{cluster}.universe.tsv.gz"
-#         ),
-#         species=config["geneset"]["species"],
-#         ensembl=CELLHUB_ANNOT_ENSEMBL,
-#         kegg=CELLHUB_ANNOT_KEGG,
-#         gmt_names=",".join(config.get("gmt_files", {}).keys()) or "none",
-#         gmt_files=",".join(config.get("gmt_files", {}).values()) or "none",
-#         adjpthreshold=config["geneset"]["marker_adjpthreshold"],
-#         outdir=GENESETS_DIR("{ncomp}", "{resolu}"),
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --markers="{input.marker_table}" \
-#             --universe="{params.universe}" \
-#             --species="{params.species}" \
-#             --annotation="{params.ensembl}" \
-#             --kegg_pathways="{params.kegg}" \
-#             --gmt_names="{params.gmt_names}" \
-#             --gmt_files="{params.gmt_files}" \
-#             --cluster="{params.cluster}" \
-#             --adjpthreshold="{params.adjpthreshold}" \
-#             --direction=positive \
-#             --outdir="{params.outdir}" \
-#             &> "{log}"
-#         for output in "{output}"; do
-#             touch $output
-#         done
-#         """
-# # NOTE: possible to have clusters with no gene sets?
-# rule summariseGenesetAnalysis:
-#     input:
-#         lambda wc: [
-#             os.path.join(
-#                 GENESETS_DIR(wc.ncomp, wc.resolu),
-#                 f"genesets.{cluster}.{filetype}.tsv.gz",
-#             )
-#             for filetype in [
-#                 "GO.BP",
-#                 "GO.CC",
-#                 "GO.MF",
-#                 "KEGG",
-#                 "msigdb_biocarta",
-#                 "msigdb_reactome",
-#             ]
-#             for cluster in get_clusters_with_marker(wc.ncomp, wc.resolu)
-#         ],
-#         cids=os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "cluster_ids.tsv"),
-#     output:
-#         os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.xlsx"),
-#         os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.table.tex"),
-#         os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets.figure.tex"),
-#     log:
-#         os.path.join(
-#             GENESETS_DIR("{ncomp}", "{resolu}"), "summarise.geneset.analysis.log"
-#         ),
-#     params:
-#         script=os.path.join(RSCRIPT_DIR, "cluster_geneset_summary.R"),
-#         genesets_dir=GENESETS_DIR("{ncomp}", "{resolu}"),
-#         gmt_names=",".join(config.get("gmt_files", {}).keys()) or "none",
-#         show_detailed=config["geneset"]["show_detailed"],
-#         min_genes=config["geneset"]["min_fg_genes"],
-#         pvalue_threshold=config["geneset"]["pvalue_threshold"],
-#         padjust_method=config["geneset"]["padjust_method"],
-#         use_adjusted=config["geneset"]["use_adjusted_pvalues"],
-#         min_odds_ratio=config["geneset"]["min_odds_ratio"],
-#         show_common=config["geneset"]["show_common"],
-#         out_prefix=os.path.join(GENESETS_DIR("{ncomp}", "{resolu}"), "cluster.genesets"),
-#         pdf=config["plot"]["pdf"],
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         Rscript "{params.script}" \
-#             --genesetdir="{params.genesets_dir}" \
-#             --gmt_names="{params.gmt_names}" \
-#             --show_detailed="{params.show_detailed}" \
-#             --clusters="{input.cids}" \
-#             --mingenes="{params.min_genes}" \
-#             --pvaluethreshold="{params.pvalue_threshold}" \
-#             --padjustmethod="{params.padjust_method}" \
-#             --useadjusted="{params.use_adjusted}" \
-#             --minoddsratio="{params.min_odds_ratio}" \
-#             --showcommon="{params.show_common}" \
-#             --outprefix="{params.out_prefix}" \
-#             --prefix="genesets" \
-#             --plotdirvar="clusterGenesetsDir" \
-#             --pdf="{params.pdf}" \
-#             &> "{log}"
-#         """
-# rule latexVars:
-#     input:
-#         rules.taskSummary.output,
-#         rules.plots.output,
-#         rules.summariseRdimsClusters.output,
-#     output:
-#         os.path.join(cluster.latex_dir("{ncomp}", "{resolu}"), "report.vars.sty"),
-#     params:
-#         ncomp="{ncomp}",
-#         resolu="{resolu}",
-#     run:
-#         from utils.cluster import generate_report_vars
-#         generate_report_vars(
-#             output[0],
-#             cluster,
-#             CELLHUB_CODE_DIR,
-#             params.ncomp,
-#             params.resolu,
-#         )
-# rule summaryReportSource:
-#     input:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "report.vars.sty"),
-#     output:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "summary.report.tex"),
-#     params:
-#         ncomp="{ncomp}",
-#         resolu="{resolu}",
-#     run:
-#         from utils.cluster import generate_summary_report
-#         generate_summary_report(
-#             output[0],
-#             cluster,
-#             CELLHUB_CODE_DIR,
-#             params.ncomp,
-#             params.resolu,
-#         )
-# rule SummaryReport:
-#     input:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "summary.report.tex"),
-#     output:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "summaryReport.pdf"),
-#     log:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "summaryReport.log"),
-#     params:
-#         run_dir=cluster.out_dir,
-#         compilation_dir=os.path.join(
-#             LATEX_DIR("{ncomp}", "{resolu}"), "summary.report.dir"
-#         ),
-#     resources:
-#         mem_mb=config["resources"]["memory_standard"],
-#     shell:
-#         """
-#         rm -rf "{params.compilation_dir}"
-#         mkdir "{params.compilation_dir}"
-#         cd "{params.run_dir}"
-#         pdflatex -output-directory="{params.compilation_dir}" \
-#             -draftmode \
-#             "{input}" \
-#             > "{log}"
-#         pdflatex -output-directory="{params.compilation_dir}" \
-#             "{input}" \
-#             > "{log}"
-#         mv "{params.compilation_dir}"/summary.report.pdf "{output}"
-#         """
-# rule markerReportSource:
-#     input:
-#         marker_table=os.path.join(
-#             cluster.markers_dir("{ncomp}", "{resolu}"), "markers.summary.table.tsv.gz"
-#         ),
-#         latexvars=os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "report.vars.sty"
-#         ),
-#     output:
-#         os.path.join(LATEX_DIR("{ncomp}", "{resolu}"), "marker.report.tex"),
-#     params:
-#         ncomp="{ncomp}",
-#         resolu="{resolu}",
-#     run:
-#         from utils.cluster import generate_marker_report
-#         generate_marker_report(
-#             output[0],
-#             input.marker_table,
-#             input.latexvars,
-#             cluster,
-#             CELLHUB_CODE_DIR,
-#             params.ncomp,
-#             params.resolu,
-#         )
-# rule markerReport:
-#     input:
-#         os.path.join(cluster.latex_dir("{ncomp}", "{resolu}"), "marker.report.tex"),
-#     output:
-#         os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "clusterMarkerReport.pdf"
-#         ),
-#     log:
-#         os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "clusterMarkerReport.log"
-#         ),
-#     params:
-#         compilation_dir=os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "marker.report.dir"
-#         ),
-#     resources:
-#         mem_mb=config["resources"]["memory_standard"],
-#     shell:
-#         """
-#         rm -rf "{params.compilation_dir}"
-#         mkdir "{params.compilation_dir}"
-#         pdflatex -output-directory="{params.compilation_dir}" \
-#             -draftmode \
-#             "{input}" \
-#             > "{log}"
-#         pdflatex -output-directory="{params.compilation_dir}" \
-#             "{input}" \
-#             > "{log}"
-#         mv "{params.compilation_dir}"/marker.report.pdf "{output}"
-#         """
-# rule export:
-#     input:
-#         expand(
-#             os.path.join(cluster.latex_dir("{ncomp}", "{resolu}"), "{rep}"),
-#             ncomp="{ncomp}",
-#             resolu="{resolu}",
-#             rep=["summaryReport.pdf", "clusterMarkerReport.pdf"],
-#         ),
-#     output:
-#         os.path.join(
-#             cluster.reports_dir(), "{ncomp}.comps.{resolu}.res", "export.sentinel"
-#         ),
-#     params:
-#         outdir=os.path.join(cluster.reports_dir(), "{ncomp}.comps.{resolu}.res"),
-#         # NOTE: between_testfactor no longer exists?
-#         # between_xlsx=f"markers.between.{cluster.get_param('markers')}"
-#         summary_report=os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "summaryReport.pdf"
-#         ),
-#         marker_report=os.path.join(
-#             cluster.latex_dir("{ncomp}", "{resolu}"), "clusterMarkerReport.pdf"
-#         ),
-#         markers=os.path.join(
-#             cluster.markers_dir("{ncomp}", "{resolu}"), "markers.summary.table.xlsx"
-#         ),
-#         genesets=os.path.join(
-#             cluster.genesets_dir("{ncomp}", "{resolu}"), "cluster.genesets.xlsx"
-#         ),
-#         # conditions_marker = ...
-#         # conditions_genesets = ...
-#     shell:
-#         """
-#         rm -rf "{params.outdir}"
-#         mkdir "{params.outdir}"
-#         targets=( "{params.summary_report}" "{params.marker_report}" "{params.markers}" "{params.genesets}" )
-#         for target_file in ${{targets[@]}}; do
-#             if [ -f $target_file ]; then
-#                 bname=$(basename $target_file)
-#                 ln -s $target_file {params.outdir}/$bname
-#             fi
-#         done
-#         touch {output}
-#         """
+
+
+# NOTE: replaced the dependence of CellHub API by actual annotation files
+rule geneset_analysis:
+    input:
+        mkgtab=rules.summarise_markers.output.markers_tsv,
+    output:
+        expand(
+            os.path.join(DIR_TPL["genesets"], "genesets.{cluster}.{files}.tsv.gz"),
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            cluster=["{cluster}"],
+            files=cluster.geneset_names,
+        ),
+    log:
+        os.path.join(DIR_TPL["genesets"], "geneset.analysis.{cluster}.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_geneset_analysis.R"),
+        cluster="{cluster}",
+        universe=os.path.join(DIR_TPL["markers"], r"{cluster}.universe.tsv.gz"),
+        species=cluster.species,
+        ensembl=cluster.ensembl,
+        kegg=cluster.kegg,
+        gmt_names=cluster.gmtname_str,
+        gmt_files=cluster.gmtfile_str,
+        adjpthreshold=cluster.marker_padjthres,
+        outdir=DIR_TPL["genesets"],
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --markers="{input.mkgtab}" \
+            --universe="{params.universe}" \
+            --species="{params.species}" \
+            --annotation="{params.ensembl}" \
+            --kegg_pathways="{params.kegg}" \
+            --gmt_names="{params.gmt_names}" \
+            --gmt_files="{params.gmt_files}" \
+            --cluster="{params.cluster}" \
+            --adjpthreshold="{params.adjpthreshold}" \
+            --direction=positive \
+            --outdir="{params.outdir}" \
+            &> "{log}"
+        """
+
+
+rule summarise_geneset_analysis:
+    input:
+        lambda wc: [
+            os.path.join(DIR_TPL["genesets"], f"genesets.{cluster}.{filetype}.tsv.gz")
+            for filetype in cluster.geneset_names
+            for cluster in get_clusters_with_marker(wc.ncomp, wc.resolu)
+        ],
+        cids=rules.cluster_postprocess.output.cids_uq,
+    output:
+        os.path.join(DIR_TPL["genesets"], "cluster.genesets.xlsx"),
+        os.path.join(DIR_TPL["genesets"], "cluster.genesets.table.tex"),
+        os.path.join(DIR_TPL["genesets"], "cluster.genesets.figure.tex"),
+    log:
+        os.path.join(DIR_TPL["genesets"], "summarise.geneset.analysis.log"),
+    params:
+        script=os.path.join(RSCRIPT_DIR, "cluster_geneset_summary.R"),
+        genesets_dir=DIR_TPL["genesets"],
+        gmt_names=cluster.gmtname_str,
+        show_detailed=cluster.show_detailed,
+        min_genes=cluster.min_fg,
+        pvalue_threshold=cluster.pvalthres,
+        padjust_method=cluster.padj_method,
+        use_adjusted=cluster.use_padj,
+        min_odds_ratio=cluster.min_oddsr,
+        show_common=cluster.show_common,
+        out_prefix=os.path.join(DIR_TPL["genesets"], "cluster.genesets"),
+        pdf=cluster.pdf,
+    resources:
+        mem_mb=cluster.get_mem("memory_low"),
+    shell:
+        """
+        Rscript "{params.script}" \
+            --genesetdir="{params.genesets_dir}" \
+            --gmt_names="{params.gmt_names}" \
+            --show_detailed="{params.show_detailed}" \
+            --clusters="{input.cids}" \
+            --mingenes="{params.min_genes}" \
+            --pvaluethreshold="{params.pvalue_threshold}" \
+            --padjustmethod="{params.padjust_method}" \
+            --useadjusted="{params.use_adjusted}" \
+            --minoddsratio="{params.min_odds_ratio}" \
+            --showcommon="{params.show_common}" \
+            --outprefix="{params.out_prefix}" \
+            --prefix="genesets" \
+            --plotdirvar="clusterGenesetsDir" \
+            --pdf="{params.pdf}" \
+            &> "{log}"
+        """
+
+
+rule latex_vars:
+    input:
+        task_summary=rules.task_summary.output,
+        clustree=rules.clustree.output,
+        rdims_factors=rules.plot_rdims_factors.output,
+        rdims_clusters=rules.summarise_rdims_clusters.output,
+        group_numbers=rules.summarise_group_numbers.output,
+        compare_clusters=(
+            rules.compare_clusters.output
+            if cluster.task_dict.get("compare_clusters")
+            else []
+        ),
+        singler_summary=(
+            os.path.join(DIR_TPL["hm_singler"], "summary.tex")
+            if cluster.task_dict.get("singleR", False)
+            else []
+        ),
+        paga=(rules.paga.output if cluster.task_dict.get("paga") else []),
+        marker_plots=(
+            expand(
+                rules.marker_plots.output,
+                ncomp=["{ncomp}"],
+                resolu=["{resolu}"],
+                cluster=lambda wc: get_clusters_with_marker(wc.ncomp, wc.resolu),
+            )
+        ),
+        markers_summary=(
+            os.path.join(DIR_TPL["markers"], "markers.summary.table.tsv.gz")
+            if cluster.task_dict.get("characterise_markers", False)
+            else []
+        ),
+        de_plots=(
+            rules.summarise_de_plots.output
+            if cluster.task_dict.get("de_plots")
+            else []
+        ),
+        genesets=(
+            os.path.join(DIR_TPL["genesets"], "cluster.genesets.figure.tex")
+            if cluster.task_dict.get("genesets", False)
+            else []
+        ),
+    output:
+        os.path.join(DIR_TPL["latex"], "report.vars.sty"),
+    params:
+        ncomp="{ncomp}",
+        resolu="{resolu}",
+    run:
+        from utils.cluster import generate_report_vars
+
+        generate_report_vars(
+            output[0], RELAT_DIR_TPL, cluster, params.ncomp, params.resolu
+        )
+
+
+rule summary_report_source:
+    input:
+        rules.latex_vars.output,
+    output:
+        os.path.join(DIR_TPL["latex"], "summary.report.tex"),
+    params:
+        ncomp="{ncomp}",
+        resolu="{resolu}",
+    run:
+        from utils.cluster import generate_summary_report
+
+        generate_summary_report(
+            output[0], cluster, DIR_TPL, params.ncomp, params.resolu
+        )
+
+
+rule summary_report:
+    input:
+        rules.summary_report_source.output,
+    output:
+        os.path.join(DIR_TPL["latex"], "summaryReport.pdf"),
+    log:
+        os.path.join(DIR_TPL["latex"], "summaryReport.log"),
+    params:
+        run_dir=cluster.outdir,
+        compilation_dir=os.path.join(DIR_TPL["latex"], "summary.report.dir"),
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        rm -rf "{params.compilation_dir}"
+        mkdir "{params.compilation_dir}"
+        cd "{params.run_dir}"
+        pdflatex -output-directory="{params.compilation_dir}" \
+            -draftmode \
+            "{input}" \
+            > "{log}"
+        pdflatex -output-directory="{params.compilation_dir}" \
+            "{input}" \
+            > "{log}"
+        mv "{params.compilation_dir}"/summary.report.pdf "{output}"
+        """
+
+
+rule marker_report_source:
+    input:
+        marker_table=rules.summarise_markers.output.markers_tsv,
+        latexvars=rules.latex_vars.output,
+    output:
+        os.path.join(DIR_TPL["latex"], "marker.report.tex"),
+    params:
+        ncomp="{ncomp}",
+        resolu="{resolu}",
+    run:
+        from utils.cluster import generate_marker_report
+
+        generate_marker_report(
+            output[0],
+            input.marker_table,
+            input.latexvars,
+            DIR_TPL,
+            cluster,
+            params.ncomp,
+            params.resolu,
+        )
+
+
+rule marker_report:
+    input:
+        rules.marker_report_source.output,
+    output:
+        os.path.join(DIR_TPL["latex"], "clusterMarkerReport.pdf"),
+    log:
+        os.path.join(DIR_TPL["latex"], "clusterMarkerReport.log"),
+    params:
+        compilation_dir=os.path.join(DIR_TPL["latex"], "marker.report.dir"),
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        rm -rf "{params.compilation_dir}"
+        mkdir "{params.compilation_dir}"
+        pdflatex -output-directory="{params.compilation_dir}" \
+            -draftmode \
+            "{input}" \
+            > "{log}"
+        pdflatex -output-directory="{params.compilation_dir}" \
+            "{input}" \
+            > "{log}"
+        mv "{params.compilation_dir}"/marker.report.pdf "{output}"
+        """
+
+
+rule export:
+    input:
+        expand(
+            os.path.join(DIR_TPL["latex"], "{rep}"),
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            rep=["summaryReport.pdf", "clusterMarkerReport.pdf"],
+        ),
+    output:
+        expand(
+            os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
+            ncomp=["{ncomp}"],
+            resolu=["{resolu}"],
+            report=[
+                "summaryReport.pdf",
+                "clusterMarkerReport.pdf",
+                "markers.summary.table.xlsx",
+                "cluster.genesets.xlsx",
+            ],
+        ),
+    params:
+        outdir=os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res"),
+        summary_report=os.path.join(DIR_TPL["latex"], "summaryReport.pdf"),
+        marker_report=os.path.join(DIR_TPL["latex"], "clusterMarkerReport.pdf"),
+        markers=os.path.join(DIR_TPL["markers"], "markers.summary.table.xlsx"),
+        genesets=os.path.join(DIR_TPL["genesets"], "cluster.genesets.xlsx"),
+    shell:
+        """
+        rm -rf "{params.outdir}"
+        mkdir "{params.outdir}"
+        targets=( "{params.summary_report}" "{params.marker_report}" "{params.markers}" "{params.genesets}" )
+        for target_file in ${{targets[@]}}; do
+            if [ -f $target_file ]; then
+                bname=$(basename $target_file)
+                ln -s $target_file {params.outdir}/$bname
+            fi
+        done
+        """
+
+
 # def cellxgene_resolutions():
 #     if config["cellxgene"]["resolution"] == "all":
 #         return RESOLUTION_LST
