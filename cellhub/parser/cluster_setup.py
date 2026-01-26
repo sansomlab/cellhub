@@ -5,7 +5,6 @@ from parser.parse_args import parse2int, parse_mem, str2list
 
 
 class ClusterSetup:
-
     # <-------------------------- load parameters --------------------------> #
     def _load_shared_params(self, config):
         self.projectname = config["projectname"]
@@ -156,6 +155,14 @@ class ClusterSetup:
         self.show_common = geneset_dict["show_common"]
         self.show_detailed = geneset_dict["show_detailed"]
 
+    def _set_cellxgene(self, cellxgene_dict):
+        self.cxg_obs = cellxgene_dict["obs"]
+        cxg_r = cellxgene_dict["resolution"]
+        self.cxg_r = self.clust_r_lst if cxg_r == "all" else str2list(cxg_r)
+        self.cxg_facetx = cellxgene_dict["umap_facet_x"]
+        self.cxg_facety = cellxgene_dict["umap_facet_y"]
+        self.clustsplit = cellxgene_dict["cluster_split"]
+
     # <-------------------------- utility functions --------------------------> #
     def populate_options(self, summary_key):
         options = []
@@ -192,82 +199,7 @@ class ClusterSetup:
         self._set_group_numbers(config["summaries"])
         self._set_find_markers(config["markers"])
         self._set_geneset_analysis(config["geneset"])
-
-        # # set optional tasks
-        # self._set_compare_clusters()
-        # self._set_paga()
-        # self._set_rdims_singler()
-        # self._set_rdims_singler_plot()
-        # self._set_summarise_singler()
-        # self._set_find_markers(config["markers"])
-
-    #     # Summary plots
-    #     self.sum_plots = config["summaries"]
-
-    #     # Plots
-    #     tmp = config["plot"]
-    #     # ----- UMAP
-
-    #
-    #
-    #     # ----- Heatmap
-    #     self.hm_mat_lst = str2list(tmp["heatmap_matrix"])
-    #     self.layers_lst = list(set(["log1p"] + self.hm_mat_lst))
-
-    #     # CellxGene
-    #     tmp = config["cellxgene"]
-    #     self.cxg_obs = tmp["obs"]
-    #     self.cxg_r = tmp["resolution"]
-    #     self.cxg_facetx = tmp["umap_facet_x"]
-    #     self.cxg_facety = tmp["umap_facet_y"]
-    #     self.clustsplit = tmp["cluster_split"]
-
-    #     # <-------------------------- output structure --------------------------> #
-    #     self.preflight_paths = {"log": os.path.join(self.outdir, "preflight.log")}
-    #     self.task_summary_paths = {
-    #         "tex": os.path.join(self.outdir, "task.summary.table.tex")
-    #     }
-    #     self.metadata_paths = {}
-
-    # <-------------------------- target outputs --------------------------> #
-    # def additional_targets(self):
-    #     additional_outputs = []
-    #     if self.tasks.get("paga", False):
-    #         additional_outputs += [
-    #             os.path.join(self.paga_paths(ncomp, resolu)["dir"], fig)
-    #             for ncomp in self.ncomp_lst
-    #             for resolu in self.clust_r_lst
-    #             for fig in ["draw_graph_fa.png", "paga.png"]
-    #         ]
-    #     return additional_outputs
-
-    # if self.tasks.get("compare_clusters", False):
-    #     outputs += [
-    #         os.path.join(self.cluster_dir(ncomp, resolu), "cluster.dendrogram.png")
-    #         for ncomp in self.ncomp_lst
-    #         for resolu in self.clust_r_lst
-    #     ]
-    # if self.task.get("pata", False):
-    #     outputs += [
-    #         os.path.join(self.paga_dir(ncomp, resolu), fig)
-    #         for ncomp in self.ncomp_lst
-    #         for resolu in self.clust_r_lst
-    #         for fig in ["draw_graph_fa.png", "paga.png"]
-    #     ]
-    # if self.tasks.get("top_marker_heatmap", False):
-    #     outputs += [
-    #         os.path.join(
-    #             self.markers_dir(ncomp, resolu), "markers.summary.heatmap.png"
-    #         )
-    #         for ncomp in self.ncomp_lst
-    #         for resolu in self.clust_r_lst
-    #     ]
-    # if self.tasks.get("genesets", False):
-    #     outputs += [
-    #         os.path.join(self.genesets_dir(ncomp, resolu), "cluster.genesets.xlsx")
-    #         for ncomp in self.ncomp_lst
-    #         for resolu in self.clust_r_lst
-    #     ]
+        self._set_cellxgene(config["cellxgene"])
 
     # <-------------------------- memory allocation --------------------------> #
     def get_mem(self, cat_name):
@@ -276,37 +208,3 @@ class ClusterSetup:
                 f"Unknown memory category {cat_name}, must be one of {self.resources.keys()}"
             )
         return parse_mem(self.resources[cat_name])
-
-
-if __name__ == "__main__":
-    import yaml
-
-    with open("../yaml/config_cluster.yml", "r") as f:
-        config = yaml.safe_load(f)
-    setup = ClusterSetup(config)
-
-    assert (
-        setup.latex_dir(15, 0.3, False) == "out.15.comp.dir/cluster.0.3.dir/latex.dir"
-    ), f"{setup.latex_dir(15, 0.3, False)} != 'out.15.comp.dir/cluster.0.3.dir/latex.dir'"
-
-    assert (
-        setup.get_mem("task_summary") == 8000
-    ), f"{setup.get_mem('task_summary')} != 8000"
-
-    assert (
-        setup.get_mem("top_marker_heatmap") == 16000
-    ), f"{setup.get_mem('top_marker_heatmap')} != 16000"
-
-    assert setup.get_mem("paga") == 64000, f"{setup.get_mem('paga')} != 64000"
-
-    assert (
-        setup.get_param("plot", "umap_mindists") == "0,0.5,0.7"
-    ), f"{setup.get_param('plot', 'umap_mindists')} != 0,0.5,0.7"
-
-    assert setup.get_param("plot", "umap_mindists", True) == [
-        "0",
-        "0.5",
-        "0.7",
-    ], f"{setup.get_param('plot', 'umap_mindists', True)} != [0, 0.5, 0.7]"
-
-    print("config_cluster.py passed the test.")

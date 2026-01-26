@@ -47,44 +47,20 @@ DIR_TPL = {k: os.path.join(OUTDIR, v) for k, v in RELAT_DIR_TPL.items()}
 # <------------------------- Exit Rules -------------------------> #
 rule core:
     input:
-        task_summary=os.path.join(OUTDIR, "task.summary.table.tex"),
         preflight=os.path.join(OUTDIR, "preflight.log"),
-        # metadata=expand(
-        #     os.path.join(DIR_TPL["metadata"], "{outfile}"),
-        #     outfile=(
-        #         ["metadata.tsv.gz", f"{cluster.conserved_fact}.levels"]
-        #         if cluster.conserved
-        #         else ["metadata.tsv.gz"]
-        #     ),
-        # ),
-        # clustree=expand(
-        #     os.path.join(RDIMS_DIR_TPL, "clustree.png"),
-        #     ncomp=cluster.ncomp_lst,
-        # ),
-        # rdims_factors=expand(
-        #     os.path.join(DIR_TPL["rdims_factors"], "plot.rdims.factor.tex"),
-        #     ncomp=cluster.ncomp_lst,
-        # ),
-        # rdims_clusters=expand(
-        #     os.path.join(DIR_TPL["rdims_clusters"], "plot.rdims.factor.tex"),
+        # reports=expand(
+        #     os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
         #     ncomp=cluster.ncomp_lst,
         #     resolu=cluster.clust_r_lst,
+        #     report=[
+        #         "summaryReport.pdf",
+        #         "clusterMarkerReport.pdf",
+        #         "markers.summary.table.xlsx",
+        #         "cluster.genesets.xlsx",
+        #     ],
         # ),
-        # group_numbers=expand(
-        #     os.path.join(DIR_TPL["group_numbers"], "number.plots.tex"),
-        #     ncomp=cluster.ncomp_lst,
-        #     resolu=cluster.clust_r_lst,
-        # ),
-        reports=expand(
-            os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
-            ncomp=cluster.ncomp_lst,
-            resolu=cluster.clust_r_lst,
-            report=[
-                "summaryReport.pdf",
-                "clusterMarkerReport.pdf",
-                "markers.summary.table.xlsx",
-                "cluster.genesets.xlsx",
-            ],
+        cellxgene=expand(
+            os.path.join(RDIMS_DIR_TPL, "cellxgene.h5ad"), ncomp=cluster.ncomp_lst
         ),
 
 
@@ -1292,51 +1268,48 @@ rule export:
         """
 
 
-# def cellxgene_resolutions():
-#     if config["cellxgene"]["resolution"] == "all":
-#         return RESOLUTION_LST
-#     else:
-#         return list(config["cellxgene"]["resolution"])
-# def cellxgene_resolution_files(resolu_list, ncomp):
-#     return [
-#         os.path.join(CLUSTER_DIR(ncomp, resolu), "cluster_ids.tsv.gz")
-#         for resolu in resolu_list
-#     ]
-# rule cellxgene:
-#     input:
-#         cellxgene_resolution_files(cellxgene_resolutions(), "{ncomp}"),
-#         anndata=cluster.get_param("anndata"),
-#         umap_path=os.path.join(
-#             UMAP_DIR("{ncomp}"), f"umap.{config['plot']['umap_mindist']}.tsv.gz"
-#         ),
-#     output:
-#         os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.h5ad"),
-#     log:
-#         os.path.join(RDIM_DIR("{ncomp}"), "cellxgene.log"),
-#     params:
-#         script=os.path.join(PYSCRIPT_DIR, "cluster_cellxgene.py"),
-#         obs=config["cellxgene"]["obs"],
-#         umap_facet_x=config["cellxgene"]["umap_facet_x"],
-#         umap_facet_y=config["cellxgene"]["umap_facet_y"],
-#         cluster_names=",".join([f"leiden_r{x}" for x in cellxgene_resolutions()]),
-#         cluster_paths=",".join(
-#             cellxgene_resolution_files(cellxgene_resolutions(), "{ncomp}")
-#         ),
-#         cluster_split=config["cellxgene"]["cluster_split"],
-#     resources:
-#         mem_mb=config["resources"]["mem_mb"],
-#     shell:
-#         """
-#         python "{params.script}" \
-#             --source_anndata="{input.anndata}" \
-#             --obs="{params.obs}" \
-#             --umap="{input.umap_path}" \
-#             --umap_facet_x="{params.umap_facet_x}" \
-#             --umap_facet_y="{params.umap_facet_y}" \
-#             --cluster_paths="{params.cluster_paths}" \
-#             --cluster_names="{params.cluster_names}" \
-#             --cluster_split="{params.cluster_split}" \
-#             --adt=None \
-#             --outfile="{output}" \
-#             &> "{log}"
-#         """
+def cellxgene_resolution_files(resolu_list, ncomp):
+    return [
+        os.path.join(CLUSTER_DIR(ncomp, resolu), "cluster_ids.tsv.gz")
+        for resolu in resolu_list
+    ]
+
+
+rule cellxgene:
+    input:
+        resolu_files=expand(
+            os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+            ncomp=["{ncomp}"],
+            resolu=cluster.cxg_r,
+        ),
+        anndata=cluster.anndata,
+        umap_path=os.path.join(DIR_TPL["umap"], f"umap.{cluster.main_mindist}.tsv.gz"),
+    output:
+        os.path.join(RDIMS_DIR_TPL, "cellxgene.h5ad"),
+    log:
+        os.path.join(RDIMS_DIR_TPL, "cellxgene.log"),
+    params:
+        script=os.path.join(PYSCRIPT_DIR, "cluster_cellxgene.py"),
+        obs=cluster.cxg_obs,
+        umap_facet_x=cluster.cxg_facetx,
+        umap_facet_y=cluster.cxg_facety,
+        cluster_names=",".join([f"leiden_r{x}" for x in cluster.cxg_r]),
+        cluster_paths=lambda wc, input: ",".join(input.resolu_files),
+        cluster_split=cluster.clustsplit,
+    resources:
+        mem_mb=cluster.get_mem("memory_standard"),
+    shell:
+        """
+        python "{params.script}" \
+            --source_anndata="{input.anndata}" \
+            --obs="{params.obs}" \
+            --umap="{input.umap_path}" \
+            --umap_facet_x="{params.umap_facet_x}" \
+            --umap_facet_y="{params.umap_facet_y}" \
+            --cluster_paths="{params.cluster_paths}" \
+            --cluster_names="{params.cluster_names}" \
+            --cluster_split="{params.cluster_split}" \
+            --adt=None \
+            --outfile="{output}" \
+            &> "{log}"
+        """
