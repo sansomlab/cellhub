@@ -5,57 +5,67 @@ from parser.parse_args import parse2int, parse_mem, str2list
 
 
 class ClusterSetup:
-    # <-------------------------- load parameters --------------------------> #
-    def _load_shared_params(self, config):
+    def __init__(self, config):
+        # output directory
+        self.outdir = config.get("out_dir", "./")
+        os.makedirs(self.outdir, exist_ok=True)
+
+        # General information and resource allocations
+        self._set_project_info(config)
+        self._set_resources(config)
+        self._set_tasks(config)
+
+        # Inputs and shared parameters
+        self._set_inputs(config)
+        self._set_shared_params(config)
+        self._set_rdims_params(config["dimension_reduction"])
+        self._set_clust_params(config["clustering"])
+
+        # set task-specific parameters
+        self._set_preflight()
+        self._set_loom(config["plot"])
+        self._set_neighbour_graph(config["neighbour_graph"])
+        self._set_visualisation_params(config["plot"])
+        self._set_umap(config["plot"])
+        self._set_group_numbers(config["summaries"])
+        self._set_find_markers(config["markers"])
+        self._set_geneset_analysis(config["geneset"])
+        self._set_cellxgene(config["cellxgene"])
+
+    # <-------------------------- set parameters --------------------------> #
+    def _set_project_info(self, config):
         self.projectname = config["projectname"]
         self.author = config["author"]
 
+    def _set_resources(self, config):
+        default_resources = {
+            "threads": 1,
+            "threads_hnsw": 1,
+            "mem_low": 4000,
+            "mem_std": 8000,
+            "mem_high": 16000,
+            "time_short": "00:10:00",
+            "time_std": "01:00:00",
+            "time_long": "12:00:00",
+        }
+        resource_dict = config.get("resources", {})
+        unknown = set(resource_dict) - set(default_resources)
+        if unknown:
+            raise KeyError(
+                f"Unknown resource categories: {sorted(unknown)}. "
+                f"Allowed: {sorted(default_resources)}."
+            )
+        self.resources = {}
+        for key, default in default_resources.items():
+            value = resource_dict.get(key, default)
+            if key.startswith("mem_"):
+                value = parse_mem(value)
+            self.resources[key] = value
+
+    def _set_tasks(self, config):
         self.task_dict = config["run"]
-        self.resources = config["resources"]
 
-        # ----- markers' conserved factor and clustering subset factor
-        self.conserved = config["markers"].get("conserved", False)
-        if self.conserved:
-            self.conserved_arg = "--conserved"
-            self.conserved_fact = config["markers"]["conserved_factor"]
-            self.subset_stat = "--subset_factor=" + self.conserved_fact
-        else:
-            self.conserved_arg = ""
-            self.conserved_fact = None
-            self.subset_stat = ""
-
-        # ----- Visualisation groups and subgroup
-        self.vis_grps_str = config["plot"].get("groups", "cluster")
-        self.vis_grps_lst = str2list(self.vis_grps_str)
-        if "cluster" not in self.vis_grps_lst:
-            self.vis_grps_lst += ["cluster"]
-        self.vis_subgrp = config["plot"].get("subgroup", None)
-        if self.vis_subgrp is None:
-            self.vis_subgrp_arg = ""
-        else:
-            self.vis_subgrp_arg = f"--subgroup={self.vis_subgrp}"
-
-        # ----- QC vars to visualise
-        self.qcvars_str = config["plot"]["qcvars"]
-        self.qcvars_lst = str2list(self.qcvars_str)
-        # ----- Color factors
-        self.cfact_lst = self.vis_grps_lst + self.qcvars_lst
-        if self.vis_subgrp is not None:
-            self.cfact_lst += list(self.vis_subgrp)
-        self.cfact_lst = [x for x in set(self.cfact_lst) if x != "cluster"]
-        self.cfact_arg = "--colorfactors=" + ",".join(self.cfact_lst)
-        # ----- Data points
-        self.pt_shape = config["plot"].get("shape", None)
-        self.sfact_arg = (
-            "" if self.pt_shape is None else "--shapefactor=" + self.pt_shape
-        )
-        self.pt_alpha = config["plot"].get("pointalpha", None)
-        self.pt_size = config["plot"].get("pointsize", None)
-        self.pt_pch = config["plot"].get("pointpch", None)
-        # ----- pdf
-        self.pdf = config["plot"]["pdf"]
-
-    def _load_inputs(self, config):
+    def _set_inputs(self, config):
         # input anndata
         self.anndata = config["anndata"]
         # ensembl and kegg annotations and singleR paths
@@ -89,14 +99,36 @@ class ClusterSetup:
         self.gmtfile_lst = list(self.gmt_dict.values()) if self.gmt_dict else []
         self.gmtfile_str = ",".join(self.gmtfile_lst) if self.gmtfile_lst else "none"
 
-    def _load_rdims_params(self, rdim_dict):
+    def _set_shared_params(self, config):
+        # ----- markers' conserved factor and clustering subset factor
+        self.conserved = config["markers"].get("conserved", False)
+        if self.conserved:
+            self.conserved_arg = "--conserved"
+            self.conserved_fact = config["markers"]["conserved_factor"]
+            self.subset_stat = "--subset_factor=" + self.conserved_fact
+        else:
+            self.conserved_arg = ""
+            self.conserved_fact = None
+            self.subset_stat = ""
+        # ----- Data points
+        self.pt_shape = config["plot"].get("shape", None)
+        self.sfact_arg = (
+            "" if self.pt_shape is None else "--shapefactor=" + self.pt_shape
+        )
+        self.pt_alpha = config["plot"].get("pointalpha", None)
+        self.pt_size = config["plot"].get("pointsize", None)
+        self.pt_pch = config["plot"].get("pointpch", None)
+        # ----- pdf
+        self.pdf = config["plot"]["pdf"]
+
+    def _set_rdims_params(self, rdim_dict):
         self.rdim_name = rdim_dict["rdim_name"]
         self.ncomp_str = rdim_dict["n_components"]
         self.ncomp_lst = str2list(self.ncomp_str)
         self.rdims_dir_tpl = os.path.join(self.outdir, r"out.{ncomp}.comp.dir")
         self.max_rdims = max([parse2int(ncomp) for ncomp in self.ncomp_lst])
 
-    def _load_clust_params(self, clust_dict):
+    def _set_clust_params(self, clust_dict):
         self.clust_algo = clust_dict["algorithm"]
         self.clust_r_str = clust_dict["resolutions"]
         self.clust_r_lst = str2list(self.clust_r_str)
@@ -124,9 +156,30 @@ class ClusterSetup:
         self.hnsw_threads = neigh_dict.get("threads", 1)
         self.hnsw_fullspeed = neigh_dict.get("full_speed", False)
 
-    def _set_umap(self, umap_dict):
-        self.main_mindist = umap_dict["umap_mindist"]
-        self.mindists_str = umap_dict["umap_mindists"]
+    def _set_visualisation_params(self, plot_dict):
+        # ----- Visualisation groups and subgroup
+        self.vis_grps_str = plot_dict.get("groups", "cluster")
+        self.vis_grps_lst = str2list(self.vis_grps_str)
+        if "cluster" not in self.vis_grps_lst:
+            self.vis_grps_lst += ["cluster"]
+        self.vis_subgrp = plot_dict.get("subgroup", None)
+        if self.vis_subgrp is None:
+            self.vis_subgrp_arg = ""
+        else:
+            self.vis_subgrp_arg = f"--subgroup={self.vis_subgrp}"
+        # ----- QC vars to visualise
+        self.qcvars_str = plot_dict["qcvars"]
+        self.qcvars_lst = str2list(self.qcvars_str)
+        # ----- Color factors
+        self.cfact_lst = self.vis_grps_lst + self.qcvars_lst
+        if self.vis_subgrp is not None:
+            self.cfact_lst += list(self.vis_subgrp)
+        self.cfact_lst = [x for x in set(self.cfact_lst) if x != "cluster"]
+        self.cfact_arg = "--colorfactors=" + ",".join(self.cfact_lst)
+
+    def _set_umap(self, plot_dict):
+        self.main_mindist = plot_dict["umap_mindist"]
+        self.mindists_str = plot_dict["umap_mindists"]
         self.mindists_lst = str2list(self.mindists_str)
         if str(self.main_mindist) not in str2list(self.mindists_lst):
             raise ValueError(
@@ -176,35 +229,3 @@ class ClusterSetup:
             else:
                 options.append("--" + k + '="' + str(v) + '"')
         return "\t".join(options)
-
-    def __init__(self, config):
-        # output directory
-        self.outdir = config["out_dir"]
-        os.makedirs(self.outdir, exist_ok=True)
-
-        # Resource allocations
-        self.resources = config["resources"]
-
-        # load parameters
-        self._load_shared_params(config)
-        self._load_inputs(config)
-        self._load_rdims_params(config["dimension_reduction"])
-        self._load_clust_params(config["clustering"])
-
-        # set task parameters
-        self._set_preflight()
-        self._set_loom(config["plot"])
-        self._set_neighbour_graph(config["neighbour_graph"])
-        self._set_umap(config["plot"])
-        self._set_group_numbers(config["summaries"])
-        self._set_find_markers(config["markers"])
-        self._set_geneset_analysis(config["geneset"])
-        self._set_cellxgene(config["cellxgene"])
-
-    # <-------------------------- memory allocation --------------------------> #
-    def get_mem(self, cat_name):
-        if cat_name not in self.resources.keys():
-            raise KeyError(
-                f"Unknown memory category {cat_name}, must be one of {self.resources.keys()}"
-            )
-        return parse_mem(self.resources[cat_name])

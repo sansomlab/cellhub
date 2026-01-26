@@ -69,10 +69,17 @@ run:
 # ================== #
 
 resources:
-        # Memory options for the different steps
-        memory_low: 8G
-        memory_standard: 16G
-        memory_high: 64G
+        # Threads to be used - general for most steps and specific one for HNSW
+        threads: 1
+        threads_hnsw: 4
+        # Memory options for the different steps - low, standard, high
+        mem_low: 8G
+        mem_std: 16G
+        mem_high: 64G
+        # Time limit for submitted jobs - short, standard, long
+        time_short: 00:10:00
+        time_std: 01:00:00
+        time_long: 12:00:00
 
 dimension_reduction:
         # The name of the reduced dimension space.

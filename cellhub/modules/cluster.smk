@@ -144,6 +144,10 @@ rule full:  # rule full is required to be after core and optional
 rule task_summary:
     output:
         os.path.join(OUTDIR, "task.summary.table.tex"),
+    threads: cluster.resources["threads"]
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     run:
         tasks = cluster.task_dict.keys()
         runs = cluster.task_dict.values()
@@ -163,8 +167,10 @@ rule preflight:
         conserved=cluster.conserved_arg,
         geneids=cluster.preflight_geneids,
         conserved_factor=cluster.conserved_fact,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_short"],
     shell:
         """
         python "{params.script}" \
@@ -194,8 +200,10 @@ checkpoint metadata:
         script=os.path.join(PYSCRIPT_DIR, "cluster_metadata.py"),
         conserved=cluster.conserved_arg,
         conserved_factor=cluster.conserved_fact,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -229,8 +237,10 @@ rule loom:
         script=os.path.join(PYSCRIPT_DIR, "cluster_loom.py"),
         layers="{layer}",
         outdir=DIR_TPL["loom"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -260,11 +270,12 @@ rule neighbour_graph:
             if cluster.predef_clust_col
             else ""
         ),
-        threads=cluster.hnsw_threads,
+        threads=cluster.resources["threads_hnsw"],
         fullspeedmode="--fullspeed" if cluster.hnsw_fullspeed else "",
-    threads: cluster.hnsw_threads
+    threads: cluster.resources["threads_hnsw"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -300,8 +311,10 @@ rule scanpy_cluster:
             else ""
         ),
         outdir=CLUSTER_DIR_TPL,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -327,8 +340,10 @@ checkpoint cluster_postprocess:
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_post_process.R"),
         outdir=CLUSTER_DIR_TPL,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -358,8 +373,10 @@ rule compare_clusters:
         ncomp="{ncomp}",
         outdir=CLUSTER_DIR_TPL,
         reductiontype=cluster.rdim_name,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -388,8 +405,10 @@ rule clustree:
         res_str=cluster.clust_r_str,
         id_files_str=lambda wc, input: ",".join(input),
         outdir=RDIMS_DIR_TPL,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -423,8 +442,10 @@ rule paga:
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_paga.py"),
         outdir=DIR_TPL["paga"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_high"),
+        mem_mb=cluster.resources["mem_high"],
+        time=cluster.resources["time_long"],
     shell:
         """
         python "{params.script}" \
@@ -447,9 +468,10 @@ rule umap:
         script=os.path.join(PYSCRIPT_DIR, "cluster_umap.py"),
         mindist="{mindist}",
         outdir=DIR_TPL["umap"],
-    threads: 2
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -484,8 +506,10 @@ rule plot_rdims_factors:
         pointpch=cluster.pt_pch,
         pdf=cluster.pdf,
         outdir=DIR_TPL["rdims_factors"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -524,8 +548,10 @@ rule plot_rdims_clusters:
         pointpch=cluster.pt_pch,
         pdf=cluster.pdf,
         outdir=DIR_TPL["rdims_clusters"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -554,6 +580,10 @@ rule summarise_rdims_clusters:
         ),
     output:
         os.path.join(DIR_TPL["rdims_clusters"], "plot.rdims.factor.tex"),
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     shell:
         """
         inputlist=( "{input}" )
@@ -579,6 +609,10 @@ rule plot_rdims_singler:
         pointpch=cluster.pt_pch,
         pdf=cluster.pdf,
         outdir=DIR_TPL["rdims_singler"],
+    threads: cluster.resources["threads"]
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -610,6 +644,10 @@ rule plot_singler:
         reference="{ref}",
         outdir=DIR_TPL["hm_singler"],
         pdf=cluster.pdf,
+    threads: cluster.resources["threads"]
+    resources:
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -637,6 +675,10 @@ rule summarise_singler:
     output:
         # NOTE: changed location from rdims_singler to hm_singler
         os.path.join(DIR_TPL["hm_singler"], "summary.tex"),
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     run:
         from utils.cluster import summariseSingleR
 
@@ -656,6 +698,10 @@ rule plot_group_numbers:
         key="{key}",
         options=lambda wc: cluster.populate_options(wc.key),
         outdir=DIR_TPL["group_numbers"],
+    threads: cluster.resources["threads"]
+    resources:
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -683,6 +729,10 @@ rule summarise_group_numbers:
         os.path.join(DIR_TPL["group_numbers"], "summarise.group.numbers.log"),
     params:
         outdir=DIR_TPL["group_numbers"],
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     run:
         from utils.cluster import summariseGroupNumbers
 
@@ -702,8 +752,10 @@ rule cluster_stats:
         script=os.path.join(PYSCRIPT_DIR, "cluster_stats.py"),
         subset_stat=cluster.subset_stat,
         subset_level="{level}",
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -733,8 +785,10 @@ rule find_markers:
         cluster="{cluster}",
         markers_test=cluster.test_method,
         markers_pseudocount=cluster.pseudocount,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
@@ -779,8 +833,10 @@ checkpoint summarise_markers:
         min_pct=cluster.min_pct,
         min_fc=cluster.min_fc,
         outdir=DIR_TPL["markers"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -810,8 +866,10 @@ rule top_marker_heatmap:
         pdf=cluster.pdf,
         subgroup=cluster.vis_subgrp_arg,
         outdir=DIR_TPL["markers"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -841,8 +899,10 @@ rule de_plots:
         cluster="{cluster}",
         outdir=DIR_TPL["de_plots"],
         pdf=cluster.pdf,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -913,8 +973,10 @@ rule marker_plots:
         outdir=DIR_TPL["marker_plots"],
         group_opt=(f"--group={cluster.vis_subgrp}" if cluster.vis_subgrp else ""),
         pdf=cluster.pdf,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -944,8 +1006,10 @@ rule plot_marker_numbers:
         outdir=DIR_TPL["marker_de_plots"],
         minfc=cluster.min_fc,
         minpadj=cluster.min_padj,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -1011,8 +1075,10 @@ rule geneset_analysis:
         gmt_files=cluster.gmtfile_str,
         adjpthreshold=cluster.marker_padjthres,
         outdir=DIR_TPL["genesets"],
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -1058,8 +1124,10 @@ rule summarise_geneset_analysis:
         show_common=cluster.show_common,
         out_prefix=os.path.join(DIR_TPL["genesets"], "cluster.genesets"),
         pdf=cluster.pdf,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_low"),
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_std"],
     shell:
         """
         Rscript "{params.script}" \
@@ -1127,6 +1195,10 @@ rule latex_vars:
     params:
         ncomp="{ncomp}",
         resolu="{resolu}",
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     run:
         from utils.cluster import generate_report_vars
 
@@ -1143,6 +1215,10 @@ rule summary_report_source:
     params:
         ncomp="{ncomp}",
         resolu="{resolu}",
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     run:
         from utils.cluster import generate_summary_report
 
@@ -1161,8 +1237,10 @@ rule summary_report:
     params:
         run_dir=cluster.outdir,
         compilation_dir=os.path.join(DIR_TPL["latex"], "summary.report.dir"),
+    threads: 1
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         rm -rf "{params.compilation_dir}"
@@ -1188,6 +1266,10 @@ rule marker_report_source:
     params:
         ncomp="{ncomp}",
         resolu="{resolu}",
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     run:
         from utils.cluster import generate_marker_report
 
@@ -1211,8 +1293,10 @@ rule marker_report:
         os.path.join(DIR_TPL["latex"], "clusterMarkerReport.log"),
     params:
         compilation_dir=os.path.join(DIR_TPL["latex"], "marker.report.dir"),
+    threads: 1
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         rm -rf "{params.compilation_dir}"
@@ -1254,6 +1338,10 @@ rule export:
         marker_report=os.path.join(DIR_TPL["latex"], "clusterMarkerReport.pdf"),
         markers=os.path.join(DIR_TPL["markers"], "markers.summary.table.xlsx"),
         genesets=os.path.join(DIR_TPL["genesets"], "cluster.genesets.xlsx"),
+    threads: 1
+    resources:
+        mem_mb=cluster.resources["mem_low"],
+        time=cluster.resources["time_short"],
     shell:
         """
         rm -rf "{params.outdir}"
@@ -1296,8 +1384,10 @@ rule cellxgene:
         cluster_names=",".join([f"leiden_r{x}" for x in cluster.cxg_r]),
         cluster_paths=lambda wc, input: ",".join(input.resolu_files),
         cluster_split=cluster.clustsplit,
+    threads: cluster.resources["threads"]
     resources:
-        mem_mb=cluster.get_mem("memory_standard"),
+        mem_mb=cluster.resources["mem_std"],
+        time=cluster.resources["time_std"],
     shell:
         """
         python "{params.script}" \
