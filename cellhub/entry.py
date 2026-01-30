@@ -86,8 +86,8 @@ def main_smk(proj_dir, cmdargs):
     snakefile = os.path.join(proj_dir, "Snakefile")
     if not "--cores" in addit_ops:
         addit_ops = ["--cores=1"] + addit_ops
-    #if not "--executor" in addit_ops:
-    #    addit_ops = ["--executor=drmaa", "--jobs=4"] + addit_ops
+    if not "--jobs" in addit_ops:
+        addit_ops = ["--jobs=1"] + addit_ops
     cmd = [
         "snakemake",
         "-s",

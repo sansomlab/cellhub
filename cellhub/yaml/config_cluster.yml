@@ -27,7 +27,7 @@ cellhub:
         # cellhub_dir: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/ # could be omitted if the two annotation files being indicated below
         ensembl_annotations: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/annotation.dir/ensembl.to.entrez.tsv.gz
         kegg_pathways: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/annotation.dir/kegg.pathways.rds
-        singleR_dir: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/singleR.dir/
+        singleR_dir: /users/sansom/vlw740/work/CellHub_Reimpl/ifnb_pbmc/cellranger/api/singleR
 
 # Arbitrary genesets can be specified here using gmt files.
 #       the key is taken as the set name, and the value as the path to the gmt file,
@@ -61,7 +61,7 @@ run:
         characterise_markers: True
         de_plots: True
         top_marker_heatmap: True
-        paga: False
+        paga: True
         genesets: True
 
 # ================== #

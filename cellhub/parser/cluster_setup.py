@@ -91,7 +91,7 @@ class ClusterSetup:
             self.singler_scores_tpl = os.path.join(
                 self.singler_dir, r"{ref}", "scores.tsv.gz"
             )
-            self.singler_ref_lst = os.listdir(self.singler_dir)
+            self.singler_ref_lst = [x for x in os.listdir(self.singler_dir) if x != "summary"]
         # genesets GMT file
         self.gmt_dict = config.get("gmt_files", None)
         self.gmtname_lst = list(self.gmt_dict.keys()) if self.gmt_dict else []
