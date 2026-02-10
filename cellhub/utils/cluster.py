@@ -129,7 +129,7 @@ def generate_report_vars(outfile, path_dict, cluster, ncomp, resolu):
     )
     x.clusterMarkersDir = path_dict["markers"].format(ncomp=ncomp, resolu=resolu)
     x.pagaDir = path_dict["paga"].format(ncomp=ncomp, resolu=resolu)
-    x.singleRDir = path_dict["rdims_singler"].format(ncomp=ncomp)
+    x.singleRDir = path_dict["hm_singler"].format(ncomp=ncomp) # NOTE: changed the path from "rdims_singler" to "hm_singler"
     # NOTE: may no longer be needed
     # x.clusterMarkerRdimsPlotsDir = cluster.marker_rdims_plots_dir(ncomp, resolu, abspath=False)
     # x.conditionGenesetsDir = p(x.clusterDir, "condition.genesets.dir")

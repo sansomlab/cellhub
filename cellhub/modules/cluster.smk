@@ -42,25 +42,28 @@ RELAT_DIR_TPL = {
     "latex": os.path.join(CLUSTER_DIR_TPL, "latex.dir"),
 }
 DIR_TPL = {k: os.path.join(OUTDIR, v) for k, v in RELAT_DIR_TPL.items()}
+print("Directory templates:")
+for k, v in DIR_TPL.items():
+    print(f"\t-{k}: {v}")
 
 
 # <------------------------- Exit Rules -------------------------> #
 rule core:
     input:
         preflight=os.path.join(OUTDIR, "preflight.log"),
-        # reports=expand(
-        #     os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
-        #     ncomp=cluster.ncomp_lst,
-        #     resolu=cluster.clust_r_lst,
-        #     report=[
-        #         "summaryReport.pdf",
-        #         "clusterMarkerReport.pdf",
-        #         "markers.summary.table.xlsx",
-        #         "cluster.genesets.xlsx",
-        #     ],
-        # ),
+        reports=expand(
+            os.path.join(DIR_TPL["reports"], "{ncomp}.comps.{resolu}.res", "{report}"),
+            ncomp=cluster.ncomp_lst,
+            resolu=cluster.clust_r_lst,
+            report=[
+                "summaryReport.pdf",
+                "clusterMarkerReport.pdf",
+                "markers.summary.table.xlsx",
+                "cluster.genesets.xlsx",
+            ],
+        ),
         cellxgene=expand(
-            os.path.join(RDIMS_DIR_TPL, "cellxgene.h5ad"), ncomp=cluster.ncomp_lst
+            os.path.join(DIR_TPL["rdims"], "cellxgene.h5ad"), ncomp=cluster.ncomp_lst
         ),
 
 
@@ -68,7 +71,7 @@ rule optional:
     input:
         compare_clusters=(
             expand(
-                os.path.join(CLUSTER_DIR_TPL, "cluster.dendrogram.png"),
+                os.path.join(DIR_TPL["cluster"], "cluster.dendrogram.png"),
                 ncomp=cluster.ncomp_lst,
                 resolu=cluster.clust_r_lst,
             )
@@ -297,9 +300,9 @@ rule scanpy_cluster:
     input:
         rules.neighbour_graph.output,
     output:
-        os.path.join(CLUSTER_DIR_TPL, "scanpy.clusters.tsv.gz"),
+        os.path.join(DIR_TPL["cluster"], "scanpy.clusters.tsv.gz"),
     log:
-        os.path.join(CLUSTER_DIR_TPL, "scanpy.clusters.log"),
+        os.path.join(DIR_TPL["cluster"], "scanpy.clusters.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_cluster.py"),
         ncomp="{ncomp}",
@@ -310,7 +313,7 @@ rule scanpy_cluster:
             if cluster.clust_algo == "predefined"
             else ""
         ),
-        outdir=CLUSTER_DIR_TPL,
+        outdir=DIR_TPL["cluster"],
     threads: cluster.resources["threads"]
     resources:
         mem_mb=cluster.resources["mem_std"],
@@ -331,15 +334,15 @@ checkpoint cluster_postprocess:
     input:
         rules.scanpy_cluster.output,
     output:
-        cids_uq=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv"),
-        cids_full=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
-        ccolors=os.path.join(CLUSTER_DIR_TPL, "cluster_colors.tsv"),
-        cccounts=os.path.join(CLUSTER_DIR_TPL, "cluster_cell_counts.tsv"),
+        cids_uq=os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv"),
+        cids_full=os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz"),
+        ccolors=os.path.join(DIR_TPL["cluster"], "cluster_colors.tsv"),
+        cccounts=os.path.join(DIR_TPL["cluster"], "cluster_cell_counts.tsv"),
     log:
-        os.path.join(CLUSTER_DIR_TPL, "cluster_postprocess.log"),
+        os.path.join(DIR_TPL["cluster"], "cluster_postprocess.log"),
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_post_process.R"),
-        outdir=CLUSTER_DIR_TPL,
+        outdir=DIR_TPL["cluster"],
     threads: cluster.resources["threads"]
     resources:
         mem_mb=cluster.resources["mem_low"],
@@ -363,15 +366,15 @@ def get_valid_clusters(ncomp, resolu):
 rule compare_clusters:
     input:
         anndata=cluster.anndata,
-        cids=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+        cids=os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz"),
     output:
-        os.path.join(CLUSTER_DIR_TPL, "cluster.dendrogram.png"),
+        os.path.join(DIR_TPL["cluster"], "cluster.dendrogram.png"),
     log:
-        os.path.join(CLUSTER_DIR_TPL, "compare_clusters.log"),
+        os.path.join(DIR_TPL["cluster"], "compare_clusters.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_compare.py"),
         ncomp="{ncomp}",
-        outdir=CLUSTER_DIR_TPL,
+        outdir=DIR_TPL["cluster"],
         reductiontype=cluster.rdim_name,
     threads: cluster.resources["threads"]
     resources:
@@ -392,19 +395,19 @@ rule compare_clusters:
 rule clustree:
     input:
         expand(
-            os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+            os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz"),
             ncomp=["{ncomp}"],
             resolu=cluster.clust_r_lst,
         ),
     output:
-        os.path.join(RDIMS_DIR_TPL, "clustree.png"),
+        os.path.join(DIR_TPL["rdims"], "clustree.png"),
     log:
-        os.path.join(RDIMS_DIR_TPL, "clustree.log"),
+        os.path.join(DIR_TPL["rdims"], "clustree.log"),
     params:
         script=os.path.join(RSCRIPT_DIR, "cluster_clustree.R"),
         res_str=cluster.clust_r_str,
         id_files_str=lambda wc, input: ",".join(input),
-        outdir=RDIMS_DIR_TPL,
+        outdir=DIR_TPL["rdims"],
     threads: cluster.resources["threads"]
     resources:
         mem_mb=cluster.resources["mem_std"],
@@ -422,8 +425,8 @@ rule clustree:
 rule paga:
     input:
         neighs=os.path.join(DIR_TPL["neighbour_graph"], "neighbour_graph.h5ad"),
-        cids=os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
-        ccolours=os.path.join(CLUSTER_DIR_TPL, "cluster_colors.tsv"),
+        cids=os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz"),
+        ccolours=os.path.join(DIR_TPL["cluster"], "cluster_colors.tsv"),
     output:
         expand(
             os.path.join(DIR_TPL["paga"], "{outfile}"),
@@ -999,6 +1002,7 @@ rule plot_marker_numbers:
         mkgtab=rules.summarise_markers.output.markers_tsv,
     output:
         os.path.join(DIR_TPL["marker_de_plots"], "deNumbers.png"),
+        os.path.join(DIR_TPL["marker_de_plots"], "characterise.degenes.tex"),
     log:
         os.path.join(DIR_TPL["marker_de_plots"], "plotMarkerNumbers.log"),
     params:
@@ -1020,34 +1024,6 @@ rule plot_marker_numbers:
             --plotdirvar=clusterMarkerDEPlotsDir \
             &> "{log}"
         """
-
-
-# checkpoint plots:
-#     input:
-#         rules.compareClusters.output,
-#         rules.clustTree.output,
-#         rules.paga.output,
-#         rules.plotRdimsFactors.output,
-#         expand(
-#             rules.plot_rdims_clusters.output,
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             mindist=str2list(config["plot"]["umap_mindists"]),
-#         ),
-#         expand(
-#             rules.plotGroupNumbers.output,
-#             ncomp=["{ncomp}"],
-#             resolu=["{resolu}"],
-#             key=config["summaries"].keys(),
-#         ),
-#         rules.summariseDEPlots.output,
-#         rules.summariseMarkerPlots.output,
-#     output:
-#         os.path.join(CLUSTER_DIR("{ncomp}", "{resolu}"), "plots.sentinel"),
-#     shell:
-#         """
-#         touch "{output}"
-#         """
 
 
 # NOTE: replaced the dependence of CellHub API by actual annotation files
@@ -1185,6 +1161,7 @@ rule latex_vars:
             if cluster.task_dict.get("de_plots")
             else []
         ),
+        marker_numbers=rules.plot_marker_numbers.output,
         genesets=(
             os.path.join(DIR_TPL["genesets"], "cluster.genesets.figure.tex")
             if cluster.task_dict.get("genesets", False)
@@ -1358,24 +1335,23 @@ rule export:
 
 def cellxgene_resolution_files(resolu_list, ncomp):
     return [
-        os.path.join(CLUSTER_DIR(ncomp, resolu), "cluster_ids.tsv.gz")
-        for resolu in resolu_list
+        os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz") for resolu in resolu_list
     ]
 
 
 rule cellxgene:
     input:
         resolu_files=expand(
-            os.path.join(CLUSTER_DIR_TPL, "cluster_ids.tsv.gz"),
+            os.path.join(DIR_TPL["cluster"], "cluster_ids.tsv.gz"),
             ncomp=["{ncomp}"],
             resolu=cluster.cxg_r,
         ),
         anndata=cluster.anndata,
         umap_path=os.path.join(DIR_TPL["umap"], f"umap.{cluster.main_mindist}.tsv.gz"),
     output:
-        os.path.join(RDIMS_DIR_TPL, "cellxgene.h5ad"),
+        os.path.join(DIR_TPL["rdims"], "cellxgene.h5ad"),
     log:
-        os.path.join(RDIMS_DIR_TPL, "cellxgene.log"),
+        os.path.join(DIR_TPL["rdims"], "cellxgene.log"),
     params:
         script=os.path.join(PYSCRIPT_DIR, "cluster_cellxgene.py"),
         obs=cluster.cxg_obs,

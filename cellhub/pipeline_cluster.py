@@ -95,6 +95,8 @@ import shutil
 from pathlib import Path
 import pandas as pd
 
+import logging as L
+
 import yaml
 import textwrap
 from ruffus import *
@@ -1436,7 +1438,7 @@ def genesetAnalysis(infile, outfile):
             t.indir, str(i) + ".universe.tsv.gz")
 
         if not os.path.exists(universe):
-            E.warn("Skipping geneset analysis: %s does not exist" % universe)
+            L.warn("Skipping geneset analysis: %s does not exist" % universe)
             continue
 
         statements.append('''Rscript %(cellhub_code_dir)s/R/scripts/cluster_geneset_analysis.R

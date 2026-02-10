@@ -64,6 +64,9 @@ class ClusterSetup:
 
     def _set_tasks(self, config):
         self.task_dict = config["run"]
+        print("Tasks to run:")
+        for task, to_run in self.task_dict.items():
+            print(f"\t-{task}: {to_run}")
 
     def _set_inputs(self, config):
         # input anndata
@@ -91,7 +94,9 @@ class ClusterSetup:
             self.singler_scores_tpl = os.path.join(
                 self.singler_dir, r"{ref}", "scores.tsv.gz"
             )
-            self.singler_ref_lst = [x for x in os.listdir(self.singler_dir) if x != "summary"]
+            self.singler_ref_lst = [
+                x for x in os.listdir(self.singler_dir) if x != "summary"
+            ]
         # genesets GMT file
         self.gmt_dict = config.get("gmt_files", None)
         self.gmtname_lst = list(self.gmt_dict.keys()) if self.gmt_dict else []
