@@ -22,6 +22,7 @@ import subprocess
 import sys
 import re
 import glob
+
 # import imp
 
 # import pipelines
@@ -82,20 +83,41 @@ def main_cgat(proj_dir, cmdargs=None):
 
 
 def main_smk(proj_dir, cmdargs):
-    command, subcommand, addit_ops = cmdargs[1], cmdargs[2], cmdargs[3:]
+    command, subcommand, addit_ops, modulename = (
+        cmdargs[1],
+        cmdargs[2],
+        cmdargs[3:-1],
+        cmdargs[-1],
+    )
     snakefile = os.path.join(proj_dir, "Snakefile")
-    if not "--cores" in addit_ops:
-        addit_ops = ["--cores=1"] + addit_ops
-    if not "--jobs" in addit_ops:
-        addit_ops = ["--jobs=1"] + addit_ops
-    cmd = [
-        "snakemake",
-        "-s",
-        snakefile,
-        "--config",
-        f"target={command}",
-        f"mode={subcommand}",
-    ] + addit_ops
+
+    if "--cores" not in addit_ops:
+        addit_ops += ["--cores", "all"]
+    if "--jobs" not in addit_ops:
+        addit_ops += ["--jobs", "1"]
+    if "--executor" not in addit_ops:
+        addit_ops += ["--executor", "drmaa"]
+    executor = addit_ops[addit_ops.index("--executor") + 1]
+    if executor == "drmaa" and "--drmaa-args" not in addit_ops:
+        drmaa_args = (
+            " -p {resources.partition} --mem={resources.mem_mb} --cpus-per-task={threads} "
+            + "--time={resources.time} --output=logs/drmaa/job_%j.out --error=logs/drmaa/job_%j.err"
+        )
+        log_dir = "logs/drmaa"
+        addit_ops += ["--drmaa-args", drmaa_args, "--drmaa-log-dir", log_dir]
+
+    cmd = (
+        [
+            "snakemake",
+            "-s",
+            snakefile,
+            "--config",
+            f"target={command}",
+            f"mode={subcommand}",
+        ]
+        + addit_ops
+        + [modulename]
+    )
     print(" ".join(cmd))
     subprocess.run(cmd)
 

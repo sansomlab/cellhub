@@ -29,10 +29,9 @@ rule fetch_ensembl:
         species=annot.species,
         ensembl_release=annot.ensembl_release,
         ensembl_host=annot.ensembl_host,
-    threads: annot.threads
+    threads: annot.resources["threads"]
     resources:
-        mem_mb=annot.mem_mb,
-        time=annot.time,
+        **annot.resources,
     shell:
         """
         Rscript "{params.script}" \
@@ -53,10 +52,9 @@ rule fetch_kegg:
         script=f"{RSCRIPT_DIR}/annotation_fetch_kegg.R",
         outdir=annot.out_dir,
         species=annot.species,
-    threads: annot.threads
+    threads: annot.resources["threads"]
     resources:
-        mem_mb=annot.mem_mb,
-        time=annot.time,
+        **annot.resources,
     shell:
         """
         Rscript "{params.script}" \
@@ -75,10 +73,9 @@ rule register:
         ensembl1=os.path.join(annot.api_dir, "ensembl", "ensembl.gene_name.map.tsv.gz"),
         ensembl2=os.path.join(annot.api_dir, "ensembl", "ensembl.to.entrez.tsv.gz"),
         kegg=os.path.join(annot.api_dir, "kegg", "kegg.pathways.rds"),
-    threads: annot.threads
+    threads: annot.resources["threads"]
     resources:
-        mem_mb=annot.mem_mb,
-        time=annot.time,
+        **annot.resources,
     shell:
         """
         ln -sf "$(realpath {input.ensembl1})" "{output.ensembl1}"

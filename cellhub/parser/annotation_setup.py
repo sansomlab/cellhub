@@ -18,11 +18,14 @@ class AnnotationSetup:
             self.api_dir = os.path.join("api", "annotation")
 
         # Resource allocations
-        default_resources = {"threads": 1, "mem_mb": 8000, "time": "00:10:00"}
-        self.resources = config.get("resources", default_resources)
-        self.threads = self.resources.get("threads", default_resources["threads"])
-        self.mem_mb = self.resources.get("mem_mb", default_resources["mem_mb"])
-        self.time = self.resources.get("time", default_resources["time"])
+        default_resources = {
+            "threads": 1,
+            "mem_mb": 8000,
+            "time": "00:10:00",
+            "partition": "short",
+        }
+        self.resources = default_resources.copy()
+        self.resources.update(config.get("resources", {}))
 
         # Annotation parameters
         self.species = config["annotation"]["species"]
