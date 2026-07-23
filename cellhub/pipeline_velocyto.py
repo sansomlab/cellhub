@@ -123,8 +123,8 @@ def genClusterJobs():
 @files(genClusterJobs)
 def sortBam(infile, outfile):
     '''Sort bam file by cell barcodes'''
-    
-    t = T.setup(infile, outfile, PARAMS, 
+
+    t = T.setup(infile, outfile, PARAMS,
                 memory = PARAMS["sort_memory"],
                 cpu = PARAMS["sort_threads"])
 
@@ -140,9 +140,9 @@ def sortBam(infile, outfile):
     sort_infile = os.path.join(outfolder, "possorted_genome_bam.bam")
 
     if not os.path.exists(sort_outfile):
-    
+
         sort_threads = int(t.job_threads - 1)
-    
+
         statement = '''samtools sort -t CB -O BAM
                        --threads %(sort_threads)s
                        -m %(job_memory)s
@@ -171,24 +171,24 @@ def runVelocyto(infile, outfile):
 
     t = T.setup(infile, outfile, PARAMS,
                 memory = PARAMS["velocyto_memory"],
-                threads = PARAMS["velocyto_threads"])
+                cpu = PARAMS["velocyto_threads"])
 
     sample_name = infile.split("/")[0][:-len(".sample.dir")]
     reference = os.path.join(str(PARAMS["velocyto_cellranger_anno"]),
                              "genes", "genes.gtf")
-    
+
     samples = pd.read_csv(PARAMS["input_samples"], sep='\t')
     samples.set_index("sample_id", inplace=True)
     bcfile = samples.loc[sample_name, 'barcodes']
     bam_folder = samples.loc[sample_name, 'path']
     sort_outfile = os.path.join(bam_folder, "possorted_genome_bam.bam")
-    
+
     statement = '''velocyto run --bcfile %(bcfile)s
                    --outputfolder %(outdir)s
                    --sampleid %(sample_name)s  -vvv
                    %(sort_outfile)s %(reference)s &> %(log_file)s
                 ''' % dict(PARAMS, **t.var, **locals())
-                
+
     P.run(statement, **t.resources)
 
     IOTools.touch_file(outfile)
