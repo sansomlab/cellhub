@@ -84,7 +84,7 @@ mch <- markerComplexHeatmap(loom_path=opt$loom,
 
 drawHeatmap <- function()
 {
-    draw(mch)
+  ComplexHeatmap::draw(mch)
 }
 
 save_plots(paste(outPrefix,"heatmap", sep="."),
