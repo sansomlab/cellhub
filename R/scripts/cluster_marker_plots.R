@@ -109,7 +109,7 @@ mch <- markerComplexHeatmap(loom_path=loom_file_path,
                         #   priority="min_log2FC",
                             sub_group=opt$group)
 
-drawHeatmap <- function() { draw(mch) }
+drawHeatmap <- function() { ComplexHeatmap::draw(mch) }
 
 save_plots(paste(outprefix,"heatmap", sep="."),
            plot_fn=drawHeatmap,
